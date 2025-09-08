@@ -10,7 +10,7 @@
  */
 
 import type { User, UserPreference } from "@shared/schema";
-import { geocodingService } from "./geocoding-service.ts";
+import { geocodingService } from "./geocoding-service";
 
 export interface AdvancedMatchScore {
   userId: number;
