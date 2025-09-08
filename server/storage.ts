@@ -741,7 +741,7 @@ export class DatabaseStorage implements IStorage {
 
   // User operations
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db().select().from(users).where(eq(users.id, id));
+    const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
@@ -794,7 +794,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllUsers(): Promise<User[]> {
-    return await db().select().from(users);
+    return await db.select().from(users);
   }
 
   // Phone verification methods
@@ -825,12 +825,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteVerificationCode(id: number): Promise<void> {
-    await db().delete(verificationCodes).where(eq(verificationCodes.id, id));
+    await db.delete(verificationCodes).where(eq(verificationCodes.id, id));
   }
 
   async deleteExpiredVerificationCodes(): Promise<void> {
     const now = new Date();
-    await db().delete(verificationCodes).where(
+    await db.delete(verificationCodes).where(
       // Using raw SQL to compare dates
       sql`${verificationCodes.expiresAt} < ${now}`,
     );
@@ -929,7 +929,7 @@ export class DatabaseStorage implements IStorage {
     userData.profileHidden = true;
     userData.premiumAccess = false;
 
-    const [user] = await db().insert(users).values(userData).returning();
+    const [user] = await db.insert(users).values(userData).returning();
     return user;
   }
 
@@ -958,7 +958,7 @@ export class DatabaseStorage implements IStorage {
 
         try {
           // Use raw SQL for this specific update to avoid any syntax issues
-          await db().execute(sql`
+          await db.execute(sql`
             UPDATE users 
             SET visibility_preferences = ${profile.visibilityPreferences}
             WHERE id = ${id}
@@ -1109,7 +1109,7 @@ export class DatabaseStorage implements IStorage {
 
     try {
       // Use raw SQL for comprehensive deletion to handle all foreign key constraints
-      await db().transaction(async (tx) => {
+      await db.transaction(async (tx) => {
         // Get user info first for phone number cleanup
         const userResult = await tx.execute(
           sql`SELECT phone_number FROM users WHERE id = ${userId}`,
@@ -1263,7 +1263,7 @@ export class DatabaseStorage implements IStorage {
         console.log(`Attempting simplified deletion for user ${userId}...`);
 
         // Simple approach: delete user directly and let cascade handle dependencies
-        await db().delete(users).where(eq(users.id, userId));
+        await db.delete(users).where(eq(users.id, userId));
         console.log(`Successfully deleted user ${userId} with cascade`);
       } catch (simpleError: unknown) {
         console.error(
@@ -1279,16 +1279,16 @@ export class DatabaseStorage implements IStorage {
 
   async cleanAllUsers(): Promise<void> {
     // Delete all users and dependent data
-    await db().delete(messages);
-    await db().delete(matches);
-    await db().delete(userPreferences);
-    await db().delete(userInterests);
-    await db().delete(typingStatus);
-    await db().delete(videoCalls);
-    await db().delete(verificationCodes);
-    await db().delete(userPhotos);
-    await db().delete(globalInterests);
-    await db().delete(users);
+    await db.delete(messages);
+    await db.delete(matches);
+    await db.delete(userPreferences);
+    await db.delete(userInterests);
+    await db.delete(typingStatus);
+    await db.delete(videoCalls);
+    await db.delete(verificationCodes);
+    await db.delete(userPhotos);
+    await db.delete(globalInterests);
+    await db.delete(users);
     console.log(
       "All users and related data have been deleted from the database",
     );
@@ -1505,7 +1505,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getMatchById(id: number): Promise<Match | undefined> {
-    const [match] = await db().select().from(matches).where(eq(matches.id, id));
+    const [match] = await db.select().from(matches).where(eq(matches.id, id));
     return match;
   }
 
@@ -1654,7 +1654,7 @@ export class DatabaseStorage implements IStorage {
 
     if (match) {
       // Delete the match to undo the like or dislike
-      await db().delete(matches).where(eq(matches.id, match.id));
+      await db.delete(matches).where(eq(matches.id, match.id));
 
       console.log(
         `Removed match ${match.id} between users ${userId} and ${targetUserId}`,
@@ -1730,7 +1730,7 @@ export class DatabaseStorage implements IStorage {
     try {
       // OPTIMIZED: Using a single SQL query with DISTINCT to get conversation count directly
       // This avoids the potential for double-counting messages and is far more efficient
-      const result = await db().execute(sql`
+      const result = await db.execute(sql`
         SELECT COUNT(DISTINCT msg.match_id) AS unread_conversation_count
         FROM messages msg
         JOIN matches m ON msg.match_id = m.id
@@ -1926,10 +1926,10 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMatch(id: number): Promise<void> {
     // Delete all messages associated with this match
-    await db().delete(messages).where(eq(messages.matchId, id));
+    await db.delete(messages).where(eq(messages.matchId, id));
 
     // Delete the match
-    await db().delete(matches).where(eq(matches.id, id));
+    await db.delete(matches).where(eq(matches.id, id));
   }
 
   // Message operations with duplicate prevention
@@ -2273,7 +2273,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAllUserInterests(userId: number): Promise<void> {
-    await db().delete(userInterests).where(eq(userInterests.userId, userId));
+    await db.delete(userInterests).where(eq(userInterests.userId, userId));
     // Also update the interests column in users table
     await this.updateUserInterestsJson(userId);
   }
@@ -3030,7 +3030,7 @@ export class DatabaseStorage implements IStorage {
     if (!photo) return;
 
     // Delete the photo
-    await db().delete(userPhotos).where(eq(userPhotos.id, id));
+    await db.delete(userPhotos).where(eq(userPhotos.id, id));
 
     // If this was the primary photo, set another photo as primary
     if (photo.isPrimary) {
@@ -3202,7 +3202,7 @@ export class DatabaseStorage implements IStorage {
     try {
       if (isActive) {
         // Check if a record already exists
-        const result = await db().execute(
+        const result = await db.execute(
           sql`INSERT INTO active_chats (user_id, match_id, is_active, updated_at) 
               VALUES (${userId}, ${matchId}, ${isActive}, NOW()) 
               ON CONFLICT (user_id, match_id) 
@@ -3210,7 +3210,7 @@ export class DatabaseStorage implements IStorage {
         );
       } else {
         // Just update the existing record to inactive
-        await db().execute(
+        await db.execute(
           sql`UPDATE active_chats 
               SET is_active = ${isActive}, updated_at = NOW() 
               WHERE user_id = ${userId} AND match_id = ${matchId}`,
@@ -3228,7 +3228,7 @@ export class DatabaseStorage implements IStorage {
 
   async getActiveChatStatus(userId: number, matchId: number): Promise<boolean> {
     try {
-      const result = await db().execute(
+      const result = await db.execute(
         sql`SELECT is_active FROM active_chats 
             WHERE user_id = ${userId} AND match_id = ${matchId} 
             AND is_active = true 
@@ -3248,7 +3248,7 @@ export class DatabaseStorage implements IStorage {
 
   async getUsersInActiveChat(matchId: number): Promise<number[]> {
     try {
-      const result = await db().execute(
+      const result = await db.execute(
         sql`SELECT user_id FROM active_chats 
             WHERE match_id = ${matchId} 
             AND is_active = true 
@@ -3517,7 +3517,7 @@ export class DatabaseStorage implements IStorage {
       for (const message of messagesToDelete) {
         if (message.autoDeleteModeWhenSent === "always") {
           // For 'always' mode, hard delete the message
-          await db().delete(messages).where(eq(messages.id, message.id));
+          await db.delete(messages).where(eq(messages.id, message.id));
         } else {
           // For other modes, mark as deleted for the sender
           await db
@@ -4169,7 +4169,7 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Actually delete the record from the database
-      await db().delete(suiteMentorshipProfiles).where(and(...conditions));
+      await db.delete(suiteMentorshipProfiles).where(and(...conditions));
 
       console.log(
         `Mentorship profile${role ? ` (${role})` : "s"} permanently deleted for user:`,
@@ -5552,7 +5552,7 @@ export class DatabaseStorage implements IStorage {
   // Clear all networking connections for testing
   async clearAllNetworkingConnections(): Promise<void> {
     try {
-      await db().delete(suiteNetworkingConnections);
+      await db.delete(suiteNetworkingConnections);
       console.log("All networking connections cleared");
     } catch (error) {
       console.error("Error clearing networking connections:", error);
@@ -5877,7 +5877,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<ProfessionalReview> {
     try {
       // Using raw SQL due to column name mismatch between schema and database
-      const result = await db().execute(sql`
+      const result = await db.execute(sql`
         INSERT INTO professional_reviews (
           user_id, target_user_id, rating, review_text, category, is_anonymous, created_at, updated_at
         ) VALUES (
@@ -5915,7 +5915,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<Array<ProfessionalReview & { reviewer: User | null }>> {
     try {
       // Using raw SQL due to column name mismatch between schema and database
-      const reviews = await db().execute(sql`
+      const reviews = await db.execute(sql`
         SELECT 
           pr.id,
           pr.target_user_id as reviewed_user_id,
@@ -5967,7 +5967,7 @@ export class DatabaseStorage implements IStorage {
     ratingDistribution: Record<number, number>;
   }> {
     try {
-      const reviews = await db().execute(sql`
+      const reviews = await db.execute(sql`
         SELECT rating 
         FROM professional_reviews 
         WHERE target_user_id = ${reviewedUserId}
@@ -6008,7 +6008,7 @@ export class DatabaseStorage implements IStorage {
     category: string = "overall",
   ): Promise<ProfessionalReview | undefined> {
     try {
-      const review = await db().execute(sql`
+      const review = await db.execute(sql`
         SELECT * FROM professional_reviews 
         WHERE target_user_id = ${reviewedUserId} 
         AND user_id = ${reviewerUserId} 
@@ -6042,7 +6042,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<boolean> {
     try {
       // Using raw SQL to delete review, ensuring only the review author can delete it
-      const result = await db().execute(sql`
+      const result = await db.execute(sql`
         DELETE FROM professional_reviews 
         WHERE id = ${reviewId} AND user_id = ${userId}
         RETURNING id
@@ -6061,7 +6061,7 @@ export class DatabaseStorage implements IStorage {
   ): Promise<ProfessionalReview | undefined> {
     try {
       // Using raw SQL due to column name mismatch between schema and database
-      const result = await db().execute(sql`
+      const result = await db.execute(sql`
         UPDATE professional_reviews 
         SET 
           rating = ${updates.rating}, 
@@ -6106,7 +6106,7 @@ export class DatabaseStorage implements IStorage {
         throw new Error("Job profile not found");
       }
 
-      const result = await db().execute(sql`
+      const result = await db.execute(sql`
         INSERT INTO suite_job_applications (user_id, target_profile_id, target_user_id, action, application_status, matched) 
         VALUES (${applicationData.userId}, ${applicationData.jobProfileId}, ${jobProfile.userId}, ${applicationData.action}, ${applicationData.action === "like" ? "pending" : "rejected"}, false)
         ON CONFLICT (user_id, target_profile_id) 
@@ -6170,7 +6170,7 @@ export class DatabaseStorage implements IStorage {
 
   async removeSwipeHistory(id: number): Promise<void> {
     try {
-      await db().delete(swipeHistory).where(eq(swipeHistory.id, id));
+      await db.delete(swipeHistory).where(eq(swipeHistory.id, id));
     } catch (error) {
       console.error("Error removing swipe history:", error);
       throw error;
@@ -6249,7 +6249,7 @@ export class DatabaseStorage implements IStorage {
         whereCondition = and(whereCondition, eq(swipeHistory.appMode, appMode));
       }
 
-      const result = await db().delete(swipeHistory).where(whereCondition);
+      const result = await db.delete(swipeHistory).where(whereCondition);
 
       const modeText = appMode ? ` (${appMode})` : "";
       console.log(
@@ -6404,7 +6404,7 @@ export class DatabaseStorage implements IStorage {
                 arrayValue,
               );
 
-              await db().execute(
+              await db.execute(
                 sql.raw(`UPDATE connections_preferences 
                 SET ${field} = '${arrayValue}'::text[], 
                     updated_at = NOW() 
@@ -6461,7 +6461,7 @@ export class DatabaseStorage implements IStorage {
 
         // CRITICAL FIX: Direct SQL update for location preference fields to bypass Drizzle issues
         if (updateData.networking_location_preference !== undefined) {
-          await db().execute(sql`
+          await db.execute(sql`
             UPDATE connections_preferences 
             SET networking_location_preference = ${updateData.networking_location_preference}, 
                 updated_at = ${updateData.updatedAt}
@@ -6474,7 +6474,7 @@ export class DatabaseStorage implements IStorage {
         }
 
         if (updateData.mentorship_location_preference !== undefined) {
-          await db().execute(sql`
+          await db.execute(sql`
             UPDATE connections_preferences 
             SET mentorship_location_preference = ${updateData.mentorship_location_preference}, 
                 updated_at = ${updateData.updatedAt}
@@ -6487,7 +6487,7 @@ export class DatabaseStorage implements IStorage {
         }
 
         if (updateData.jobs_work_location !== undefined) {
-          await db().execute(sql`
+          await db.execute(sql`
             UPDATE connections_preferences 
             SET jobs_work_location = ${updateData.jobs_work_location}, 
                 updated_at = ${updateData.updatedAt}
@@ -6501,7 +6501,7 @@ export class DatabaseStorage implements IStorage {
 
         // CRITICAL FIX: Direct SQL update for weights fields (JSON objects)
         if (data.jobs_weights !== undefined) {
-          await db().execute(sql`
+          await db.execute(sql`
             UPDATE connections_preferences 
             SET jobs_weights = ${JSON.stringify(data.jobs_weights)}, 
                 updated_at = ${updateData.updatedAt}
@@ -6515,7 +6515,7 @@ export class DatabaseStorage implements IStorage {
 
         // SALARY FIELDS: Direct updates for new dynamic salary fields
         if (data.jobs_salary_currency !== undefined) {
-          await db().execute(sql`
+          await db.execute(sql`
             UPDATE connections_preferences 
             SET jobs_salary_currency = ${data.jobs_salary_currency}, 
                 updated_at = ${updateData.updatedAt}
@@ -6528,7 +6528,7 @@ export class DatabaseStorage implements IStorage {
         }
 
         if (data.jobs_salary_min !== undefined) {
-          await db().execute(sql`
+          await db.execute(sql`
             UPDATE connections_preferences 
             SET jobs_salary_min = ${data.jobs_salary_min}, 
                 updated_at = ${updateData.updatedAt}
@@ -6541,7 +6541,7 @@ export class DatabaseStorage implements IStorage {
         }
 
         if (data.jobs_salary_max !== undefined) {
-          await db().execute(sql`
+          await db.execute(sql`
             UPDATE connections_preferences 
             SET jobs_salary_max = ${data.jobs_salary_max}, 
                 updated_at = ${updateData.updatedAt}
@@ -6554,7 +6554,7 @@ export class DatabaseStorage implements IStorage {
         }
 
         if (data.jobs_salary_period !== undefined) {
-          await db().execute(sql`
+          await db.execute(sql`
             UPDATE connections_preferences 
             SET jobs_salary_period = ${data.jobs_salary_period}, 
                 updated_at = ${updateData.updatedAt}
@@ -6567,7 +6567,7 @@ export class DatabaseStorage implements IStorage {
         }
 
         if (data.mentorship_weights !== undefined) {
-          await db().execute(sql`
+          await db.execute(sql`
             UPDATE connections_preferences 
             SET mentorship_weights = ${JSON.stringify(data.mentorship_weights)}, 
                 updated_at = ${updateData.updatedAt}
@@ -6580,7 +6580,7 @@ export class DatabaseStorage implements IStorage {
         }
 
         if (data.networking_weights !== undefined) {
-          await db().execute(sql`
+          await db.execute(sql`
             UPDATE connections_preferences 
             SET networking_weights = ${JSON.stringify(data.networking_weights)}, 
                 updated_at = ${updateData.updatedAt}
@@ -7673,7 +7673,7 @@ export class DatabaseStorage implements IStorage {
 
   async deletePaymentMethod(id: number): Promise<void> {
     try {
-      await db().delete(paymentMethods).where(eq(paymentMethods.id, id));
+      await db.delete(paymentMethods).where(eq(paymentMethods.id, id));
     } catch (error) {
       console.error("Error deleting payment method:", error);
       throw error;
