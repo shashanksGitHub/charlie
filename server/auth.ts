@@ -46,16 +46,26 @@ export const touchSession = (req: Request, res: Response, next: NextFunction) =>
 };
 
 export function setupAuth(app: Express) {
-  // SIMPLIFIED SESSION CONFIG - NO TRUST PROXY ISSUES
+  // PRODUCTION-READY SESSION CONFIG
+  // Detect if running on HTTPS (Replit domain) vs HTTP (preview)
+  const isProduction = process.env.REPL_SLUG || process.env.NODE_ENV === 'production';
+  const isHTTPS = process.env.REPLIT_DOMAINS || process.env.NODE_ENV === 'production';
+  
+  // Enable trust proxy for Replit deployments
+  if (isProduction) {
+    app.set('trust proxy', 1);
+  }
+  
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "charley-app-secret-key-fixed",
     resave: false,
     saveUninitialized: false,
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      secure: false,
+      secure: Boolean(isHTTPS), // Use secure cookies on HTTPS (Replit domain)
       httpOnly: true,
-      sameSite: "lax"
+      sameSite: (isProduction ? "none" : "lax") as "none" | "lax", // Allow cross-site for production
+      domain: undefined // Let browser handle domain automatically
     },
     name: 'connect.sid'
   };
