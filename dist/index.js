@@ -1880,27 +1880,26 @@ var init_schema = __esm({
 // server/db.ts
 var db_exports = {};
 __export(db_exports, {
-  db: () => db,
-  pool: () => pool
+  db: () => getDb,
+  pool: () => getPool
 });
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { neonConfig, Pool } from "@neondatabase/serverless";
 import ws from "ws";
-var pool, db;
-var init_db = __esm({
-  "server/db.ts"() {
-    "use strict";
-    init_schema();
-    if (typeof process !== "undefined" && process.versions?.node) {
-      neonConfig.fetchConnectionCache = true;
-      neonConfig.webSocketConstructor = ws;
-      process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0";
-    }
+function getPool() {
+  if (!pool) {
+    console.log("[DB] Creating database pool connection...");
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === "production" ? true : false
     });
-    db = drizzle(pool, {
+  }
+  return pool;
+}
+function getDb() {
+  if (!db) {
+    console.log("[DB] Creating drizzle client...");
+    db = drizzle(getPool(), {
       schema: {
         users,
         userPreferences,
@@ -1925,6 +1924,21 @@ var init_db = __esm({
         kwameConversations
       }
     });
+  }
+  return db;
+}
+var pool, db;
+var init_db = __esm({
+  "server/db.ts"() {
+    "use strict";
+    init_schema();
+    if (typeof process !== "undefined" && process.versions?.node) {
+      neonConfig.fetchConnectionCache = true;
+      neonConfig.webSocketConstructor = ws;
+      process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0";
+    }
+    pool = null;
+    db = null;
   }
 });
 
@@ -1958,7 +1972,7 @@ var init_storage = __esm({
       sessionStore;
       constructor() {
         this.sessionStore = new PostgresSessionStore({
-          pool,
+          pool: getPool,
           createTableIfMissing: true,
           tableName: "user_sessions",
           // Increased prune interval to keep more inactive sessions available
@@ -1968,7 +1982,7 @@ var init_storage = __esm({
       }
       // User operations
       async getUser(id) {
-        const [user] = await db.select().from(users).where(eq(users.id, id));
+        const [user] = await getDb().select().from(users).where(eq(users.id, id));
         return user;
       }
       async getUserByUsername(username) {
@@ -2008,15 +2022,15 @@ var init_storage = __esm({
         return matchingUsers[0];
       }
       async getAllUsers() {
-        return await db.select().from(users);
+        return await getDb().select().from(users);
       }
       // Phone verification methods
       async createVerificationCode(verificationData) {
-        const [code] = await db.insert(verificationCodes).values(verificationData).returning();
+        const [code] = await getDb.insert(verificationCodes).values(verificationData).returning();
         return code;
       }
       async getVerificationCode(phoneNumber, code) {
-        const [verificationCode] = await db.select().from(verificationCodes).where(
+        const [verificationCode] = await getDb.select().from(verificationCodes).where(
           and(
             eq(verificationCodes.phoneNumber, phoneNumber),
             eq(verificationCodes.code, code)
@@ -2025,31 +2039,31 @@ var init_storage = __esm({
         return verificationCode;
       }
       async deleteVerificationCode(id) {
-        await db.delete(verificationCodes).where(eq(verificationCodes.id, id));
+        await getDb().delete(verificationCodes).where(eq(verificationCodes.id, id));
       }
       async deleteExpiredVerificationCodes() {
         const now = /* @__PURE__ */ new Date();
-        await db.delete(verificationCodes).where(
+        await getDb().delete(verificationCodes).where(
           // Using raw SQL to compare dates
           sql`${verificationCodes.expiresAt} < ${now}`
         );
       }
       // Blocked phone numbers for age compliance
       async addBlockedPhoneNumber(phoneNumber, reason, fullName, email, metadata) {
-        const [blocked] = await db.insert(blockedPhoneNumbers).values({ phoneNumber, reason, fullName, email, metadata }).returning();
+        const [blocked] = await getDb.insert(blockedPhoneNumbers).values({ phoneNumber, reason, fullName, email, metadata }).returning();
         return blocked;
       }
       async isPhoneNumberBlocked(phoneNumber) {
-        const blocked = await db.select().from(blockedPhoneNumbers).where(eq(blockedPhoneNumbers.phoneNumber, phoneNumber)).limit(1);
+        const blocked = await getDb.select().from(blockedPhoneNumbers).where(eq(blockedPhoneNumbers.phoneNumber, phoneNumber)).limit(1);
         return blocked.length > 0;
       }
       async getBlockedPhoneNumber(phoneNumber) {
-        const blocked = await db.select().from(blockedPhoneNumbers).where(eq(blockedPhoneNumbers.phoneNumber, phoneNumber)).limit(1);
+        const blocked = await getDb.select().from(blockedPhoneNumbers).where(eq(blockedPhoneNumbers.phoneNumber, phoneNumber)).limit(1);
         return blocked[0];
       }
       async isEmailInBlockedPhoneNumbers(email) {
         const normalized = email.trim().toLowerCase();
-        const blocked = await db.select().from(blockedPhoneNumbers).where(eq(blockedPhoneNumbers.email, normalized)).limit(1);
+        const blocked = await getDb.select().from(blockedPhoneNumbers).where(eq(blockedPhoneNumbers.email, normalized)).limit(1);
         return blocked[0];
       }
       async createUser(insertUser) {
@@ -2083,7 +2097,7 @@ var init_storage = __esm({
         console.log("Final user data for DB:", userData);
         userData.profileHidden = true;
         userData.premiumAccess = false;
-        const [user] = await db.insert(users).values(userData).returning();
+        const [user] = await getDb().insert(users).values(userData).returning();
         return user;
       }
       async updateUserProfile(id, profile) {
@@ -2099,7 +2113,7 @@ var init_storage = __esm({
           if (isVisibilityPreferencesOnlyUpdate && profile.visibilityPreferences) {
             console.log("Special handling for visibilityPreferences-only update");
             try {
-              await db.execute(sql`
+              await getDb().execute(sql`
             UPDATE users 
             SET visibility_preferences = ${profile.visibilityPreferences}
             WHERE id = ${id}
@@ -2161,7 +2175,7 @@ var init_storage = __esm({
           }
           console.log("Updating user profile with clean data:", cleanProfile);
           try {
-            const [updatedUser] = await db.update(users).set(cleanProfile).where(eq(users.id, id)).returning();
+            const [updatedUser] = await getDb.update(users).set(cleanProfile).where(eq(users.id, id)).returning();
             return updatedUser;
           } catch (dbError) {
             console.error(`Database error updating user ${id}:`, dbError);
@@ -2176,7 +2190,7 @@ var init_storage = __esm({
       }
       async updateUser(id, updates) {
         try {
-          const [updatedUser] = await db.update(users).set(updates).where(eq(users.id, id)).returning();
+          const [updatedUser] = await getDb.update(users).set(updates).where(eq(users.id, id)).returning();
           console.log(`User ${id} updated successfully`);
           return updatedUser;
         } catch (error) {
@@ -2189,12 +2203,12 @@ var init_storage = __esm({
         }
       }
       async updateUserPassword(userId, hashedPassword) {
-        await db.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
+        await getDb.update(users).set({ password: hashedPassword }).where(eq(users.id, userId));
       }
       async deleteUser(userId) {
         console.log(`Starting complete user deletion for user ${userId}...`);
         try {
-          await db.transaction(async (tx) => {
+          await getDb().transaction(async (tx) => {
             const userResult = await tx.execute(
               sql`SELECT phone_number FROM users WHERE id = ${userId}`
             );
@@ -2313,7 +2327,7 @@ var init_storage = __esm({
           console.error(`Failed to delete user ${userId}:`, error);
           try {
             console.log(`Attempting simplified deletion for user ${userId}...`);
-            await db.delete(users).where(eq(users.id, userId));
+            await getDb().delete(users).where(eq(users.id, userId));
             console.log(`Successfully deleted user ${userId} with cascade`);
           } catch (simpleError) {
             console.error(
@@ -2327,16 +2341,16 @@ var init_storage = __esm({
         }
       }
       async cleanAllUsers() {
-        await db.delete(messages);
-        await db.delete(matches);
-        await db.delete(userPreferences);
-        await db.delete(userInterests);
-        await db.delete(typingStatus);
-        await db.delete(videoCalls);
-        await db.delete(verificationCodes);
-        await db.delete(userPhotos);
-        await db.delete(globalInterests);
-        await db.delete(users);
+        await getDb().delete(messages);
+        await getDb().delete(matches);
+        await getDb().delete(userPreferences);
+        await getDb().delete(userInterests);
+        await getDb().delete(typingStatus);
+        await getDb().delete(videoCalls);
+        await getDb().delete(verificationCodes);
+        await getDb().delete(userPhotos);
+        await getDb().delete(globalInterests);
+        await getDb().delete(users);
         console.log(
           "All users and related data have been deleted from the database"
         );
@@ -2344,7 +2358,7 @@ var init_storage = __esm({
       // Preferences operations
       async getUserPreferences(userId) {
         try {
-          const [preference] = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
+          const [preference] = await getDb.select().from(userPreferences).where(eq(userPreferences.userId, userId));
           return preference;
         } catch (error) {
           console.error(`Error getting preferences for user ${userId}:`, error);
@@ -2356,7 +2370,7 @@ var init_storage = __esm({
         try {
           if (userIds.length === 0) return [];
           const startTime = Date.now();
-          const preferences = await db.select().from(userPreferences).where(inArray(userPreferences.userId, userIds));
+          const preferences = await getDb.select().from(userPreferences).where(inArray(userPreferences.userId, userIds));
           const duration = Date.now() - startTime;
           console.log(
             `[BATCH-PERFORMANCE] Loaded ${preferences.length} preferences for ${userIds.length} users in ${duration}ms`
@@ -2371,11 +2385,11 @@ var init_storage = __esm({
         }
       }
       async createUserPreferences(preferences) {
-        const [userPreference] = await db.insert(userPreferences).values(preferences).returning();
+        const [userPreference] = await getDb.insert(userPreferences).values(preferences).returning();
         return userPreference;
       }
       async updateUserPreferences(id, preferences) {
-        const [updatedPreference] = await db.update(userPreferences).set(preferences).where(eq(userPreferences.id, id)).returning();
+        const [updatedPreference] = await getDb.update(userPreferences).set(preferences).where(eq(userPreferences.id, id)).returning();
         return updatedPreference;
       }
       async updateUserLocationPreference(userId, location) {
@@ -2448,7 +2462,7 @@ var init_storage = __esm({
           );
           return existingMatch;
         }
-        const [newMatch2] = await db.insert(matches).values({
+        const [newMatch2] = await getDb.insert(matches).values({
           ...match,
           matched: match.matched ?? false,
           hasUnreadMessages1: false,
@@ -2484,17 +2498,17 @@ var init_storage = __esm({
         return newMatch2;
       }
       async getMatchById(id) {
-        const [match] = await db.select().from(matches).where(eq(matches.id, id));
+        const [match] = await getDb().select().from(matches).where(eq(matches.id, id));
         return match;
       }
       async getMatchesByUserId(userId) {
-        return await db.select().from(matches).where(
+        return await getDb.select().from(matches).where(
           and(
             // User is in the match
             or(eq(matches.userId1, userId), eq(matches.userId2, userId)),
             // No blocking exists between users (bidirectional check)
             notExists(
-              db.select().from(userBlocks).where(
+              getDb.select().from(userBlocks).where(
                 or(
                   // Current user hasn't blocked the other user
                   and(
@@ -2521,7 +2535,7 @@ var init_storage = __esm({
       // Removed broken optimization function - using working getUserMatches instead
       // Get only MEET-originated matches (excludes SUITE matches) and blocked users
       async getMeetMatchesByUserId(userId) {
-        return await db.select().from(matches).where(
+        return await getDb.select().from(matches).where(
           and(
             or(eq(matches.userId1, userId), eq(matches.userId2, userId)),
             or(
@@ -2532,7 +2546,7 @@ var init_storage = __esm({
             ),
             // No blocking exists between users (bidirectional check)
             notExists(
-              db.select().from(userBlocks).where(
+              getDb.select().from(userBlocks).where(
                 or(
                   // Current user hasn't blocked the other user
                   and(
@@ -2557,7 +2571,7 @@ var init_storage = __esm({
         );
       }
       async getMatchBetweenUsers(userId1, userId2) {
-        const [match] = await db.select().from(matches).where(
+        const [match] = await getDb.select().from(matches).where(
           or(
             and(eq(matches.userId1, userId1), eq(matches.userId2, userId2)),
             and(eq(matches.userId1, userId2), eq(matches.userId2, userId1))
@@ -2566,7 +2580,7 @@ var init_storage = __esm({
         return match;
       }
       async getAllMatchesBetweenUsers(userId1, userId2) {
-        const allMatches = await db.select().from(matches).where(
+        const allMatches = await getDb.select().from(matches).where(
           or(
             and(eq(matches.userId1, userId1), eq(matches.userId2, userId2)),
             and(eq(matches.userId1, userId2), eq(matches.userId2, userId1))
@@ -2575,7 +2589,7 @@ var init_storage = __esm({
         return allMatches;
       }
       async updateMatchStatus(matchId, matched) {
-        const [updatedMatch] = await db.update(matches).set({
+        const [updatedMatch] = await getDb.update(matches).set({
           matched,
           // Reset notification flags when updating match status
           notifiedUser1: false,
@@ -2586,7 +2600,7 @@ var init_storage = __esm({
       async removeLikeOrDislike(userId, targetUserId) {
         const match = await this.getMatchBetweenUsers(userId, targetUserId);
         if (match) {
-          await db.delete(matches).where(eq(matches.id, match.id));
+          await getDb().delete(matches).where(eq(matches.id, match.id));
           console.log(
             `Removed match ${match.id} between users ${userId} and ${targetUserId}`
           );
@@ -2598,7 +2612,7 @@ var init_storage = __esm({
       }
       // Get matches created after a specific timestamp for a user
       async getMatchesSince(userId, since) {
-        return await db.select().from(matches).where(
+        return await getDb.select().from(matches).where(
           and(
             or(eq(matches.userId1, userId), eq(matches.userId2, userId)),
             sql`${matches.createdAt} > ${since}`
@@ -2612,7 +2626,7 @@ var init_storage = __esm({
             `[UNREAD-OPTIMIZED] User ${userId}: Starting optimized unread count query`
           );
           const startTime = Date.now();
-          const [result] = await db.select({
+          const [result] = await getDb.select({
             unreadCount: sql`COUNT(*)`
           }).from(messages).innerJoin(matches, eq(messages.matchId, matches.id)).where(
             and(
@@ -2644,7 +2658,7 @@ var init_storage = __esm({
       // Get count of conversations with unread messages for navigation badge - OPTIMIZED VERSION
       async getUnreadConversationsCount(userId) {
         try {
-          const result = await db.execute(sql`
+          const result = await getDb().execute(sql`
         SELECT COUNT(DISTINCT msg.match_id) AS unread_conversation_count
         FROM messages msg
         JOIN matches m ON msg.match_id = m.id
@@ -2690,7 +2704,7 @@ var init_storage = __esm({
         } else if (match.userId2 === receiverId) {
           updateFields = { hasUnreadMessages2: true, lastMessageAt: /* @__PURE__ */ new Date() };
         }
-        const [updatedMatch] = await db.update(matches).set(updateFields).where(eq(matches.id, matchId)).returning();
+        const [updatedMatch] = await getDb.update(matches).set(updateFields).where(eq(matches.id, matchId)).returning();
         return updatedMatch;
       }
       // Mark a match as read for a specific user
@@ -2703,7 +2717,7 @@ var init_storage = __esm({
         } else if (match.userId2 === userId) {
           updateFields = { hasUnreadMessages2: false };
         }
-        const [updatedMatch] = await db.update(matches).set(updateFields).where(eq(matches.id, matchId)).returning();
+        const [updatedMatch] = await getDb.update(matches).set(updateFields).where(eq(matches.id, matchId)).returning();
         return updatedMatch;
       }
       // Mark match notification as delivered for a user
@@ -2716,7 +2730,7 @@ var init_storage = __esm({
         } else if (match.userId2 === userId) {
           updateFields = { notifiedUser2: true };
         }
-        const [updatedMatch] = await db.update(matches).set(updateFields).where(eq(matches.id, matchId)).returning();
+        const [updatedMatch] = await getDb.update(matches).set(updateFields).where(eq(matches.id, matchId)).returning();
         return updatedMatch;
       }
       async updateMatch(id, updates) {
@@ -2736,7 +2750,7 @@ var init_storage = __esm({
         if (updates.metadata !== void 0) {
           updateFields.metadata = updates.metadata;
         }
-        const [updatedMatch] = await db.update(matches).set(updateFields).where(eq(matches.id, id)).returning();
+        const [updatedMatch] = await getDb.update(matches).set(updateFields).where(eq(matches.id, id)).returning();
         if (updatedMatch && updates.matched) {
           console.log(
             `[SWIPE-CLEANUP] Starting cleanup for UPDATED match ${updatedMatch.id} between users ${updatedMatch.userId1} and ${updatedMatch.userId2}`
@@ -2756,15 +2770,15 @@ var init_storage = __esm({
         return updatedMatch;
       }
       async deleteMatch(id) {
-        await db.delete(messages).where(eq(messages.matchId, id));
-        await db.delete(matches).where(eq(matches.id, id));
+        await getDb().delete(messages).where(eq(messages.matchId, id));
+        await getDb().delete(matches).where(eq(matches.id, id));
       }
       // Message operations with duplicate prevention
       async createMessage(message) {
         const recentTime = /* @__PURE__ */ new Date();
         recentTime.setSeconds(recentTime.getSeconds() - 2);
         try {
-          const existingMessages = await db.select().from(messages).where(
+          const existingMessages = await getDb.select().from(messages).where(
             and(
               eq(messages.matchId, message.matchId),
               eq(messages.senderId, message.senderId),
@@ -2783,7 +2797,7 @@ var init_storage = __esm({
         } catch (error) {
           console.error("Error checking for duplicate messages:", error);
         }
-        const [newMessage] = await db.insert(messages).values({
+        const [newMessage] = await getDb.insert(messages).values({
           ...message,
           messageType: message.messageType || "text",
           // Default to text if not specified
@@ -2798,7 +2812,7 @@ var init_storage = __esm({
        * Used for security validation in message operations
        */
       async getMessageById(id) {
-        const [message] = await db.select().from(messages).where(eq(messages.id, id));
+        const [message] = await getDb.select().from(messages).where(eq(messages.id, id));
         return message;
       }
       /**
@@ -2816,7 +2830,7 @@ var init_storage = __esm({
             return [];
           }
         }
-        const allMessages = await db.select().from(messages).where(eq(messages.matchId, matchId)).orderBy(asc(messages.createdAt));
+        const allMessages = await getDb.select().from(messages).where(eq(messages.matchId, matchId)).orderBy(asc(messages.createdAt));
         let filteredMessages = allMessages;
         if (userId) {
           filteredMessages = allMessages.filter((message) => {
@@ -2874,11 +2888,11 @@ var init_storage = __esm({
        * Used to determine if a match can be deleted during undo operations
        */
       async getMessageCountForMatch(matchId) {
-        const messageCount = await db.select({ count: count() }).from(messages).where(eq(messages.matchId, matchId));
+        const messageCount = await getDb.select({ count: count() }).from(messages).where(eq(messages.matchId, matchId));
         return messageCount[0]?.count || 0;
       }
       async markMessageAsRead(id) {
-        const [updatedMessage] = await db.update(messages).set({ read: true }).where(eq(messages.id, id)).returning();
+        const [updatedMessage] = await getDb.update(messages).set({ read: true }).where(eq(messages.id, id)).returning();
         if (updatedMessage) {
           const match = await this.getMatchById(updatedMessage.matchId);
           if (match) {
@@ -2902,7 +2916,7 @@ var init_storage = __esm({
           caseInsensitive = false
         } = params;
         try {
-          let messagesQuery = db.select().from(messages).where(
+          let messagesQuery = getDb.select().from(messages).where(
             and(
               eq(messages.matchId, matchId),
               eq(messages.senderId, senderId),
@@ -2934,7 +2948,7 @@ var init_storage = __esm({
       }
       // Case-insensitive functionality has been merged into findRecentDuplicateMessages with the caseInsensitive parameter
       async markMessageAsReadWithTimestamp(id) {
-        const [updatedMessage] = await db.update(messages).set({
+        const [updatedMessage] = await getDb.update(messages).set({
           read: true,
           readAt: /* @__PURE__ */ new Date()
         }).where(eq(messages.id, id)).returning();
@@ -2956,7 +2970,7 @@ var init_storage = __esm({
           ...interest,
           showOnProfile: interest.showOnProfile !== void 0 ? interest.showOnProfile : true
         };
-        const [userInterest] = await db.insert(userInterests).values(interestWithDefaults).returning();
+        const [userInterest] = await getDb.insert(userInterests).values(interestWithDefaults).returning();
         await this.updateUserInterestsJson(interest.userId);
         return userInterest;
       }
@@ -2964,17 +2978,17 @@ var init_storage = __esm({
       async updateUserInterestsJson(userId) {
         const userInterestsList = await this.getUserInterests(userId);
         const interestNames = userInterestsList.map((ui) => ui.interest);
-        await db.update(users).set({ interests: JSON.stringify(interestNames) }).where(eq(users.id, userId));
+        await getDb.update(users).set({ interests: JSON.stringify(interestNames) }).where(eq(users.id, userId));
       }
       async getUserInterests(userId) {
-        return await db.select().from(userInterests).where(eq(userInterests.userId, userId));
+        return await getDb.select().from(userInterests).where(eq(userInterests.userId, userId));
       }
       async deleteAllUserInterests(userId) {
-        await db.delete(userInterests).where(eq(userInterests.userId, userId));
+        await getDb().delete(userInterests).where(eq(userInterests.userId, userId));
         await this.updateUserInterestsJson(userId);
       }
       async deleteUserInterest(userId, interest) {
-        await db.delete(userInterests).where(
+        await getDb.delete(userInterests).where(
           and(
             eq(userInterests.userId, userId),
             eq(userInterests.interest, interest)
@@ -2983,73 +2997,73 @@ var init_storage = __esm({
         await this.updateUserInterestsJson(userId);
       }
       async updateUserInterestsVisibility(userId, showOnProfile) {
-        await db.update(userInterests).set({ showOnProfile }).where(eq(userInterests.userId, userId));
+        await getDb.update(userInterests).set({ showOnProfile }).where(eq(userInterests.userId, userId));
       }
       // Global interests operations
       async addGlobalInterest(interest) {
-        const [globalInterest] = await db.insert(globalInterests).values({
+        const [globalInterest] = await getDb.insert(globalInterests).values({
           ...interest,
           createdAt: /* @__PURE__ */ new Date()
         }).returning();
         return globalInterest;
       }
       async getAllGlobalInterests() {
-        return await db.select().from(globalInterests).orderBy(asc(globalInterests.interest));
+        return await getDb.select().from(globalInterests).orderBy(asc(globalInterests.interest));
       }
       async getGlobalInterestByName(interest) {
-        const [globalInterest] = await db.select().from(globalInterests).where(eq(globalInterests.interest, interest));
+        const [globalInterest] = await getDb.select().from(globalInterests).where(eq(globalInterests.interest, interest));
         return globalInterest;
       }
       // Global deal breakers operations
       async addGlobalDealBreaker(dealBreaker) {
-        const [globalDealBreaker] = await db.insert(globalDealBreakers).values({
+        const [globalDealBreaker] = await getDb.insert(globalDealBreakers).values({
           ...dealBreaker,
           createdAt: /* @__PURE__ */ new Date()
         }).returning();
         return globalDealBreaker;
       }
       async getAllGlobalDealBreakers() {
-        return await db.select().from(globalDealBreakers).orderBy(asc(globalDealBreakers.dealBreaker));
+        return await getDb.select().from(globalDealBreakers).orderBy(asc(globalDealBreakers.dealBreaker));
       }
       async getGlobalDealBreakerByName(dealBreaker) {
-        const [globalDealBreaker] = await db.select().from(globalDealBreakers).where(eq(globalDealBreakers.dealBreaker, dealBreaker));
+        const [globalDealBreaker] = await getDb.select().from(globalDealBreakers).where(eq(globalDealBreakers.dealBreaker, dealBreaker));
         return globalDealBreaker;
       }
       // Global tribes operations
       async addGlobalTribe(tribe) {
-        const [globalTribe] = await db.insert(globalTribes).values({
+        const [globalTribe] = await getDb.insert(globalTribes).values({
           ...tribe,
           createdAt: /* @__PURE__ */ new Date()
         }).returning();
         return globalTribe;
       }
       async getAllGlobalTribes() {
-        return await db.select().from(globalTribes).orderBy(asc(globalTribes.tribe));
+        return await getDb.select().from(globalTribes).orderBy(asc(globalTribes.tribe));
       }
       async getGlobalTribeByName(tribe) {
-        const [globalTribe] = await db.select().from(globalTribes).where(eq(globalTribes.tribe, tribe));
+        const [globalTribe] = await getDb.select().from(globalTribes).where(eq(globalTribes.tribe, tribe));
         return globalTribe;
       }
       // Global religions operations
       async addGlobalReligion(religion) {
-        const [globalReligion] = await db.insert(globalReligions).values({
+        const [globalReligion] = await getDb.insert(globalReligions).values({
           ...religion,
           createdAt: /* @__PURE__ */ new Date()
         }).returning();
         return globalReligion;
       }
       async getAllGlobalReligions() {
-        return await db.select().from(globalReligions).orderBy(asc(globalReligions.religion));
+        return await getDb.select().from(globalReligions).orderBy(asc(globalReligions.religion));
       }
       async getGlobalReligionByName(religion) {
-        const [globalReligion] = await db.select().from(globalReligions).where(eq(globalReligions.religion, religion));
+        const [globalReligion] = await getDb.select().from(globalReligions).where(eq(globalReligions.religion, religion));
         return globalReligion;
       }
       // Get all users for discover page (optimized approach - faster queries, separate interests fetch)
       async getDiscoverUsers(userId) {
         try {
           const startTime = Date.now();
-          const existingInteractions = await db.select({ targetUserId: matches.userId2 }).from(matches).where(
+          const existingInteractions = await getDb.select({ targetUserId: matches.userId2 }).from(matches).where(
             and(
               eq(matches.userId1, userId),
               or(
@@ -3062,7 +3076,7 @@ var init_storage = __esm({
               )
             )
           ).union(
-            db.select({ targetUserId: matches.userId1 }).from(matches).where(
+            getDb.select({ targetUserId: matches.userId1 }).from(matches).where(
               and(
                 eq(matches.userId2, userId),
                 or(
@@ -3077,7 +3091,7 @@ var init_storage = __esm({
             (row) => row.targetUserId
           );
           excludeUserIds.push(userId);
-          const swipeHistoryUsers = await db.select({ targetUserId: swipeHistory.targetUserId }).from(swipeHistory).where(
+          const swipeHistoryUsers = await getDb.select({ targetUserId: swipeHistory.targetUserId }).from(swipeHistory).where(
             and(
               eq(swipeHistory.userId, userId),
               eq(swipeHistory.appMode, "MEET")
@@ -3087,7 +3101,7 @@ var init_storage = __esm({
             (row) => row.targetUserId
           );
           excludeUserIds.push(...swipeHistoryUserIds);
-          const discoverUsers = await db.select().from(users).where(
+          const discoverUsers = await getDb.select().from(users).where(
             and(
               notInArray(
                 users.id,
@@ -3126,9 +3140,9 @@ var init_storage = __esm({
         if (matchedUserIds.length > 0) {
           const conditions = matchedUserIds.map((matchId) => ne(users.id, matchId));
           conditions.push(ne(users.id, userId));
-          potentialUsers = await db.select().from(users).where(and(...conditions));
+          potentialUsers = await getDb.select().from(users).where(and(...conditions));
         } else {
-          potentialUsers = await db.select().from(users).where(ne(users.id, userId));
+          potentialUsers = await getDb.select().from(users).where(ne(users.id, userId));
         }
         if (potentialUsers.length > 0) {
           return potentialUsers;
@@ -3379,7 +3393,7 @@ var init_storage = __esm({
           isOnline: visibleOnlineStatus,
           lastActive: /* @__PURE__ */ new Date()
         };
-        const [updatedUser] = await db.update(users).set(updateData).where(eq(users.id, userId)).returning();
+        const [updatedUser] = await getDb.update(users).set(updateData).where(eq(users.id, userId)).returning();
         return updatedUser;
       }
       async getUserOnlineStatus(userId) {
@@ -3396,11 +3410,11 @@ var init_storage = __esm({
           throw new Error("User not found");
         }
         const visibleTypingStatus = user.ghostMode ? false : isTyping;
-        const existingStatus = await db.select().from(typingStatus).where(
+        const existingStatus = await getDb.select().from(typingStatus).where(
           and(eq(typingStatus.userId, userId), eq(typingStatus.matchId, matchId))
         );
         if (existingStatus.length > 0) {
-          const [updatedStatus] = await db.update(typingStatus).set({
+          const [updatedStatus] = await getDb.update(typingStatus).set({
             isTyping: visibleTypingStatus,
             updatedAt: /* @__PURE__ */ new Date()
           }).where(
@@ -3411,7 +3425,7 @@ var init_storage = __esm({
           ).returning();
           return updatedStatus;
         } else {
-          const [newStatus] = await db.insert(typingStatus).values({
+          const [newStatus] = await getDb.insert(typingStatus).values({
             userId,
             matchId,
             isTyping: visibleTypingStatus,
@@ -3421,11 +3435,11 @@ var init_storage = __esm({
         }
       }
       async getTypingStatus(matchId) {
-        return await db.select().from(typingStatus).where(eq(typingStatus.matchId, matchId));
+        return await getDb.select().from(typingStatus).where(eq(typingStatus.matchId, matchId));
       }
       // Video call operations
       async createVideoCall(videoCall) {
-        const [newVideoCall] = await db.insert(videoCalls).values({
+        const [newVideoCall] = await getDb.insert(videoCalls).values({
           ...videoCall,
           status: videoCall.status || "pending",
           createdAt: /* @__PURE__ */ new Date()
@@ -3433,15 +3447,15 @@ var init_storage = __esm({
         return newVideoCall;
       }
       async getVideoCallById(id) {
-        const [videoCall] = await db.select().from(videoCalls).where(eq(videoCalls.id, id));
+        const [videoCall] = await getDb.select().from(videoCalls).where(eq(videoCalls.id, id));
         return videoCall;
       }
       async updateVideoCallStatus(id, updates) {
-        const [updatedVideoCall] = await db.update(videoCalls).set(updates).where(eq(videoCalls.id, id)).returning();
+        const [updatedVideoCall] = await getDb.update(videoCalls).set(updates).where(eq(videoCalls.id, id)).returning();
         return updatedVideoCall;
       }
       async getVideoCallsByUserId(userId) {
-        return await db.select().from(videoCalls).where(
+        return await getDb.select().from(videoCalls).where(
           or(
             eq(videoCalls.initiatorId, userId),
             eq(videoCalls.receiverId, userId)
@@ -3451,15 +3465,15 @@ var init_storage = __esm({
       // User photos operations for MEET dating app
       async addUserPhoto(photo) {
         if (photo.isPrimary) {
-          await db.update(userPhotos).set({ isPrimary: false }).where(eq(userPhotos.userId, photo.userId));
+          await getDb.update(userPhotos).set({ isPrimary: false }).where(eq(userPhotos.userId, photo.userId));
         }
-        const userPhotosCount = await db.select({ count: count() }).from(userPhotos).where(eq(userPhotos.userId, photo.userId));
+        const userPhotosCount = await getDb.select({ count: count() }).from(userPhotos).where(eq(userPhotos.userId, photo.userId));
         const isFirstPhoto = userPhotosCount.length === 0 || userPhotosCount[0].count === 0;
         const photoToInsert = {
           ...photo,
           isPrimary: isFirstPhoto ? true : photo.isPrimary
         };
-        const [newPhoto] = await db.insert(userPhotos).values(photoToInsert).returning();
+        const [newPhoto] = await getDb.insert(userPhotos).values(photoToInsert).returning();
         if (newPhoto.isPrimary) {
           await this.updateUserProfile(photo.userId, {
             photoUrl: newPhoto.photoUrl
@@ -3468,17 +3482,17 @@ var init_storage = __esm({
         return newPhoto;
       }
       async getUserPhotos(userId) {
-        return await db.select().from(userPhotos).where(eq(userPhotos.userId, userId)).orderBy(desc(userPhotos.isPrimary), asc(userPhotos.createdAt));
+        return await getDb.select().from(userPhotos).where(eq(userPhotos.userId, userId)).orderBy(desc(userPhotos.isPrimary), asc(userPhotos.createdAt));
       }
       async getUserPhotoById(id) {
-        const [photo] = await db.select().from(userPhotos).where(eq(userPhotos.id, id));
+        const [photo] = await getDb.select().from(userPhotos).where(eq(userPhotos.id, id));
         return photo;
       }
       async updateUserPhoto(id, updates) {
         try {
           const photo = await this.getUserPhotoById(id);
           if (!photo) return void 0;
-          const [updatedPhoto] = await db.update(userPhotos).set({ photoUrl: updates.photoUrl }).where(eq(userPhotos.id, id)).returning();
+          const [updatedPhoto] = await getDb.update(userPhotos).set({ photoUrl: updates.photoUrl }).where(eq(userPhotos.id, id)).returning();
           if (updatedPhoto.isPrimary) {
             await this.updateUserProfile(updatedPhoto.userId, {
               photoUrl: updates.photoUrl
@@ -3492,11 +3506,11 @@ var init_storage = __esm({
       }
       // Note: Primary implementation of addUserPhoto is already defined above
       async deleteUserPhoto(id) {
-        const [photo] = await db.select().from(userPhotos).where(eq(userPhotos.id, id));
+        const [photo] = await getDb.select().from(userPhotos).where(eq(userPhotos.id, id));
         if (!photo) return;
-        await db.delete(userPhotos).where(eq(userPhotos.id, id));
+        await getDb().delete(userPhotos).where(eq(userPhotos.id, id));
         if (photo.isPrimary) {
-          const [anotherPhoto] = await db.select().from(userPhotos).where(eq(userPhotos.userId, photo.userId)).limit(1);
+          const [anotherPhoto] = await getDb.select().from(userPhotos).where(eq(userPhotos.userId, photo.userId)).limit(1);
           if (anotherPhoto) {
             await this.setPrimaryPhoto(anotherPhoto.id, photo.userId);
           } else {
@@ -3506,12 +3520,12 @@ var init_storage = __esm({
       }
       async setPrimaryPhoto(id, userId) {
         try {
-          const [photo] = await db.select().from(userPhotos).where(and(eq(userPhotos.id, id), eq(userPhotos.userId, userId)));
+          const [photo] = await getDb.select().from(userPhotos).where(and(eq(userPhotos.id, id), eq(userPhotos.userId, userId)));
           if (!photo) {
             throw new Error("Photo not found or does not belong to the user");
           }
-          await db.update(userPhotos).set({ isPrimary: false }).where(eq(userPhotos.userId, userId));
-          const [updatedPhoto] = await db.update(userPhotos).set({ isPrimary: true }).where(eq(userPhotos.id, id)).returning();
+          await getDb.update(userPhotos).set({ isPrimary: false }).where(eq(userPhotos.userId, userId));
+          const [updatedPhoto] = await getDb.update(userPhotos).set({ isPrimary: true }).where(eq(userPhotos.id, id)).returning();
           if (updatedPhoto) {
             await this.updateUserProfile(userId, {
               photoUrl: updatedPhoto.photoUrl
@@ -3529,7 +3543,7 @@ var init_storage = __esm({
       // Section-specific primary photo management
       async updateSectionPrimaryPhoto(userId, photoId, section) {
         try {
-          const [photo] = await db.select().from(userPhotos).where(and(eq(userPhotos.id, photoId), eq(userPhotos.userId, userId)));
+          const [photo] = await getDb.select().from(userPhotos).where(and(eq(userPhotos.id, photoId), eq(userPhotos.userId, userId)));
           if (!photo) {
             return {
               success: false,
@@ -3548,10 +3562,10 @@ var init_storage = __esm({
           }
           const resetUpdate = {};
           resetUpdate[fieldName] = false;
-          await db.update(userPhotos).set(resetUpdate).where(eq(userPhotos.userId, userId));
+          await getDb.update(userPhotos).set(resetUpdate).where(eq(userPhotos.userId, userId));
           const setPrimaryUpdate = {};
           setPrimaryUpdate[fieldName] = true;
-          await db.update(userPhotos).set(setPrimaryUpdate).where(eq(userPhotos.id, photoId));
+          await getDb.update(userPhotos).set(setPrimaryUpdate).where(eq(userPhotos.id, photoId));
           return { success: true };
         } catch (error) {
           console.error(`Error updating section primary photo:`, error);
@@ -3559,7 +3573,7 @@ var init_storage = __esm({
         }
       }
       async getUserPhotosWithSectionPrimary(userId, section) {
-        return await db.select().from(userPhotos).where(eq(userPhotos.userId, userId)).orderBy(asc(userPhotos.createdAt));
+        return await getDb.select().from(userPhotos).where(eq(userPhotos.userId, userId)).orderBy(asc(userPhotos.createdAt));
       }
       async getSectionPrimaryPhoto(userId, section) {
         const sectionFieldMap = {
@@ -3570,7 +3584,7 @@ var init_storage = __esm({
         };
         const field = sectionFieldMap[section];
         if (!field) return void 0;
-        const [photo] = await db.select().from(userPhotos).where(and(eq(userPhotos.userId, userId), eq(field, true))).limit(1);
+        const [photo] = await getDb.select().from(userPhotos).where(and(eq(userPhotos.userId, userId), eq(field, true))).limit(1);
         return photo;
       }
       // Get the lastActive timestamp for a user
@@ -3583,14 +3597,14 @@ var init_storage = __esm({
       async updateActiveChatStatus(userId, matchId, isActive) {
         try {
           if (isActive) {
-            const result = await db.execute(
+            const result = await getDb().execute(
               sql`INSERT INTO active_chats (user_id, match_id, is_active, updated_at) 
               VALUES (${userId}, ${matchId}, ${isActive}, NOW()) 
               ON CONFLICT (user_id, match_id) 
               DO UPDATE SET is_active = ${isActive}, updated_at = NOW()`
             );
           } else {
-            await db.execute(
+            await getDb().execute(
               sql`UPDATE active_chats 
               SET is_active = ${isActive}, updated_at = NOW() 
               WHERE user_id = ${userId} AND match_id = ${matchId}`
@@ -3607,7 +3621,7 @@ var init_storage = __esm({
       }
       async getActiveChatStatus(userId, matchId) {
         try {
-          const result = await db.execute(
+          const result = await getDb().execute(
             sql`SELECT is_active FROM active_chats 
             WHERE user_id = ${userId} AND match_id = ${matchId} 
             AND is_active = true 
@@ -3624,7 +3638,7 @@ var init_storage = __esm({
       }
       async getUsersInActiveChat(matchId) {
         try {
-          const result = await db.execute(
+          const result = await getDb().execute(
             sql`SELECT user_id FROM active_chats 
             WHERE match_id = ${matchId} 
             AND is_active = true 
@@ -3645,7 +3659,7 @@ var init_storage = __esm({
           console.log(
             `\u{1F504} [REACTION-DEBUG] Checking for existing reactions from user ${reaction.userId} on message ${reaction.messageId} with emoji ${reaction.emoji}`
           );
-          const existingReactions = await db.select().from(messageReactions).where(
+          const existingReactions = await getDb.select().from(messageReactions).where(
             and(
               eq(messageReactions.messageId, reaction.messageId),
               eq(messageReactions.userId, reaction.userId)
@@ -3659,7 +3673,7 @@ var init_storage = __esm({
             console.log(
               `\u{1F5D1}\uFE0F [REACTION-DEBUG] Removing ${existingReactions.length} existing reaction(s) from user ${reaction.userId} on message ${reaction.messageId}`
             );
-            const deleteResult = await db.delete(messageReactions).where(
+            const deleteResult = await getDb.delete(messageReactions).where(
               and(
                 eq(messageReactions.messageId, reaction.messageId),
                 eq(messageReactions.userId, reaction.userId)
@@ -3673,7 +3687,7 @@ var init_storage = __esm({
               `\u2795 [REACTION-DEBUG] No existing reactions found. Adding first reaction: ${reaction.emoji}`
             );
           }
-          const [newReaction] = await db.insert(messageReactions).values(reaction).returning();
+          const [newReaction] = await getDb.insert(messageReactions).values(reaction).returning();
           if (!newReaction) {
             throw new Error("Failed to insert new reaction");
           }
@@ -3688,7 +3702,7 @@ var init_storage = __esm({
       }
       async removeMessageReaction(messageId, userId, emoji) {
         try {
-          await db.delete(messageReactions).where(
+          await getDb.delete(messageReactions).where(
             and(
               eq(messageReactions.messageId, messageId),
               eq(messageReactions.userId, userId),
@@ -3702,7 +3716,7 @@ var init_storage = __esm({
       }
       async getMessageReactions(messageId) {
         try {
-          return await db.select().from(messageReactions).where(eq(messageReactions.messageId, messageId)).orderBy(asc(messageReactions.createdAt));
+          return await getDb.select().from(messageReactions).where(eq(messageReactions.messageId, messageId)).orderBy(asc(messageReactions.createdAt));
         } catch (error) {
           console.error("Error getting message reactions:", error);
           return [];
@@ -3710,7 +3724,7 @@ var init_storage = __esm({
       }
       async getMessageReactionsByMatch(matchId) {
         try {
-          return await db.select({
+          return await getDb.select({
             id: messageReactions.id,
             messageId: messageReactions.messageId,
             userId: messageReactions.userId,
@@ -3725,7 +3739,7 @@ var init_storage = __esm({
       // Auto-delete functionality methods
       async getUserMatchSettings(userId, matchId) {
         try {
-          const [settings] = await db.select().from(userMatchSettings).where(
+          const [settings] = await getDb.select().from(userMatchSettings).where(
             and(
               eq(userMatchSettings.userId, userId),
               eq(userMatchSettings.matchId, matchId)
@@ -3739,7 +3753,7 @@ var init_storage = __esm({
       }
       async updateUserMatchSettings(userId, matchId, settings) {
         try {
-          const [updatedSettings] = await db.insert(userMatchSettings).values({
+          const [updatedSettings] = await getDb.insert(userMatchSettings).values({
             userId,
             matchId,
             ...settings
@@ -3767,7 +3781,7 @@ var init_storage = __esm({
           console.log(
             `Deleting messages for user ${userId} in match ${matchId} in "always" mode`
           );
-          await db.update(messages).set({ deletedForUserId: userId }).where(
+          await getDb.update(messages).set({ deletedForUserId: userId }).where(
             and(
               eq(messages.matchId, matchId),
               or(eq(messages.senderId, userId), eq(messages.receiverId, userId))
@@ -3783,7 +3797,7 @@ var init_storage = __esm({
       }
       async scheduleMessageDeletion(messageId, deleteAt, mode) {
         try {
-          await db.update(messages).set({
+          await getDb.update(messages).set({
             autoDeleteScheduledAt: deleteAt,
             autoDeleteModeWhenSent: mode
           }).where(eq(messages.id, messageId));
@@ -3795,7 +3809,7 @@ var init_storage = __esm({
       async processAutoDeleteMessages() {
         try {
           const now = /* @__PURE__ */ new Date();
-          const messagesToDelete = await db.select().from(messages).where(
+          const messagesToDelete = await getDb.select().from(messages).where(
             and(
               sql`${messages.autoDeleteScheduledAt} IS NOT NULL`,
               sql`${messages.autoDeleteScheduledAt} <= ${now.toISOString()}`
@@ -3803,9 +3817,9 @@ var init_storage = __esm({
           );
           for (const message of messagesToDelete) {
             if (message.autoDeleteModeWhenSent === "always") {
-              await db.delete(messages).where(eq(messages.id, message.id));
+              await getDb().delete(messages).where(eq(messages.id, message.id));
             } else {
-              await db.update(messages).set({ deletedForUserId: message.senderId }).where(eq(messages.id, message.id));
+              await getDb.update(messages).set({ deletedForUserId: message.senderId }).where(eq(messages.id, message.id));
             }
           }
           console.log(`Processed ${messagesToDelete.length} auto-delete messages`);
@@ -3819,7 +3833,7 @@ var init_storage = __esm({
        */
       async markMessageAsDeletedForUser(messageId, userId) {
         try {
-          await db.update(messages).set({ deletedForUserId: userId }).where(eq(messages.id, messageId));
+          await getDb.update(messages).set({ deletedForUserId: userId }).where(eq(messages.id, messageId));
           console.log(`Message ${messageId} marked as deleted for user ${userId}`);
         } catch (error) {
           console.error("Error marking message as deleted for user:", error);
@@ -3832,7 +3846,7 @@ var init_storage = __esm({
       // ===== SUITE PROFILE SETTINGS =====
       async getSuiteProfileSettings(userId) {
         try {
-          const [settings] = await db.select().from(suiteProfileSettings).where(eq(suiteProfileSettings.userId, userId));
+          const [settings] = await getDb.select().from(suiteProfileSettings).where(eq(suiteProfileSettings.userId, userId));
           return settings;
         } catch (error) {
           console.error("Error getting SUITE profile settings:", error);
@@ -3841,7 +3855,7 @@ var init_storage = __esm({
       }
       async updateSuiteProfileSettings(userId, settings) {
         try {
-          const [updatedSettings] = await db.insert(suiteProfileSettings).values({
+          const [updatedSettings] = await getDb.insert(suiteProfileSettings).values({
             userId,
             ...settings,
             updatedAt: /* @__PURE__ */ new Date()
@@ -3861,7 +3875,7 @@ var init_storage = __esm({
       // ===== JOB PROFILE METHODS =====
       async getSuiteJobProfile(userId) {
         try {
-          const [jobProfile] = await db.select().from(suiteJobProfiles).where(
+          const [jobProfile] = await getDb.select().from(suiteJobProfiles).where(
             and(
               eq(suiteJobProfiles.userId, userId),
               eq(suiteJobProfiles.isActive, true)
@@ -3877,8 +3891,8 @@ var init_storage = __esm({
         try {
           console.log("Creating/updating job profile for user:", userId);
           console.log("Job profile data:", jobProfileData);
-          await db.update(suiteJobProfiles).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq(suiteJobProfiles.userId, userId));
-          const [existingProfile] = await db.select().from(suiteJobProfiles).where(eq(suiteJobProfiles.userId, userId)).orderBy(sql`${suiteJobProfiles.createdAt} DESC`).limit(1);
+          await getDb.update(suiteJobProfiles).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq(suiteJobProfiles.userId, userId));
+          const [existingProfile] = await getDb.select().from(suiteJobProfiles).where(eq(suiteJobProfiles.userId, userId)).orderBy(sql`${suiteJobProfiles.createdAt} DESC`).limit(1);
           if (existingProfile) {
             const cleanData = { ...jobProfileData };
             delete cleanData.createdAt;
@@ -3899,7 +3913,7 @@ var init_storage = __esm({
               Object.keys(updateObject)
             );
             console.log("Storage layer: Update object:", updateObject);
-            const [updatedProfile] = await db.update(suiteJobProfiles).set(updateObject).where(eq(suiteJobProfiles.id, existingProfile.id)).returning();
+            const [updatedProfile] = await getDb.update(suiteJobProfiles).set(updateObject).where(eq(suiteJobProfiles.id, existingProfile.id)).returning();
             if (updateObject.highSchool !== void 0 || updateObject.collegeUniversity !== void 0) {
               console.log(
                 "\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from job profile"
@@ -3912,7 +3926,7 @@ var init_storage = __esm({
                 userUpdateData.collegeUniversity = updateObject.collegeUniversity;
               }
               try {
-                await db.update(users).set(userUpdateData).where(eq(users.id, userId));
+                await getDb.update(users).set(userUpdateData).where(eq(users.id, userId));
                 console.log(
                   "\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:",
                   userUpdateData
@@ -3978,7 +3992,7 @@ var init_storage = __esm({
               visibilityPreferences: jobProfileData.visibilityPreferences || defaultVisibilityPreferences,
               isActive: true
             };
-            const [newProfile] = await db.insert(suiteJobProfiles).values(profileToInsert).returning();
+            const [newProfile] = await getDb.insert(suiteJobProfiles).values(profileToInsert).returning();
             if (profileToInsert.highSchool || profileToInsert.collegeUniversity) {
               console.log(
                 "\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from new job profile"
@@ -3991,7 +4005,7 @@ var init_storage = __esm({
                 userUpdateData.collegeUniversity = profileToInsert.collegeUniversity;
               }
               try {
-                await db.update(users).set(userUpdateData).where(eq(users.id, userId));
+                await getDb.update(users).set(userUpdateData).where(eq(users.id, userId));
                 console.log(
                   "\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:",
                   userUpdateData
@@ -4014,7 +4028,7 @@ var init_storage = __esm({
       }
       async getDiscoveryJobProfiles(userId, limit, offset) {
         try {
-          const jobProfiles = await db.select({
+          const jobProfiles = await getDb.select({
             // Job profile fields
             id: suiteJobProfiles.id,
             userId: suiteJobProfiles.userId,
@@ -4103,7 +4117,7 @@ var init_storage = __esm({
               }
               let jobPrimaryPhotoUrl = null;
               try {
-                const jobPhotos = await db.select().from(userPhotos).where(
+                const jobPhotos = await getDb.select().from(userPhotos).where(
                   and(
                     eq(userPhotos.userId, profile.userId),
                     eq(userPhotos.isPrimaryForJob, true)
@@ -4133,7 +4147,7 @@ var init_storage = __esm({
       }
       async getSuiteJobProfileById(profileId) {
         try {
-          const [jobProfile] = await db.select().from(suiteJobProfiles).where(
+          const [jobProfile] = await getDb.select().from(suiteJobProfiles).where(
             and(
               eq(suiteJobProfiles.id, profileId),
               eq(suiteJobProfiles.isActive, true)
@@ -4147,7 +4161,7 @@ var init_storage = __esm({
       }
       async getSuiteJobProfileByUserId(userId) {
         try {
-          const [jobProfile] = await db.select().from(suiteJobProfiles).where(
+          const [jobProfile] = await getDb.select().from(suiteJobProfiles).where(
             and(
               eq(suiteJobProfiles.userId, userId),
               eq(suiteJobProfiles.isActive, true)
@@ -4161,7 +4175,7 @@ var init_storage = __esm({
       }
       async updateSuiteJobProfileVisibility(userId, visibilityPreferences) {
         try {
-          const [updatedProfile] = await db.update(suiteJobProfiles).set({
+          const [updatedProfile] = await getDb.update(suiteJobProfiles).set({
             visibilityPreferences,
             updatedAt: /* @__PURE__ */ new Date()
           }).where(
@@ -4178,7 +4192,7 @@ var init_storage = __esm({
       }
       async deleteSuiteJobProfile(userId) {
         try {
-          await db.delete(suiteJobProfiles).where(eq(suiteJobProfiles.userId, userId));
+          await getDb.delete(suiteJobProfiles).where(eq(suiteJobProfiles.userId, userId));
           console.log("Job profile deleted successfully for user:", userId);
         } catch (error) {
           console.error("Error deleting job profile:", error);
@@ -4195,7 +4209,7 @@ var init_storage = __esm({
           if (role) {
             conditions.push(eq(suiteMentorshipProfiles.role, role));
           }
-          const [result] = await db.select({
+          const [result] = await getDb.select({
             // Include all mentorship profile fields
             ...suiteMentorshipProfiles,
             // Override education fields with data from users table for sync
@@ -4222,7 +4236,7 @@ var init_storage = __esm({
       }
       async getSuiteMentorshipProfileById(profileId) {
         try {
-          const [mentorshipProfile] = await db.select().from(suiteMentorshipProfiles).where(
+          const [mentorshipProfile] = await getDb.select().from(suiteMentorshipProfiles).where(
             and(
               eq(suiteMentorshipProfiles.id, profileId),
               eq(suiteMentorshipProfiles.isActive, true)
@@ -4236,7 +4250,7 @@ var init_storage = __esm({
       }
       async getSuiteMentorshipProfileByRole(userId, role) {
         try {
-          const [mentorshipProfile] = await db.select().from(suiteMentorshipProfiles).where(
+          const [mentorshipProfile] = await getDb.select().from(suiteMentorshipProfiles).where(
             and(
               eq(suiteMentorshipProfiles.userId, userId),
               eq(suiteMentorshipProfiles.role, role),
@@ -4251,7 +4265,7 @@ var init_storage = __esm({
       }
       async getSuiteMentorshipProfiles(userId) {
         try {
-          const mentorshipProfiles = await db.select().from(suiteMentorshipProfiles).where(
+          const mentorshipProfiles = await getDb.select().from(suiteMentorshipProfiles).where(
             and(
               eq(suiteMentorshipProfiles.userId, userId),
               eq(suiteMentorshipProfiles.isActive, true)
@@ -4269,7 +4283,7 @@ var init_storage = __esm({
           if (role) {
             conditions.push(eq(suiteMentorshipProfiles.role, role));
           }
-          await db.delete(suiteMentorshipProfiles).where(and(...conditions));
+          await getDb().delete(suiteMentorshipProfiles).where(and(...conditions));
           console.log(
             `Mentorship profile${role ? ` (${role})` : "s"} permanently deleted for user:`,
             userId
@@ -4284,13 +4298,13 @@ var init_storage = __esm({
           console.log("Creating/updating mentorship profile for user:", userId);
           console.log("Mentorship profile data:", mentorshipProfileData);
           const role = mentorshipProfileData.role || "mentor";
-          await db.update(suiteMentorshipProfiles).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() }).where(
+          await getDb.update(suiteMentorshipProfiles).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() }).where(
             and(
               eq(suiteMentorshipProfiles.userId, userId),
               eq(suiteMentorshipProfiles.role, role)
             )
           );
-          const [existingProfile] = await db.select().from(suiteMentorshipProfiles).where(
+          const [existingProfile] = await getDb.select().from(suiteMentorshipProfiles).where(
             and(
               eq(suiteMentorshipProfiles.userId, userId),
               eq(suiteMentorshipProfiles.role, role)
@@ -4316,7 +4330,7 @@ var init_storage = __esm({
               Object.keys(updateObject)
             );
             console.log("Storage layer: Update object:", updateObject);
-            const [updatedProfile] = await db.update(suiteMentorshipProfiles).set(updateObject).where(eq(suiteMentorshipProfiles.id, existingProfile.id)).returning();
+            const [updatedProfile] = await getDb.update(suiteMentorshipProfiles).set(updateObject).where(eq(suiteMentorshipProfiles.id, existingProfile.id)).returning();
             if (updateObject.highSchool !== void 0 || updateObject.collegeUniversity !== void 0) {
               console.log(
                 "\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from mentorship profile"
@@ -4329,7 +4343,7 @@ var init_storage = __esm({
                 userUpdateData.collegeUniversity = updateObject.collegeUniversity;
               }
               try {
-                await db.update(users).set(userUpdateData).where(eq(users.id, userId));
+                await getDb.update(users).set(userUpdateData).where(eq(users.id, userId));
                 console.log(
                   "\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:",
                   userUpdateData
@@ -4372,7 +4386,7 @@ var init_storage = __esm({
               visibilityPreferences: mentorshipProfileData.visibilityPreferences || null,
               isActive: true
             };
-            const [newProfile] = await db.insert(suiteMentorshipProfiles).values(profileToInsert).returning();
+            const [newProfile] = await getDb.insert(suiteMentorshipProfiles).values(profileToInsert).returning();
             if (profileToInsert.highSchool || profileToInsert.collegeUniversity) {
               console.log(
                 "\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from new mentorship profile"
@@ -4385,7 +4399,7 @@ var init_storage = __esm({
                 userUpdateData.collegeUniversity = profileToInsert.collegeUniversity;
               }
               try {
-                await db.update(users).set(userUpdateData).where(eq(users.id, userId));
+                await getDb.update(users).set(userUpdateData).where(eq(users.id, userId));
                 console.log(
                   "\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:",
                   userUpdateData
@@ -4408,7 +4422,7 @@ var init_storage = __esm({
       }
       async getDiscoveryMentorshipProfiles(userId, limit, offset) {
         try {
-          const mentorshipProfiles = await db.select({
+          const mentorshipProfiles = await getDb.select({
             // Mentorship profile fields
             id: suiteMentorshipProfiles.id,
             userId: suiteMentorshipProfiles.userId,
@@ -4494,7 +4508,7 @@ var init_storage = __esm({
               }
               let mentorshipPrimaryPhotoUrl = null;
               try {
-                const mentorshipPhotos = await db.select().from(userPhotos).where(
+                const mentorshipPhotos = await getDb.select().from(userPhotos).where(
                   and(
                     eq(userPhotos.userId, profile.userId),
                     eq(userPhotos.isPrimaryForMentorship, true)
@@ -4525,7 +4539,7 @@ var init_storage = __esm({
       // ===== NETWORKING PROFILE METHODS =====
       async getSuiteNetworkingProfile(userId) {
         try {
-          const [result] = await db.select({
+          const [result] = await getDb.select({
             // Include all networking profile fields
             ...suiteNetworkingProfiles,
             // Override education fields with data from users table for sync
@@ -4557,7 +4571,7 @@ var init_storage = __esm({
       }
       async getSuiteNetworkingProfileById(profileId) {
         try {
-          const [networkingProfile] = await db.select().from(suiteNetworkingProfiles).where(
+          const [networkingProfile] = await getDb.select().from(suiteNetworkingProfiles).where(
             and(
               eq(suiteNetworkingProfiles.id, profileId),
               eq(suiteNetworkingProfiles.isActive, true)
@@ -4571,7 +4585,7 @@ var init_storage = __esm({
       }
       async deleteSuiteNetworkingProfile(userId) {
         try {
-          await db.delete(suiteNetworkingProfiles).where(eq(suiteNetworkingProfiles.userId, userId));
+          await getDb.delete(suiteNetworkingProfiles).where(eq(suiteNetworkingProfiles.userId, userId));
           console.log("Networking profile permanently deleted for user:", userId);
         } catch (error) {
           console.error("Error deleting networking profile:", error);
@@ -4582,8 +4596,8 @@ var init_storage = __esm({
         try {
           console.log("Creating/updating networking profile for user:", userId);
           console.log("Profile data received:", networkingProfileData);
-          await db.update(suiteNetworkingProfiles).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq(suiteNetworkingProfiles.userId, userId));
-          const [existingProfile] = await db.select().from(suiteNetworkingProfiles).where(eq(suiteNetworkingProfiles.userId, userId)).orderBy(sql`${suiteNetworkingProfiles.createdAt} DESC`).limit(1);
+          await getDb.update(suiteNetworkingProfiles).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq(suiteNetworkingProfiles.userId, userId));
+          const [existingProfile] = await getDb.select().from(suiteNetworkingProfiles).where(eq(suiteNetworkingProfiles.userId, userId)).orderBy(sql`${suiteNetworkingProfiles.createdAt} DESC`).limit(1);
           if (existingProfile) {
             const cleanData = { ...networkingProfileData };
             delete cleanData.createdAt;
@@ -4604,7 +4618,7 @@ var init_storage = __esm({
               Object.keys(updateObject)
             );
             console.log("Storage layer: Update object:", updateObject);
-            const [updatedProfile] = await db.update(suiteNetworkingProfiles).set(updateObject).where(eq(suiteNetworkingProfiles.id, existingProfile.id)).returning();
+            const [updatedProfile] = await getDb.update(suiteNetworkingProfiles).set(updateObject).where(eq(suiteNetworkingProfiles.id, existingProfile.id)).returning();
             if (updateObject.highSchool !== void 0 || updateObject.collegeUniversity !== void 0) {
               console.log(
                 "\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from networking profile"
@@ -4617,7 +4631,7 @@ var init_storage = __esm({
                 userUpdateData.collegeUniversity = updateObject.collegeUniversity;
               }
               try {
-                await db.update(users).set(userUpdateData).where(eq(users.id, userId));
+                await getDb.update(users).set(userUpdateData).where(eq(users.id, userId));
                 console.log(
                   "\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:",
                   userUpdateData
@@ -4662,7 +4676,7 @@ var init_storage = __esm({
               visibilityPreferences: networkingProfileData.visibilityPreferences || null
             };
             console.log("Inserting new networking profile:", profileToInsert);
-            const [networkingProfile] = await db.insert(suiteNetworkingProfiles).values(profileToInsert).returning();
+            const [networkingProfile] = await getDb.insert(suiteNetworkingProfiles).values(profileToInsert).returning();
             if (profileToInsert.highSchool || profileToInsert.collegeUniversity) {
               console.log(
                 "\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from new networking profile"
@@ -4675,7 +4689,7 @@ var init_storage = __esm({
                 userUpdateData.collegeUniversity = profileToInsert.collegeUniversity;
               }
               try {
-                await db.update(users).set(userUpdateData).where(eq(users.id, userId));
+                await getDb.update(users).set(userUpdateData).where(eq(users.id, userId));
                 console.log(
                   "\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:",
                   userUpdateData
@@ -4699,7 +4713,7 @@ var init_storage = __esm({
       }
       async getDiscoveryNetworkingProfiles(userId, limit, offset) {
         try {
-          const networkingProfiles = await db.select({
+          const networkingProfiles = await getDb.select({
             // Networking profile fields
             id: suiteNetworkingProfiles.id,
             userId: suiteNetworkingProfiles.userId,
@@ -4809,7 +4823,7 @@ var init_storage = __esm({
               }
               let networkingPrimaryPhotoUrl = null;
               try {
-                const networkingPhotos = await db.select().from(userPhotos).where(
+                const networkingPhotos = await getDb.select().from(userPhotos).where(
                   and(
                     eq(userPhotos.userId, profile.userId),
                     eq(userPhotos.isPrimaryForNetworking, true)
@@ -4840,7 +4854,7 @@ var init_storage = __esm({
       // ===== FIELD VISIBILITY METHODS =====
       async getFieldVisibility(userId, profileType) {
         try {
-          const visibilitySettings = await db.select().from(suiteFieldVisibility).where(
+          const visibilitySettings = await getDb.select().from(suiteFieldVisibility).where(
             and(
               eq(suiteFieldVisibility.userId, userId),
               eq(suiteFieldVisibility.profileType, profileType)
@@ -4854,7 +4868,7 @@ var init_storage = __esm({
       }
       async updateFieldVisibility(userId, profileType, fieldName, isVisible) {
         try {
-          const [visibility] = await db.insert(suiteFieldVisibility).values({
+          const [visibility] = await getDb.insert(suiteFieldVisibility).values({
             userId,
             profileType,
             fieldName,
@@ -4892,7 +4906,7 @@ var init_storage = __esm({
       // Networking connections
       async createSuiteNetworkingConnection(connectionData) {
         try {
-          const [connection] = await db.insert(suiteNetworkingConnections).values(connectionData).returning();
+          const [connection] = await getDb.insert(suiteNetworkingConnections).values(connectionData).returning();
           return connection;
         } catch (error) {
           console.error("Error creating networking connection:", error);
@@ -4901,7 +4915,7 @@ var init_storage = __esm({
       }
       async getSuiteNetworkingConnection(userId, targetProfileId) {
         try {
-          const [connection] = await db.select().from(suiteNetworkingConnections).where(
+          const [connection] = await getDb.select().from(suiteNetworkingConnections).where(
             and(
               eq(suiteNetworkingConnections.userId, userId),
               eq(suiteNetworkingConnections.targetProfileId, targetProfileId)
@@ -4915,7 +4929,7 @@ var init_storage = __esm({
       }
       async updateSuiteNetworkingConnection(id, updates) {
         try {
-          const [connection] = await db.update(suiteNetworkingConnections).set(updates).where(eq(suiteNetworkingConnections.id, id)).returning();
+          const [connection] = await getDb.update(suiteNetworkingConnections).set(updates).where(eq(suiteNetworkingConnections.id, id)).returning();
           return connection || void 0;
         } catch (error) {
           console.error("Error updating networking connection:", error);
@@ -4924,7 +4938,7 @@ var init_storage = __esm({
       }
       async getUserNetworkingConnections(userId) {
         try {
-          const incomingConnections = await db.select({
+          const incomingConnections = await getDb.select({
             id: suiteNetworkingConnections.id,
             userId: suiteNetworkingConnections.userId,
             targetProfileId: suiteNetworkingConnections.targetProfileId,
@@ -4950,7 +4964,7 @@ var init_storage = __esm({
             incomingConnections.map(async (conn) => {
               let networkingPrimaryPhotoUrl = null;
               if (conn.userId) {
-                const [networkingPhoto] = await db.select({
+                const [networkingPhoto] = await getDb.select({
                   photoUrl: userPhotos.photoUrl
                 }).from(userPhotos).where(
                   and(
@@ -4976,7 +4990,7 @@ var init_storage = __esm({
       // Mentorship connections
       async createSuiteMentorshipConnection(connectionData) {
         try {
-          const [connection] = await db.insert(suiteMentorshipConnections).values(connectionData).returning();
+          const [connection] = await getDb.insert(suiteMentorshipConnections).values(connectionData).returning();
           return connection;
         } catch (error) {
           console.error("Error creating mentorship connection:", error);
@@ -4985,7 +4999,7 @@ var init_storage = __esm({
       }
       async getSuiteMentorshipConnection(userId, targetProfileId) {
         try {
-          const [connection] = await db.select().from(suiteMentorshipConnections).where(
+          const [connection] = await getDb.select().from(suiteMentorshipConnections).where(
             and(
               eq(suiteMentorshipConnections.userId, userId),
               eq(suiteMentorshipConnections.targetProfileId, targetProfileId)
@@ -4999,7 +5013,7 @@ var init_storage = __esm({
       }
       async updateSuiteMentorshipConnection(id, updates) {
         try {
-          const [connection] = await db.update(suiteMentorshipConnections).set(updates).where(eq(suiteMentorshipConnections.id, id)).returning();
+          const [connection] = await getDb.update(suiteMentorshipConnections).set(updates).where(eq(suiteMentorshipConnections.id, id)).returning();
           return connection || void 0;
         } catch (error) {
           console.error("Error updating mentorship connection:", error);
@@ -5008,7 +5022,7 @@ var init_storage = __esm({
       }
       async getUserMentorshipConnections(userId) {
         try {
-          const incomingConnections = await db.select({
+          const incomingConnections = await getDb.select({
             id: suiteMentorshipConnections.id,
             userId: suiteMentorshipConnections.userId,
             targetProfileId: suiteMentorshipConnections.targetProfileId,
@@ -5048,7 +5062,7 @@ var init_storage = __esm({
                 }
                 let mentorshipPrimaryPhotoUrl = null;
                 try {
-                  const mentorshipPhotos = await db.select().from(userPhotos).where(
+                  const mentorshipPhotos = await getDb.select().from(userPhotos).where(
                     and(
                       eq(userPhotos.userId, connection.userId),
                       eq(userPhotos.isPrimaryForMentorship, true)
@@ -5085,7 +5099,7 @@ var init_storage = __esm({
       // Job applications
       async createSuiteJobApplication(applicationData) {
         try {
-          const [application] = await db.insert(suiteJobApplications).values(applicationData).returning();
+          const [application] = await getDb.insert(suiteJobApplications).values(applicationData).returning();
           return application;
         } catch (error) {
           console.error("Error creating job application:", error);
@@ -5094,7 +5108,7 @@ var init_storage = __esm({
       }
       async getSuiteJobApplication(userId, targetProfileId) {
         try {
-          const [application] = await db.select().from(suiteJobApplications).where(
+          const [application] = await getDb.select().from(suiteJobApplications).where(
             and(
               eq(suiteJobApplications.userId, userId),
               eq(suiteJobApplications.targetProfileId, targetProfileId)
@@ -5108,7 +5122,7 @@ var init_storage = __esm({
       }
       async updateSuiteJobApplication(id, updates) {
         try {
-          const [application] = await db.update(suiteJobApplications).set(updates).where(eq(suiteJobApplications.id, id)).returning();
+          const [application] = await getDb.update(suiteJobApplications).set(updates).where(eq(suiteJobApplications.id, id)).returning();
           return application || void 0;
         } catch (error) {
           console.error("Error updating job application:", error);
@@ -5117,7 +5131,7 @@ var init_storage = __esm({
       }
       async getSuiteJobApplicationById(id) {
         try {
-          const [application] = await db.select().from(suiteJobApplications).where(eq(suiteJobApplications.id, id));
+          const [application] = await getDb.select().from(suiteJobApplications).where(eq(suiteJobApplications.id, id));
           return application || void 0;
         } catch (error) {
           console.error("Error getting job application by ID:", error);
@@ -5126,7 +5140,7 @@ var init_storage = __esm({
       }
       async getSuiteJobApplicationByUsers(userId, targetUserId) {
         try {
-          const [application] = await db.select().from(suiteJobApplications).where(
+          const [application] = await getDb.select().from(suiteJobApplications).where(
             and(
               eq(suiteJobApplications.userId, userId),
               eq(suiteJobApplications.targetUserId, targetUserId)
@@ -5140,7 +5154,7 @@ var init_storage = __esm({
       }
       async getUserJobApplications(userId) {
         try {
-          const incomingApplications = await db.select({
+          const incomingApplications = await getDb.select({
             id: suiteJobApplications.id,
             userId: suiteJobApplications.userId,
             targetProfileId: suiteJobApplications.targetProfileId,
@@ -5184,7 +5198,7 @@ var init_storage = __esm({
       // Connection management by ID methods
       async getSuiteNetworkingConnectionById(id) {
         try {
-          const [connection] = await db.select().from(suiteNetworkingConnections).where(eq(suiteNetworkingConnections.id, id));
+          const [connection] = await getDb.select().from(suiteNetworkingConnections).where(eq(suiteNetworkingConnections.id, id));
           return connection || void 0;
         } catch (error) {
           console.error("Error getting networking connection by ID:", error);
@@ -5193,7 +5207,7 @@ var init_storage = __esm({
       }
       async getSuiteMentorshipConnectionById(id) {
         try {
-          const [connection] = await db.select().from(suiteMentorshipConnections).where(eq(suiteMentorshipConnections.id, id));
+          const [connection] = await getDb.select().from(suiteMentorshipConnections).where(eq(suiteMentorshipConnections.id, id));
           return connection || void 0;
         } catch (error) {
           console.error("Error getting mentorship connection by ID:", error);
@@ -5202,7 +5216,7 @@ var init_storage = __esm({
       }
       async deleteSuiteNetworkingConnectionById(id) {
         try {
-          await db.delete(suiteNetworkingConnections).where(eq(suiteNetworkingConnections.id, id));
+          await getDb.delete(suiteNetworkingConnections).where(eq(suiteNetworkingConnections.id, id));
         } catch (error) {
           console.error("Error deleting networking connection by ID:", error);
           throw error;
@@ -5210,7 +5224,7 @@ var init_storage = __esm({
       }
       async deleteSuiteMentorshipConnectionById(id) {
         try {
-          await db.delete(suiteMentorshipConnections).where(eq(suiteMentorshipConnections.id, id));
+          await getDb.delete(suiteMentorshipConnections).where(eq(suiteMentorshipConnections.id, id));
         } catch (error) {
           console.error("Error deleting mentorship connection by ID:", error);
           throw error;
@@ -5218,7 +5232,7 @@ var init_storage = __esm({
       }
       async deleteSuiteJobApplicationById(id) {
         try {
-          await db.delete(suiteJobApplications).where(eq(suiteJobApplications.id, id));
+          await getDb.delete(suiteJobApplications).where(eq(suiteJobApplications.id, id));
         } catch (error) {
           console.error("Error deleting job application by ID:", error);
           throw error;
@@ -5227,7 +5241,7 @@ var init_storage = __esm({
       // Clear all networking connections for testing
       async clearAllNetworkingConnections() {
         try {
-          await db.delete(suiteNetworkingConnections);
+          await getDb().delete(suiteNetworkingConnections);
           console.log("All networking connections cleared");
         } catch (error) {
           console.error("Error clearing networking connections:", error);
@@ -5250,7 +5264,7 @@ var init_storage = __esm({
             userId: smallerId,
             targetUserId: largerId
           };
-          const [score] = await db.insert(suiteCompatibilityScores).values(orderedScoreData).returning();
+          const [score] = await getDb.insert(suiteCompatibilityScores).values(orderedScoreData).returning();
           return score;
         } catch (error) {
           console.error("Error creating suite compatibility score:", error);
@@ -5259,11 +5273,11 @@ var init_storage = __esm({
       }
       async getSuiteCompatibilityScore(userId, targetProfileId) {
         try {
-          const targetProfile = await db.select({ userId: suiteNetworkingProfiles.userId }).from(suiteNetworkingProfiles).where(eq(suiteNetworkingProfiles.id, targetProfileId));
+          const targetProfile = await getDb.select({ userId: suiteNetworkingProfiles.userId }).from(suiteNetworkingProfiles).where(eq(suiteNetworkingProfiles.id, targetProfileId));
           if (!targetProfile.length) return void 0;
           const targetUserId = targetProfile[0].userId;
           const { smallerId, largerId } = this.orderUserIds(userId, targetUserId);
-          const [score] = await db.select().from(suiteCompatibilityScores).where(
+          const [score] = await getDb.select().from(suiteCompatibilityScores).where(
             and(
               eq(suiteCompatibilityScores.userId, smallerId),
               eq(suiteCompatibilityScores.targetUserId, largerId),
@@ -5291,7 +5305,7 @@ var init_storage = __esm({
               targetUserId: largerId
             };
           }
-          const [score] = await db.update(suiteCompatibilityScores).set({
+          const [score] = await getDb.update(suiteCompatibilityScores).set({
             ...orderedUpdates,
             lastUpdated: /* @__PURE__ */ new Date()
           }).where(eq(suiteCompatibilityScores.id, id)).returning();
@@ -5313,7 +5327,7 @@ var init_storage = __esm({
             userId: smallerId,
             targetUserId: largerId
           };
-          const [score] = await db.insert(suiteMentorshipCompatibilityScores).values(orderedScoreData).returning();
+          const [score] = await getDb.insert(suiteMentorshipCompatibilityScores).values(orderedScoreData).returning();
           return score;
         } catch (error) {
           console.error("Error creating mentorship compatibility score:", error);
@@ -5322,11 +5336,11 @@ var init_storage = __esm({
       }
       async getSuiteMentorshipCompatibilityScore(userId, targetProfileId) {
         try {
-          const targetProfile = await db.select({ userId: suiteMentorshipProfiles.userId }).from(suiteMentorshipProfiles).where(eq(suiteMentorshipProfiles.id, targetProfileId));
+          const targetProfile = await getDb.select({ userId: suiteMentorshipProfiles.userId }).from(suiteMentorshipProfiles).where(eq(suiteMentorshipProfiles.id, targetProfileId));
           if (!targetProfile.length) return void 0;
           const targetUserId = targetProfile[0].userId;
           const { smallerId, largerId } = this.orderUserIds(userId, targetUserId);
-          const [score] = await db.select().from(suiteMentorshipCompatibilityScores).where(
+          const [score] = await getDb.select().from(suiteMentorshipCompatibilityScores).where(
             and(
               eq(suiteMentorshipCompatibilityScores.userId, smallerId),
               eq(suiteMentorshipCompatibilityScores.targetUserId, largerId),
@@ -5357,7 +5371,7 @@ var init_storage = __esm({
               targetUserId: largerId
             };
           }
-          const [score] = await db.update(suiteMentorshipCompatibilityScores).set({
+          const [score] = await getDb.update(suiteMentorshipCompatibilityScores).set({
             ...orderedUpdates,
             lastUpdated: /* @__PURE__ */ new Date()
           }).where(eq(suiteMentorshipCompatibilityScores.id, id)).returning();
@@ -5369,7 +5383,7 @@ var init_storage = __esm({
       }
       async deleteSuiteMentorshipCompatibilityScore(id) {
         try {
-          await db.delete(suiteMentorshipCompatibilityScores).where(eq(suiteMentorshipCompatibilityScores.id, id));
+          await getDb.delete(suiteMentorshipCompatibilityScores).where(eq(suiteMentorshipCompatibilityScores.id, id));
         } catch (error) {
           console.error("Error deleting mentorship compatibility score:", error);
           throw error;
@@ -5377,7 +5391,7 @@ var init_storage = __esm({
       }
       async deleteSuiteCompatibilityScore(id) {
         try {
-          await db.delete(suiteCompatibilityScores).where(eq(suiteCompatibilityScores.id, id));
+          await getDb.delete(suiteCompatibilityScores).where(eq(suiteCompatibilityScores.id, id));
         } catch (error) {
           console.error("Error deleting suite compatibility score:", error);
           throw error;
@@ -5385,7 +5399,7 @@ var init_storage = __esm({
       }
       async getUserByMentorshipProfileId(profileId) {
         try {
-          const [result] = await db.select({
+          const [result] = await getDb.select({
             id: users.id,
             fullName: users.fullName,
             photoUrl: users.photoUrl,
@@ -5404,7 +5418,7 @@ var init_storage = __esm({
       }
       async getSuiteMentorshipProfileByUserId(userId) {
         try {
-          const [profile] = await db.select().from(suiteMentorshipProfiles).where(
+          const [profile] = await getDb.select().from(suiteMentorshipProfiles).where(
             and(
               eq(suiteMentorshipProfiles.userId, userId),
               eq(suiteMentorshipProfiles.isActive, true)
@@ -5418,7 +5432,7 @@ var init_storage = __esm({
       }
       async getSuiteMentorshipProfileById(profileId) {
         try {
-          const [profile] = await db.select().from(suiteMentorshipProfiles).where(eq(suiteMentorshipProfiles.id, profileId));
+          const [profile] = await getDb.select().from(suiteMentorshipProfiles).where(eq(suiteMentorshipProfiles.id, profileId));
           return profile || void 0;
         } catch (error) {
           console.error("Error getting mentorship profile by ID:", error);
@@ -5427,7 +5441,7 @@ var init_storage = __esm({
       }
       async getUserByNetworkingProfileId(profileId) {
         try {
-          const [profile] = await db.select({
+          const [profile] = await getDb.select({
             user: users
           }).from(suiteNetworkingProfiles).innerJoin(users, eq(suiteNetworkingProfiles.userId, users.id)).where(eq(suiteNetworkingProfiles.id, profileId));
           return profile?.user || void 0;
@@ -5439,7 +5453,7 @@ var init_storage = __esm({
       // Professional Reviews System
       async createProfessionalReview(reviewData) {
         try {
-          const result = await db.execute(sql`
+          const result = await getDb().execute(sql`
         INSERT INTO professional_reviews (
           user_id, target_user_id, rating, review_text, category, is_anonymous, created_at, updated_at
         ) VALUES (
@@ -5472,7 +5486,7 @@ var init_storage = __esm({
       }
       async getProfessionalReviewsForUser(reviewedUserId) {
         try {
-          const reviews = await db.execute(sql`
+          const reviews = await getDb().execute(sql`
         SELECT 
           pr.id,
           pr.target_user_id as reviewed_user_id,
@@ -5516,7 +5530,7 @@ var init_storage = __esm({
       }
       async getProfessionalReviewStats(reviewedUserId) {
         try {
-          const reviews = await db.execute(sql`
+          const reviews = await getDb().execute(sql`
         SELECT rating 
         FROM professional_reviews 
         WHERE target_user_id = ${reviewedUserId}
@@ -5546,7 +5560,7 @@ var init_storage = __esm({
       }
       async getExistingReview(reviewedUserId, reviewerUserId, category = "overall") {
         try {
-          const review = await db.execute(sql`
+          const review = await getDb().execute(sql`
         SELECT * FROM professional_reviews 
         WHERE target_user_id = ${reviewedUserId} 
         AND user_id = ${reviewerUserId} 
@@ -5573,7 +5587,7 @@ var init_storage = __esm({
       }
       async deleteProfessionalReview(reviewId, userId) {
         try {
-          const result = await db.execute(sql`
+          const result = await getDb().execute(sql`
         DELETE FROM professional_reviews 
         WHERE id = ${reviewId} AND user_id = ${userId}
         RETURNING id
@@ -5586,7 +5600,7 @@ var init_storage = __esm({
       }
       async updateProfessionalReview(id, updates) {
         try {
-          const result = await db.execute(sql`
+          const result = await getDb().execute(sql`
         UPDATE professional_reviews 
         SET 
           rating = ${updates.rating}, 
@@ -5622,7 +5636,7 @@ var init_storage = __esm({
           if (!jobProfile) {
             throw new Error("Job profile not found");
           }
-          const result = await db.execute(sql`
+          const result = await getDb().execute(sql`
         INSERT INTO suite_job_applications (user_id, target_profile_id, target_user_id, action, application_status, matched) 
         VALUES (${applicationData.userId}, ${applicationData.jobProfileId}, ${jobProfile.userId}, ${applicationData.action}, ${applicationData.action === "like" ? "pending" : "rejected"}, false)
         ON CONFLICT (user_id, target_profile_id) 
@@ -5638,7 +5652,7 @@ var init_storage = __esm({
       // Swipe history operations for persistent undo functionality
       async addSwipeHistory(swipeData) {
         try {
-          const [history] = await db.insert(swipeHistory).values(swipeData).returning();
+          const [history] = await getDb.insert(swipeHistory).values(swipeData).returning();
           return history;
         } catch (error) {
           console.error("Error adding swipe history:", error);
@@ -5647,7 +5661,7 @@ var init_storage = __esm({
       }
       async getUserSwipeHistory(userId, appMode, limit = 10) {
         try {
-          const history = await db.select({
+          const history = await getDb.select({
             id: swipeHistory.id,
             userId: swipeHistory.userId,
             targetUserId: swipeHistory.targetUserId,
@@ -5668,7 +5682,7 @@ var init_storage = __esm({
       }
       async removeSwipeHistory(id) {
         try {
-          await db.delete(swipeHistory).where(eq(swipeHistory.id, id));
+          await getDb().delete(swipeHistory).where(eq(swipeHistory.id, id));
         } catch (error) {
           console.error("Error removing swipe history:", error);
           throw error;
@@ -5676,7 +5690,7 @@ var init_storage = __esm({
       }
       async clearUserSwipeHistory(userId, appMode) {
         try {
-          await db.delete(swipeHistory).where(
+          await getDb.delete(swipeHistory).where(
             and(
               eq(swipeHistory.userId, userId),
               eq(swipeHistory.appMode, appMode)
@@ -5689,14 +5703,14 @@ var init_storage = __esm({
       }
       async removeSwipeFromHistory(userId, targetUserId) {
         try {
-          const [latestSwipe] = await db.select().from(swipeHistory).where(
+          const [latestSwipe] = await getDb.select().from(swipeHistory).where(
             and(
               eq(swipeHistory.userId, userId),
               eq(swipeHistory.targetUserId, targetUserId)
             )
           ).orderBy(desc(swipeHistory.timestamp)).limit(1);
           if (latestSwipe) {
-            await db.delete(swipeHistory).where(eq(swipeHistory.id, latestSwipe.id));
+            await getDb.delete(swipeHistory).where(eq(swipeHistory.id, latestSwipe.id));
             console.log(
               `Removed swipe history record ${latestSwipe.id} for user ${userId} -> ${targetUserId}`
             );
@@ -5721,7 +5735,7 @@ var init_storage = __esm({
           if (appMode) {
             whereCondition = and(whereCondition, eq(swipeHistory.appMode, appMode));
           }
-          const result = await db.delete(swipeHistory).where(whereCondition);
+          const result = await getDb().delete(swipeHistory).where(whereCondition);
           const modeText = appMode ? ` (${appMode})` : "";
           console.log(
             `[SWIPE-CLEANUP] Removed swipe history records for matched users ${userId1} \u2194 ${userId2}${modeText} to protect match integrity`
@@ -5734,7 +5748,7 @@ var init_storage = __esm({
       // Connections Preferences Methods
       async getConnectionsPreferences(userId) {
         try {
-          const [preferences] = await db.select().from(connectionsPreferences).where(eq(connectionsPreferences.userId, userId));
+          const [preferences] = await getDb.select().from(connectionsPreferences).where(eq(connectionsPreferences.userId, userId));
           return preferences || null;
         } catch (error) {
           console.error("Error getting connections preferences:", error);
@@ -5843,7 +5857,7 @@ var init_storage = __esm({
                     `ARRAY-FIX: PostgreSQL array format for ${field}:`,
                     arrayValue
                   );
-                  await db.execute(
+                  await getDb().execute(
                     sql.raw(`UPDATE connections_preferences 
                 SET ${field} = '${arrayValue}'::text[], 
                     updated_at = NOW() 
@@ -5886,7 +5900,7 @@ var init_storage = __esm({
               updatedAt: /* @__PURE__ */ new Date()
             };
             if (updateData.networking_location_preference !== void 0) {
-              await db.execute(sql`
+              await getDb().execute(sql`
             UPDATE connections_preferences 
             SET networking_location_preference = ${updateData.networking_location_preference}, 
                 updated_at = ${updateData.updatedAt}
@@ -5898,7 +5912,7 @@ var init_storage = __esm({
               );
             }
             if (updateData.mentorship_location_preference !== void 0) {
-              await db.execute(sql`
+              await getDb().execute(sql`
             UPDATE connections_preferences 
             SET mentorship_location_preference = ${updateData.mentorship_location_preference}, 
                 updated_at = ${updateData.updatedAt}
@@ -5910,7 +5924,7 @@ var init_storage = __esm({
               );
             }
             if (updateData.jobs_work_location !== void 0) {
-              await db.execute(sql`
+              await getDb().execute(sql`
             UPDATE connections_preferences 
             SET jobs_work_location = ${updateData.jobs_work_location}, 
                 updated_at = ${updateData.updatedAt}
@@ -5922,7 +5936,7 @@ var init_storage = __esm({
               );
             }
             if (data.jobs_weights !== void 0) {
-              await db.execute(sql`
+              await getDb().execute(sql`
             UPDATE connections_preferences 
             SET jobs_weights = ${JSON.stringify(data.jobs_weights)}, 
                 updated_at = ${updateData.updatedAt}
@@ -5934,7 +5948,7 @@ var init_storage = __esm({
               );
             }
             if (data.jobs_salary_currency !== void 0) {
-              await db.execute(sql`
+              await getDb().execute(sql`
             UPDATE connections_preferences 
             SET jobs_salary_currency = ${data.jobs_salary_currency}, 
                 updated_at = ${updateData.updatedAt}
@@ -5946,7 +5960,7 @@ var init_storage = __esm({
               );
             }
             if (data.jobs_salary_min !== void 0) {
-              await db.execute(sql`
+              await getDb().execute(sql`
             UPDATE connections_preferences 
             SET jobs_salary_min = ${data.jobs_salary_min}, 
                 updated_at = ${updateData.updatedAt}
@@ -5958,7 +5972,7 @@ var init_storage = __esm({
               );
             }
             if (data.jobs_salary_max !== void 0) {
-              await db.execute(sql`
+              await getDb().execute(sql`
             UPDATE connections_preferences 
             SET jobs_salary_max = ${data.jobs_salary_max}, 
                 updated_at = ${updateData.updatedAt}
@@ -5970,7 +5984,7 @@ var init_storage = __esm({
               );
             }
             if (data.jobs_salary_period !== void 0) {
-              await db.execute(sql`
+              await getDb().execute(sql`
             UPDATE connections_preferences 
             SET jobs_salary_period = ${data.jobs_salary_period}, 
                 updated_at = ${updateData.updatedAt}
@@ -5982,7 +5996,7 @@ var init_storage = __esm({
               );
             }
             if (data.mentorship_weights !== void 0) {
-              await db.execute(sql`
+              await getDb().execute(sql`
             UPDATE connections_preferences 
             SET mentorship_weights = ${JSON.stringify(data.mentorship_weights)}, 
                 updated_at = ${updateData.updatedAt}
@@ -5994,7 +6008,7 @@ var init_storage = __esm({
               );
             }
             if (data.networking_weights !== void 0) {
-              await db.execute(sql`
+              await getDb().execute(sql`
             UPDATE connections_preferences 
             SET networking_weights = ${JSON.stringify(data.networking_weights)}, 
                 updated_at = ${updateData.updatedAt}
@@ -6005,14 +6019,14 @@ var init_storage = __esm({
                 data.networking_weights
               );
             }
-            const [updated] = await db.update(connectionsPreferences).set(updateData).where(eq(connectionsPreferences.userId, userId)).returning();
+            const [updated] = await getDb.update(connectionsPreferences).set(updateData).where(eq(connectionsPreferences.userId, userId)).returning();
             console.log(
               "Connections preferences updated successfully for user:",
               userId
             );
             return updated;
           } else {
-            const [created] = await db.insert(connectionsPreferences).values({
+            const [created] = await getDb.insert(connectionsPreferences).values({
               ...cleanData,
               userId,
               createdAt: /* @__PURE__ */ new Date(),
@@ -6029,7 +6043,7 @@ var init_storage = __esm({
       // USER REPORT STRIKES METHODS
       // ===================================
       async createUserReportStrike(reportStrike) {
-        const [strike] = await db.insert(userReportStrikes).values({
+        const [strike] = await getDb.insert(userReportStrikes).values({
           ...reportStrike,
           createdAt: /* @__PURE__ */ new Date(),
           updatedAt: /* @__PURE__ */ new Date()
@@ -6037,16 +6051,16 @@ var init_storage = __esm({
         return strike;
       }
       async getUserReportStrikes(reportedUserId) {
-        return await db.select().from(userReportStrikes).where(eq(userReportStrikes.reportedUserId, reportedUserId)).orderBy(desc(userReportStrikes.createdAt));
+        return await getDb.select().from(userReportStrikes).where(eq(userReportStrikes.reportedUserId, reportedUserId)).orderBy(desc(userReportStrikes.createdAt));
       }
       async getUserReportStrikeCount(reportedUserId) {
-        const result = await db.select({ count: count() }).from(userReportStrikes).where(eq(userReportStrikes.reportedUserId, reportedUserId));
+        const result = await getDb.select({ count: count() }).from(userReportStrikes).where(eq(userReportStrikes.reportedUserId, reportedUserId));
         return result[0]?.count || 0;
       }
       async getReportStrikesInLast24Hours(reportedUserId) {
         const yesterday = /* @__PURE__ */ new Date();
         yesterday.setHours(yesterday.getHours() - 24);
-        return await db.select().from(userReportStrikes).where(
+        return await getDb.select().from(userReportStrikes).where(
           and(
             eq(userReportStrikes.reportedUserId, reportedUserId),
             sql`${userReportStrikes.createdAt} >= ${yesterday}`
@@ -6057,7 +6071,7 @@ var init_storage = __esm({
       // Subscription operations
       async createSubscription(subscription) {
         try {
-          const [result] = await db.insert(subscriptions).values(subscription).returning();
+          const [result] = await getDb.insert(subscriptions).values(subscription).returning();
           return result;
         } catch (error) {
           console.error("Error creating subscription:", error);
@@ -6066,7 +6080,7 @@ var init_storage = __esm({
       }
       async getSubscriptionById(id) {
         try {
-          const [subscription] = await db.select().from(subscriptions).where(eq(subscriptions.id, id));
+          const [subscription] = await getDb.select().from(subscriptions).where(eq(subscriptions.id, id));
           return subscription || void 0;
         } catch (error) {
           console.error("Error getting subscription by ID:", error);
@@ -6075,7 +6089,7 @@ var init_storage = __esm({
       }
       async getUserSubscription(userId) {
         try {
-          const [subscription] = await db.select().from(subscriptions).where(eq(subscriptions.userId, userId)).orderBy(desc(subscriptions.createdAt)).limit(1);
+          const [subscription] = await getDb.select().from(subscriptions).where(eq(subscriptions.userId, userId)).orderBy(desc(subscriptions.createdAt)).limit(1);
           return subscription || void 0;
         } catch (error) {
           console.error("Error getting user subscription:", error);
@@ -6084,7 +6098,7 @@ var init_storage = __esm({
       }
       async getUserActiveSubscription(userId) {
         try {
-          const [subscription] = await db.select().from(subscriptions).where(
+          const [subscription] = await getDb.select().from(subscriptions).where(
             and(
               eq(subscriptions.userId, userId),
               eq(subscriptions.status, "active"),
@@ -6099,7 +6113,7 @@ var init_storage = __esm({
       }
       async updateSubscription(id, updates) {
         try {
-          const [subscription] = await db.update(subscriptions).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(subscriptions.id, id)).returning();
+          const [subscription] = await getDb.update(subscriptions).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(subscriptions.id, id)).returning();
           return subscription || void 0;
         } catch (error) {
           console.error("Error updating subscription:", error);
@@ -6108,7 +6122,7 @@ var init_storage = __esm({
       }
       async cancelSubscription(id) {
         try {
-          const [subscription] = await db.update(subscriptions).set({
+          const [subscription] = await getDb.update(subscriptions).set({
             status: "cancelled",
             cancelAtPeriodEnd: true,
             cancelledAt: /* @__PURE__ */ new Date(),
@@ -6122,7 +6136,7 @@ var init_storage = __esm({
       }
       async getExpiredSubscriptions() {
         try {
-          return await db.select().from(subscriptions).where(
+          return await getDb.select().from(subscriptions).where(
             and(
               eq(subscriptions.status, "active"),
               sql`${subscriptions.currentPeriodEnd} < NOW()`
@@ -6135,7 +6149,7 @@ var init_storage = __esm({
       }
       async getSubscriptionsByProvider(provider) {
         try {
-          return await db.select().from(subscriptions).where(eq(subscriptions.provider, provider)).orderBy(desc(subscriptions.createdAt));
+          return await getDb.select().from(subscriptions).where(eq(subscriptions.provider, provider)).orderBy(desc(subscriptions.createdAt));
         } catch (error) {
           console.error("Error getting subscriptions by provider:", error);
           throw error;
@@ -6143,7 +6157,7 @@ var init_storage = __esm({
       }
       async getUserSubscriptionHistory(userId) {
         try {
-          return await db.select().from(subscriptions).where(eq(subscriptions.userId, userId)).orderBy(desc(subscriptions.createdAt));
+          return await getDb.select().from(subscriptions).where(eq(subscriptions.userId, userId)).orderBy(desc(subscriptions.createdAt));
         } catch (error) {
           console.error("Error getting user subscription history:", error);
           throw error;
@@ -6152,7 +6166,7 @@ var init_storage = __esm({
       // Payment method operations
       async createPaymentMethod(paymentMethod) {
         try {
-          const [result] = await db.insert(paymentMethods).values(paymentMethod).returning();
+          const [result] = await getDb.insert(paymentMethods).values(paymentMethod).returning();
           return result;
         } catch (error) {
           console.error("Error creating payment method:", error);
@@ -6161,7 +6175,7 @@ var init_storage = __esm({
       }
       async getPaymentMethodById(id) {
         try {
-          const [paymentMethod] = await db.select().from(paymentMethods).where(eq(paymentMethods.id, id));
+          const [paymentMethod] = await getDb.select().from(paymentMethods).where(eq(paymentMethods.id, id));
           return paymentMethod || void 0;
         } catch (error) {
           console.error("Error getting payment method by ID:", error);
@@ -6170,7 +6184,7 @@ var init_storage = __esm({
       }
       async getUserPaymentMethods(userId) {
         try {
-          return await db.select().from(paymentMethods).where(
+          return await getDb.select().from(paymentMethods).where(
             and(
               eq(paymentMethods.userId, userId),
               eq(paymentMethods.isActive, true)
@@ -6186,7 +6200,7 @@ var init_storage = __esm({
       }
       async getUserDefaultPaymentMethod(userId) {
         try {
-          const [paymentMethod] = await db.select().from(paymentMethods).where(
+          const [paymentMethod] = await getDb.select().from(paymentMethods).where(
             and(
               eq(paymentMethods.userId, userId),
               eq(paymentMethods.isDefault, true),
@@ -6201,7 +6215,7 @@ var init_storage = __esm({
       }
       async updatePaymentMethod(id, updates) {
         try {
-          const [paymentMethod] = await db.update(paymentMethods).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(paymentMethods.id, id)).returning();
+          const [paymentMethod] = await getDb.update(paymentMethods).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(paymentMethods.id, id)).returning();
           return paymentMethod || void 0;
         } catch (error) {
           console.error("Error updating payment method:", error);
@@ -6210,7 +6224,7 @@ var init_storage = __esm({
       }
       async deletePaymentMethod(id) {
         try {
-          await db.update(paymentMethods).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq(paymentMethods.id, id));
+          await getDb.update(paymentMethods).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq(paymentMethods.id, id));
         } catch (error) {
           console.error("Error deleting payment method:", error);
           throw error;
@@ -6218,8 +6232,8 @@ var init_storage = __esm({
       }
       async setDefaultPaymentMethod(userId, paymentMethodId) {
         try {
-          await db.update(paymentMethods).set({ isDefault: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq(paymentMethods.userId, userId));
-          const [paymentMethod] = await db.update(paymentMethods).set({ isDefault: true, updatedAt: /* @__PURE__ */ new Date() }).where(
+          await getDb.update(paymentMethods).set({ isDefault: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq(paymentMethods.userId, userId));
+          const [paymentMethod] = await getDb.update(paymentMethods).set({ isDefault: true, updatedAt: /* @__PURE__ */ new Date() }).where(
             and(
               eq(paymentMethods.id, paymentMethodId),
               eq(paymentMethods.userId, userId)
@@ -6234,7 +6248,7 @@ var init_storage = __esm({
       // Payment history operations
       async createPaymentHistory(payment) {
         try {
-          const [result] = await db.insert(paymentHistory).values(payment).returning();
+          const [result] = await getDb.insert(paymentHistory).values(payment).returning();
           return result;
         } catch (error) {
           console.error("Error creating payment history:", error);
@@ -6243,7 +6257,7 @@ var init_storage = __esm({
       }
       async getPaymentHistoryById(id) {
         try {
-          const [payment] = await db.select().from(paymentHistory).where(eq(paymentHistory.id, id));
+          const [payment] = await getDb.select().from(paymentHistory).where(eq(paymentHistory.id, id));
           return payment || void 0;
         } catch (error) {
           console.error("Error getting payment history by ID:", error);
@@ -6252,7 +6266,7 @@ var init_storage = __esm({
       }
       async getUserPaymentHistory(userId) {
         try {
-          return await db.select().from(paymentHistory).where(eq(paymentHistory.userId, userId)).orderBy(desc(paymentHistory.createdAt));
+          return await getDb.select().from(paymentHistory).where(eq(paymentHistory.userId, userId)).orderBy(desc(paymentHistory.createdAt));
         } catch (error) {
           console.error("Error getting user payment history:", error);
           throw error;
@@ -6260,7 +6274,7 @@ var init_storage = __esm({
       }
       async getSubscriptionPaymentHistory(subscriptionId) {
         try {
-          return await db.select().from(paymentHistory).where(eq(paymentHistory.subscriptionId, subscriptionId)).orderBy(desc(paymentHistory.createdAt));
+          return await getDb.select().from(paymentHistory).where(eq(paymentHistory.subscriptionId, subscriptionId)).orderBy(desc(paymentHistory.createdAt));
         } catch (error) {
           console.error("Error getting subscription payment history:", error);
           throw error;
@@ -6268,7 +6282,7 @@ var init_storage = __esm({
       }
       async getPaymentHistoryByProvider(provider) {
         try {
-          return await db.select().from(paymentHistory).where(eq(paymentHistory.provider, provider)).orderBy(desc(paymentHistory.createdAt));
+          return await getDb.select().from(paymentHistory).where(eq(paymentHistory.provider, provider)).orderBy(desc(paymentHistory.createdAt));
         } catch (error) {
           console.error("Error getting payment history by provider:", error);
           throw error;
@@ -6280,7 +6294,7 @@ var init_storage = __esm({
           if (userId) {
             conditions.push(eq(paymentHistory.userId, userId));
           }
-          return await db.select().from(paymentHistory).where(and(...conditions)).orderBy(desc(paymentHistory.createdAt));
+          return await getDb.select().from(paymentHistory).where(and(...conditions)).orderBy(desc(paymentHistory.createdAt));
         } catch (error) {
           console.error("Error getting failed payments:", error);
           throw error;
@@ -6295,7 +6309,7 @@ var init_storage = __esm({
           if (metadata) {
             updates.metadata = metadata;
           }
-          const [payment] = await db.update(paymentHistory).set(updates).where(eq(paymentHistory.id, id)).returning();
+          const [payment] = await getDb.update(paymentHistory).set(updates).where(eq(paymentHistory.id, id)).returning();
           return payment || void 0;
         } catch (error) {
           console.error("Error updating payment status:", error);
@@ -6305,7 +6319,7 @@ var init_storage = __esm({
       // Subscription events operations
       async createSubscriptionEvent(event) {
         try {
-          const [result] = await db.insert(subscriptionEvents).values(event).returning();
+          const [result] = await getDb.insert(subscriptionEvents).values(event).returning();
           return result;
         } catch (error) {
           console.error("Error creating subscription event:", error);
@@ -6314,7 +6328,7 @@ var init_storage = __esm({
       }
       async getSubscriptionEvents(subscriptionId) {
         try {
-          return await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.subscriptionId, subscriptionId)).orderBy(desc(subscriptionEvents.createdAt));
+          return await getDb.select().from(subscriptionEvents).where(eq(subscriptionEvents.subscriptionId, subscriptionId)).orderBy(desc(subscriptionEvents.createdAt));
         } catch (error) {
           console.error("Error getting subscription events:", error);
           throw error;
@@ -6322,7 +6336,7 @@ var init_storage = __esm({
       }
       async getUserSubscriptionEvents(userId) {
         try {
-          return await db.select().from(subscriptionEvents).where(eq(subscriptionEvents.userId, userId)).orderBy(desc(subscriptionEvents.createdAt));
+          return await getDb.select().from(subscriptionEvents).where(eq(subscriptionEvents.userId, userId)).orderBy(desc(subscriptionEvents.createdAt));
         } catch (error) {
           console.error("Error getting user subscription events:", error);
           throw error;
@@ -6331,7 +6345,7 @@ var init_storage = __esm({
       // Regional pricing operations
       async createRegionalPricing(pricing) {
         try {
-          const [result] = await db.insert(regionalPricing).values(pricing).returning();
+          const [result] = await getDb.insert(regionalPricing).values(pricing).returning();
           return result;
         } catch (error) {
           console.error("Error creating regional pricing:", error);
@@ -6340,7 +6354,7 @@ var init_storage = __esm({
       }
       async getRegionalPricing(planType, region, currency) {
         try {
-          const [pricing] = await db.select().from(regionalPricing).where(
+          const [pricing] = await getDb.select().from(regionalPricing).where(
             and(
               eq(regionalPricing.planType, planType),
               eq(regionalPricing.region, region),
@@ -6360,7 +6374,7 @@ var init_storage = __esm({
       }
       async getActivePricingForRegion(region) {
         try {
-          return await db.select().from(regionalPricing).where(
+          return await getDb.select().from(regionalPricing).where(
             and(
               eq(regionalPricing.region, region),
               eq(regionalPricing.isActive, true),
@@ -6377,7 +6391,7 @@ var init_storage = __esm({
       }
       async updateRegionalPricing(id, updates) {
         try {
-          const [pricing] = await db.update(regionalPricing).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(regionalPricing.id, id)).returning();
+          const [pricing] = await getDb.update(regionalPricing).set({ ...updates, updatedAt: /* @__PURE__ */ new Date() }).where(eq(regionalPricing.id, id)).returning();
           return pricing || void 0;
         } catch (error) {
           console.error("Error updating regional pricing:", error);
@@ -6386,7 +6400,7 @@ var init_storage = __esm({
       }
       async getDefaultPricing(planType) {
         try {
-          const [pricing] = await db.select().from(regionalPricing).where(
+          const [pricing] = await getDb.select().from(regionalPricing).where(
             and(
               eq(regionalPricing.planType, planType),
               eq(regionalPricing.region, "global"),
@@ -6406,7 +6420,7 @@ var init_storage = __esm({
       // Promotional code operations
       async createPromotionalCode(promoCode) {
         try {
-          const [result] = await db.insert(promotionalCodes).values(promoCode).returning();
+          const [result] = await getDb.insert(promotionalCodes).values(promoCode).returning();
           return result;
         } catch (error) {
           console.error("Error creating promotional code:", error);
@@ -6415,7 +6429,7 @@ var init_storage = __esm({
       }
       async getPromotionalCodeByCode(code) {
         try {
-          const [promoCode] = await db.select().from(promotionalCodes).where(
+          const [promoCode] = await getDb.select().from(promotionalCodes).where(
             and(
               eq(promotionalCodes.code, code),
               eq(promotionalCodes.isActive, true),
@@ -6474,7 +6488,7 @@ var init_storage = __esm({
       }
       async usePromotionalCode(usage) {
         try {
-          const [result] = await db.insert(promotionalCodeUsage).values(usage).returning();
+          const [result] = await getDb.insert(promotionalCodeUsage).values(usage).returning();
           await this.incrementPromotionalCodeUsage(usage.promoCodeId);
           return result;
         } catch (error) {
@@ -6484,7 +6498,7 @@ var init_storage = __esm({
       }
       async getPromotionalCodeUsage(userId) {
         try {
-          return await db.select().from(promotionalCodeUsage).where(eq(promotionalCodeUsage.userId, userId)).orderBy(desc(promotionalCodeUsage.usedAt));
+          return await getDb.select().from(promotionalCodeUsage).where(eq(promotionalCodeUsage.userId, userId)).orderBy(desc(promotionalCodeUsage.usedAt));
         } catch (error) {
           console.error("Error getting promotional code usage:", error);
           throw error;
@@ -6492,7 +6506,7 @@ var init_storage = __esm({
       }
       async getUserPromotionalCodeUsage(userId, promoCodeId) {
         try {
-          const [usage] = await db.select().from(promotionalCodeUsage).where(
+          const [usage] = await getDb.select().from(promotionalCodeUsage).where(
             and(
               eq(promotionalCodeUsage.userId, userId),
               eq(promotionalCodeUsage.promoCodeId, promoCodeId)
@@ -6506,7 +6520,7 @@ var init_storage = __esm({
       }
       async incrementPromotionalCodeUsage(promoCodeId) {
         try {
-          const [promoCode] = await db.update(promotionalCodes).set({
+          const [promoCode] = await getDb.update(promotionalCodes).set({
             currentUses: sql`${promotionalCodes.currentUses} + 1`,
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq(promotionalCodes.id, promoCodeId)).returning();
@@ -6526,7 +6540,7 @@ var init_storage = __esm({
           if (endDate) {
             conditions.push(sql`${paymentHistory.createdAt} <= ${endDate}`);
           }
-          const results = await db.select({
+          const results = await getDb.select({
             region: subscriptions.region,
             revenue: sql`SUM(${paymentHistory.amount})`,
             currency: paymentHistory.currency
@@ -6542,9 +6556,9 @@ var init_storage = __esm({
       }
       async getSubscriptionStats() {
         try {
-          const [activeCount] = await db.select({ count: count() }).from(subscriptions).where(eq(subscriptions.status, "active"));
-          const [cancelledCount] = await db.select({ count: count() }).from(subscriptions).where(eq(subscriptions.status, "cancelled"));
-          const [totalCount] = await db.select({ count: count() }).from(subscriptions);
+          const [activeCount] = await getDb.select({ count: count() }).from(subscriptions).where(eq(subscriptions.status, "active"));
+          const [cancelledCount] = await getDb.select({ count: count() }).from(subscriptions).where(eq(subscriptions.status, "cancelled"));
+          const [totalCount] = await getDb.select({ count: count() }).from(subscriptions);
           return {
             active: activeCount.count,
             cancelled: cancelledCount.count,
@@ -6561,12 +6575,12 @@ var init_storage = __esm({
           if (provider) {
             conditions.push(eq(paymentHistory.provider, provider));
           }
-          const [totalPayments] = await db.select({ count: count() }).from(paymentHistory).where(conditions.length > 0 ? and(...conditions) : void 0);
+          const [totalPayments] = await getDb.select({ count: count() }).from(paymentHistory).where(conditions.length > 0 ? and(...conditions) : void 0);
           const failedConditions = [
             ...conditions,
             eq(paymentHistory.status, "failed")
           ];
-          const [failedPayments] = await db.select({ count: count() }).from(paymentHistory).where(and(...failedConditions));
+          const [failedPayments] = await getDb.select({ count: count() }).from(paymentHistory).where(and(...failedConditions));
           if (totalPayments.count === 0) return 0;
           return failedPayments.count / totalPayments.count * 100;
         } catch (error) {
@@ -6576,7 +6590,7 @@ var init_storage = __esm({
       }
       async getMostUsedPaymentMethods() {
         try {
-          const results = await db.select({
+          const results = await getDb.select({
             type: paymentHistory.paymentMethod,
             count: sql`COUNT(*)`
           }).from(paymentHistory).where(eq(paymentHistory.status, "succeeded")).groupBy(paymentHistory.paymentMethod).orderBy(desc(sql`COUNT(*)`)).limit(10);
@@ -6591,7 +6605,7 @@ var init_storage = __esm({
       // ===================================
       async createSubscription(subscription) {
         try {
-          const [created] = await db.insert(subscriptions).values(subscription).returning();
+          const [created] = await getDb.insert(subscriptions).values(subscription).returning();
           return created;
         } catch (error) {
           console.error("Error creating subscription:", error);
@@ -6600,7 +6614,7 @@ var init_storage = __esm({
       }
       async getSubscription(id) {
         try {
-          const [subscription] = await db.select().from(subscriptions).where(eq(subscriptions.id, id));
+          const [subscription] = await getDb.select().from(subscriptions).where(eq(subscriptions.id, id));
           return subscription;
         } catch (error) {
           console.error("Error getting subscription:", error);
@@ -6609,7 +6623,7 @@ var init_storage = __esm({
       }
       async getSubscriptionByUser(userId) {
         try {
-          const [subscription] = await db.select().from(subscriptions).where(eq(subscriptions.userId, userId));
+          const [subscription] = await getDb.select().from(subscriptions).where(eq(subscriptions.userId, userId));
           return subscription;
         } catch (error) {
           console.error("Error getting subscription by user:", error);
@@ -6618,7 +6632,7 @@ var init_storage = __esm({
       }
       async getSubscriptionByStripeId(subscriptionId) {
         try {
-          const [subscription] = await db.select().from(subscriptions).where(eq(subscriptions.subscriptionId, subscriptionId));
+          const [subscription] = await getDb.select().from(subscriptions).where(eq(subscriptions.subscriptionId, subscriptionId));
           return subscription;
         } catch (error) {
           console.error("Error getting subscription by Stripe ID:", error);
@@ -6627,7 +6641,7 @@ var init_storage = __esm({
       }
       async updateSubscription(id, updates) {
         try {
-          const [updated] = await db.update(subscriptions).set(updates).where(eq(subscriptions.id, id)).returning();
+          const [updated] = await getDb.update(subscriptions).set(updates).where(eq(subscriptions.id, id)).returning();
           return updated;
         } catch (error) {
           console.error("Error updating subscription:", error);
@@ -6636,7 +6650,7 @@ var init_storage = __esm({
       }
       async cancelSubscription(id) {
         try {
-          const [cancelled] = await db.update(subscriptions).set({
+          const [cancelled] = await getDb.update(subscriptions).set({
             status: "cancelled",
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq(subscriptions.id, id)).returning();
@@ -6648,7 +6662,7 @@ var init_storage = __esm({
       }
       async createPaymentMethod(paymentMethod) {
         try {
-          const [created] = await db.insert(paymentMethods).values(paymentMethod).returning();
+          const [created] = await getDb.insert(paymentMethods).values(paymentMethod).returning();
           return created;
         } catch (error) {
           console.error("Error creating payment method:", error);
@@ -6657,7 +6671,7 @@ var init_storage = __esm({
       }
       async getPaymentMethodsByUser(userId) {
         try {
-          return await db.select().from(paymentMethods).where(eq(paymentMethods.userId, userId));
+          return await getDb.select().from(paymentMethods).where(eq(paymentMethods.userId, userId));
         } catch (error) {
           console.error("Error getting payment methods by user:", error);
           throw error;
@@ -6665,7 +6679,7 @@ var init_storage = __esm({
       }
       async getPaymentMethod(id) {
         try {
-          const [paymentMethod] = await db.select().from(paymentMethods).where(eq(paymentMethods.id, id));
+          const [paymentMethod] = await getDb.select().from(paymentMethods).where(eq(paymentMethods.id, id));
           return paymentMethod;
         } catch (error) {
           console.error("Error getting payment method:", error);
@@ -6674,7 +6688,7 @@ var init_storage = __esm({
       }
       async updatePaymentMethod(id, updates) {
         try {
-          const [updated] = await db.update(paymentMethods).set(updates).where(eq(paymentMethods.id, id)).returning();
+          const [updated] = await getDb.update(paymentMethods).set(updates).where(eq(paymentMethods.id, id)).returning();
           return updated;
         } catch (error) {
           console.error("Error updating payment method:", error);
@@ -6683,7 +6697,7 @@ var init_storage = __esm({
       }
       async deletePaymentMethod(id) {
         try {
-          await db.delete(paymentMethods).where(eq(paymentMethods.id, id));
+          await getDb().delete(paymentMethods).where(eq(paymentMethods.id, id));
         } catch (error) {
           console.error("Error deleting payment method:", error);
           throw error;
@@ -6691,7 +6705,7 @@ var init_storage = __esm({
       }
       async createPaymentHistory(payment) {
         try {
-          const [created] = await db.insert(paymentHistory).values(payment).returning();
+          const [created] = await getDb.insert(paymentHistory).values(payment).returning();
           return created;
         } catch (error) {
           console.error("Error creating payment history:", error);
@@ -6700,7 +6714,7 @@ var init_storage = __esm({
       }
       async getPaymentHistoryByUser(userId) {
         try {
-          return await db.select().from(paymentHistory).where(eq(paymentHistory.userId, userId)).orderBy(desc(paymentHistory.createdAt));
+          return await getDb.select().from(paymentHistory).where(eq(paymentHistory.userId, userId)).orderBy(desc(paymentHistory.createdAt));
         } catch (error) {
           console.error("Error getting payment history by user:", error);
           throw error;
@@ -6708,7 +6722,7 @@ var init_storage = __esm({
       }
       async getPaymentHistoryBySubscription(subscriptionId) {
         try {
-          return await db.select().from(paymentHistory).where(eq(paymentHistory.subscriptionId, subscriptionId)).orderBy(desc(paymentHistory.createdAt));
+          return await getDb.select().from(paymentHistory).where(eq(paymentHistory.subscriptionId, subscriptionId)).orderBy(desc(paymentHistory.createdAt));
         } catch (error) {
           console.error("Error getting payment history by subscription:", error);
           throw error;
@@ -6723,7 +6737,7 @@ var init_storage = __esm({
           if (planType) {
             conditions.push(eq(regionalPricing.planType, planType));
           }
-          return await db.select().from(regionalPricing).where(and(...conditions)).orderBy(regionalPricing.planType);
+          return await getDb.select().from(regionalPricing).where(and(...conditions)).orderBy(regionalPricing.planType);
         } catch (error) {
           console.error("Error getting regional pricing:", error);
           throw error;
@@ -6731,7 +6745,7 @@ var init_storage = __esm({
       }
       async getRegionalPricingByRegion(region) {
         try {
-          return await db.select().from(regionalPricing).where(
+          return await getDb.select().from(regionalPricing).where(
             and(
               eq(regionalPricing.region, region),
               eq(regionalPricing.isActive, true),
@@ -6748,7 +6762,7 @@ var init_storage = __esm({
       }
       async createRegionalPricing(pricing) {
         try {
-          const [created] = await db.insert(regionalPricing).values(pricing).returning();
+          const [created] = await getDb.insert(regionalPricing).values(pricing).returning();
           return created;
         } catch (error) {
           console.error("Error creating regional pricing:", error);
@@ -6757,7 +6771,7 @@ var init_storage = __esm({
       }
       async getPromotionalCode(code) {
         try {
-          const [promo] = await db.select().from(promotionalCodes).where(eq(promotionalCodes.code, code));
+          const [promo] = await getDb.select().from(promotionalCodes).where(eq(promotionalCodes.code, code));
           return promo;
         } catch (error) {
           console.error("Error getting promotional code:", error);
@@ -6797,7 +6811,7 @@ var init_storage = __esm({
       }
       async createPromotionalCodeUsage(usage) {
         try {
-          const [created] = await db.insert(promotionalCodeUsage).values(usage).returning();
+          const [created] = await getDb.insert(promotionalCodeUsage).values(usage).returning();
           return created;
         } catch (error) {
           console.error("Error creating promotional code usage:", error);
@@ -6808,7 +6822,7 @@ var init_storage = __esm({
       async getSwipeHistory(userId, appMode, limit) {
         try {
           const startTime = Date.now();
-          const history = await db.select().from(swipeHistory).where(
+          const history = await getDb.select().from(swipeHistory).where(
             and(
               eq(swipeHistory.userId, userId),
               eq(swipeHistory.appMode, appMode)
@@ -6827,7 +6841,7 @@ var init_storage = __esm({
       // Matrix Factorization helper methods
       async getAllMatches() {
         try {
-          const allMatches = await db.select({
+          const allMatches = await getDb.select({
             id: matches.id,
             userId1: matches.userId1,
             userId2: matches.userId2,
@@ -6847,7 +6861,7 @@ var init_storage = __esm({
       }
       async getAllSwipeHistory() {
         try {
-          const allSwipes = await db.select({
+          const allSwipes = await getDb.select({
             id: swipeHistory.id,
             userId: swipeHistory.userId,
             targetUserId: swipeHistory.targetUserId,
@@ -6886,7 +6900,7 @@ var init_storage = __esm({
             `[MATCH-COUNTS-OPTIMIZED] User ${userId}: Starting optimized match count query`
           );
           const startTime = Date.now();
-          const [result] = await db.select({
+          const [result] = await getDb.select({
             confirmed: sql`COUNT(CASE WHEN matched = true THEN 1 END)`,
             pending: sql`COUNT(CASE WHEN matched = false AND is_dislike = false THEN 1 END)`,
             total: sql`COUNT(*)`
@@ -6935,15 +6949,15 @@ var init_storage = __esm({
             `[SUITE-COUNTS-OPTIMIZED] User ${userId}: Starting optimized count queries`
           );
           const startTime = Date.now();
-          const [networkingResult] = await db.select({
+          const [networkingResult] = await getDb.select({
             confirmed: sql`COUNT(CASE WHEN matched = true THEN 1 END)`,
             pending: sql`COUNT(CASE WHEN matched = false AND is_dislike = false THEN 1 END)`
           }).from(suiteNetworkingConnections).where(eq(suiteNetworkingConnections.userId, userId));
-          const [mentorshipResult] = await db.select({
+          const [mentorshipResult] = await getDb.select({
             confirmed: sql`COUNT(CASE WHEN matched = true THEN 1 END)`,
             pending: sql`COUNT(CASE WHEN matched = false AND is_dislike = false THEN 1 END)`
           }).from(suiteMentorshipConnections).where(eq(suiteMentorshipConnections.userId, userId));
-          const [jobsResult] = await db.select({
+          const [jobsResult] = await getDb.select({
             accepted: sql`COUNT(CASE WHEN action = 'accepted' THEN 1 END)`,
             pending: sql`COUNT(CASE WHEN action = 'pending' THEN 1 END)`
           }).from(suiteJobApplications).where(eq(suiteJobApplications.userId, userId));
@@ -6976,19 +6990,19 @@ var init_storage = __esm({
       }
       // KWAME AI Conversation methods
       async createKwameConversation(conversation) {
-        const [newConversation] = await db.insert(kwameConversations).values(conversation).returning();
+        const [newConversation] = await getDb.insert(kwameConversations).values(conversation).returning();
         return newConversation;
       }
       async getKwameConversationHistory(userId, limit = 500) {
-        const conversations = await db.select().from(kwameConversations).where(eq(kwameConversations.userId, userId)).orderBy(desc(kwameConversations.createdAt)).limit(limit);
+        const conversations = await getDb.select().from(kwameConversations).where(eq(kwameConversations.userId, userId)).orderBy(desc(kwameConversations.createdAt)).limit(limit);
         return conversations.reverse();
       }
       async getRecentKwameContext(userId, limit = 20) {
-        const conversations = await db.select().from(kwameConversations).where(eq(kwameConversations.userId, userId)).orderBy(desc(kwameConversations.createdAt)).limit(limit);
+        const conversations = await getDb.select().from(kwameConversations).where(eq(kwameConversations.userId, userId)).orderBy(desc(kwameConversations.createdAt)).limit(limit);
         return conversations.reverse();
       }
       async clearKwameConversationHistory(userId) {
-        await db.delete(kwameConversations).where(eq(kwameConversations.userId, userId));
+        await getDb.delete(kwameConversations).where(eq(kwameConversations.userId, userId));
       }
     };
     storage = new DatabaseStorage();
@@ -8992,7 +9006,7 @@ function registerUserBlockingAPI(app2) {
         return res.status(400).json({ message: "Cannot block yourself" });
       }
       try {
-        const newBlock = await db.insert(userBlocks).values({
+        const newBlock = await getDb.insert(userBlocks).values({
           blockerUserId: currentUserId,
           blockedUserId,
           reason: reason || null
@@ -9048,7 +9062,7 @@ function registerUserBlockingAPI(app2) {
         return res.status(400).json({ message: "Invalid user ID" });
       }
       console.log(`[USER-BLOCKING] User ${currentUserId} attempting to unblock user ${blockedUserId}`);
-      const deletedBlocks = await db.delete(userBlocks).where(
+      const deletedBlocks = await getDb.delete(userBlocks).where(
         and3(
           eq4(userBlocks.blockerUserId, currentUserId),
           eq4(userBlocks.blockedUserId, blockedUserId)
@@ -9075,7 +9089,7 @@ function registerUserBlockingAPI(app2) {
         return res.status(401).json({ message: "Unauthorized" });
       }
       console.log(`[USER-BLOCKING] Getting blocked users list for user ${currentUserId}`);
-      const blockedUsers = await db.select().from(userBlocks).where(eq4(userBlocks.blockerUserId, currentUserId)).orderBy(userBlocks.createdAt);
+      const blockedUsers = await getDb.select().from(userBlocks).where(eq4(userBlocks.blockerUserId, currentUserId)).orderBy(userBlocks.createdAt);
       const blockedUsersWithInfo = await Promise.all(
         blockedUsers.map(async (block) => {
           const user = await storage.getUser(block.blockedUserId);
@@ -9109,7 +9123,7 @@ function registerUserBlockingAPI(app2) {
       if (isNaN(targetUserId)) {
         return res.status(400).json({ message: "Invalid user ID" });
       }
-      const blocks = await db.select().from(userBlocks).where(
+      const blocks = await getDb.select().from(userBlocks).where(
         or3(
           and3(
             eq4(userBlocks.blockerUserId, currentUserId),
@@ -9137,7 +9151,7 @@ function registerUserBlockingAPI(app2) {
 }
 async function areUsersBlocked(userId1, userId2) {
   try {
-    const blocks = await db.select().from(userBlocks).where(
+    const blocks = await getDb.select().from(userBlocks).where(
       or3(
         and3(
           eq4(userBlocks.blockerUserId, userId1),
@@ -9157,7 +9171,7 @@ async function areUsersBlocked(userId1, userId2) {
 }
 async function getBlockedUserIds(userId) {
   try {
-    const blocks = await db.select({ blockedUserId: userBlocks.blockedUserId }).from(userBlocks).where(eq4(userBlocks.blockerUserId, userId));
+    const blocks = await getDb.select({ blockedUserId: userBlocks.blockedUserId }).from(userBlocks).where(eq4(userBlocks.blockerUserId, userId));
     return blocks.map((block) => block.blockedUserId);
   } catch (error) {
     console.error("[USER-BLOCKING] Error getting blocked user IDs:", error);
@@ -9166,7 +9180,7 @@ async function getBlockedUserIds(userId) {
 }
 async function getUsersWhoBlockedUser(userId) {
   try {
-    const blocks = await db.select({ blockerUserId: userBlocks.blockerUserId }).from(userBlocks).where(eq4(userBlocks.blockedUserId, userId));
+    const blocks = await getDb.select({ blockerUserId: userBlocks.blockerUserId }).from(userBlocks).where(eq4(userBlocks.blockedUserId, userId));
     return blocks.map((block) => block.blockerUserId);
   } catch (error) {
     console.error("[USER-BLOCKING] Error getting users who blocked user:", error);
@@ -14874,12 +14888,12 @@ var init_archiving_service = __esm({
       static async archiveMatchWithMessages(matchId, archivedByUserId, reason) {
         try {
           console.log(`[ARCHIVE] Starting archival of match ${matchId} by user ${archivedByUserId}, reason: ${reason}`);
-          const matchData = await db.select().from(matches).where(eq5(matches.id, matchId)).limit(1);
+          const matchData = await getDb.select().from(matches).where(eq5(matches.id, matchId)).limit(1);
           if (matchData.length === 0) {
             throw new Error(`Match ${matchId} not found`);
           }
           const match = matchData[0];
-          const messages2 = await db.select().from(messages).where(eq5(messages.matchId, matchId));
+          const messages2 = await getDb.select().from(messages).where(eq5(messages.matchId, matchId));
           console.log(`[ARCHIVE] Found ${messages2.length} messages to archive for match ${matchId}`);
           const archivedMatchData = {
             originalMatchId: match.id,
@@ -14897,7 +14911,7 @@ var init_archiving_service = __esm({
             archivedByUserId,
             messageCount: messages2.length
           };
-          const archivedMatchResult = await db.insert(archivedMatches).values(archivedMatchData).returning({ id: archivedMatches.id });
+          const archivedMatchResult = await getDb.insert(archivedMatches).values(archivedMatchData).returning({ id: archivedMatches.id });
           const archivedMatchId = archivedMatchResult[0].id;
           console.log(`[ARCHIVE] Created archived match record ${archivedMatchId}`);
           if (messages2.length > 0) {
@@ -14925,7 +14939,7 @@ var init_archiving_service = __esm({
               autoDeleteModeWhenSent: message.autoDeleteModeWhenSent || void 0,
               deletedForUserId: message.deletedForUserId || void 0
             }));
-            await db.insert(archivedMessages).values(archivedMessagesData);
+            await getDb().insert(archivedMessages).values(archivedMessagesData);
             console.log(`[ARCHIVE] Archived ${messages2.length} messages`);
           }
           console.log(`[ARCHIVE] Successfully archived match ${matchId} with ${messages2.length} messages`);
@@ -14944,18 +14958,18 @@ var init_archiving_service = __esm({
       static async archiveUser(userId, reason, archivedByUserId, ipAddress, userAgent) {
         try {
           console.log(`[ARCHIVE] Starting user archival for user ${userId}, reason: ${reason}`);
-          const userData = await db.select().from(users).where(eq5(users.id, userId)).limit(1);
+          const userData = await getDb.select().from(users).where(eq5(users.id, userId)).limit(1);
           if (userData.length === 0) {
             throw new Error(`User ${userId} not found`);
           }
           const user = userData[0];
-          const matchCount = await db.select({ count: sql4`count(*)` }).from(matches).where(
+          const matchCount = await getDb.select({ count: sql4`count(*)` }).from(matches).where(
             and4(
               sql4`(${matches.userId1} = ${userId} OR ${matches.userId2} = ${userId})`,
               eq5(matches.matched, true)
             )
           );
-          const messageCount = await db.select({ count: sql4`count(*)` }).from(messages).where(eq5(messages.senderId, userId));
+          const messageCount = await getDb.select({ count: sql4`count(*)` }).from(messages).where(eq5(messages.senderId, userId));
           const totalMatches = matchCount[0]?.count || 0;
           const totalMessages = messageCount[0]?.count || 0;
           console.log(`[ARCHIVE] User ${userId} statistics: ${totalMatches} matches, ${totalMessages} messages`);
@@ -14994,7 +15008,7 @@ var init_archiving_service = __esm({
             ipAddress: ipAddress || void 0,
             userAgent: userAgent || void 0
           };
-          const archivedUserResult = await db.insert(archivedUsers).values(archivedUserData).returning({ id: archivedUsers.id });
+          const archivedUserResult = await getDb.insert(archivedUsers).values(archivedUserData).returning({ id: archivedUsers.id });
           const archivedUserId = archivedUserResult[0].id;
           console.log(`[ARCHIVE] Successfully archived user ${userId} as record ${archivedUserId}`);
           return {
@@ -15012,7 +15026,7 @@ var init_archiving_service = __esm({
        */
       static async getArchivedMatchHistory(userId) {
         try {
-          const archivedMatchHistory = await db.select().from(archivedMatches).where(
+          const archivedMatchHistory = await getDb.select().from(archivedMatches).where(
             sql4`(${archivedMatches.userId1} = ${userId} OR ${archivedMatches.userId2} = ${userId})`
           ).orderBy(sql4`${archivedMatches.archivedAt} DESC`);
           return archivedMatchHistory;
@@ -15026,7 +15040,7 @@ var init_archiving_service = __esm({
        */
       static async getArchivedUser(originalUserId) {
         try {
-          const archivedUser = await db.select().from(archivedUsers).where(eq5(archivedUsers.originalUserId, originalUserId)).orderBy(sql4`${archivedUsers.archivedAt} DESC`).limit(1);
+          const archivedUser = await getDb.select().from(archivedUsers).where(eq5(archivedUsers.originalUserId, originalUserId)).orderBy(sql4`${archivedUsers.archivedAt} DESC`).limit(1);
           return archivedUser[0] || null;
         } catch (error) {
           console.error(`[ARCHIVE] Failed to get archived user for ID ${originalUserId}:`, error);
@@ -15041,9 +15055,9 @@ var init_archiving_service = __esm({
           console.log(`[ARCHIVE] Starting cleanup of archives older than ${retentionDays} days`);
           const cutoffDate = /* @__PURE__ */ new Date();
           cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-          const deletedMessages = await db.delete(archivedMessages).where(sql4`${archivedMessages.archivedAt} < ${cutoffDate}`);
-          const deletedMatches = await db.delete(archivedMatches).where(sql4`${archivedMatches.archivedAt} < ${cutoffDate}`);
-          const deletedUsers = await db.delete(archivedUsers).where(sql4`${archivedUsers.archivedAt} < ${cutoffDate}`);
+          const deletedMessages = await getDb.delete(archivedMessages).where(sql4`${archivedMessages.archivedAt} < ${cutoffDate}`);
+          const deletedMatches = await getDb.delete(archivedMatches).where(sql4`${archivedMatches.archivedAt} < ${cutoffDate}`);
+          const deletedUsers = await getDb.delete(archivedUsers).where(sql4`${archivedUsers.archivedAt} < ${cutoffDate}`);
           console.log(`[ARCHIVE] Cleanup completed: ${deletedMatches} matches, ${deletedMessages} messages, ${deletedUsers} users`);
           return {
             deletedMatches: deletedMatches.rowCount || 0,
@@ -17214,7 +17228,7 @@ function registerCompatibilityAPI(app2) {
           return res.status(403).json({ message: "Access denied" });
         }
         const [normalizedUser1Id, normalizedUser2Id] = user1Id < user2Id ? [user1Id, user2Id] : [user2Id, user1Id];
-        const existingAnalysis = await db.select().from(compatibilityAnalysis).where(
+        const existingAnalysis = await getDb.select().from(compatibilityAnalysis).where(
           and2(
             or2(
               and2(
@@ -17241,8 +17255,8 @@ function registerCompatibilityAPI(app2) {
             version: analysis.version
           });
         }
-        const [user1Data] = await db.select().from(users).where(eq2(users.id, user1Id)).limit(1);
-        const [user2Data] = await db.select().from(users).where(eq2(users.id, user2Id)).limit(1);
+        const [user1Data] = await getDb.select().from(users).where(eq2(users.id, user1Id)).limit(1);
+        const [user2Data] = await getDb.select().from(users).where(eq2(users.id, user2Id)).limit(1);
         if (!user1Data || !user2Data) {
           return res.status(404).json({ message: "One or both users not found" });
         }
@@ -17250,7 +17264,7 @@ function registerCompatibilityAPI(app2) {
           user1Data,
           user2Data
         );
-        const newAnalysis = await db.insert(compatibilityAnalysis).values({
+        const newAnalysis = await getDb.insert(compatibilityAnalysis).values({
           user1Id: normalizedUser1Id,
           user2Id: normalizedUser2Id,
           compatibilityData: JSON.stringify(compatibilityData),
@@ -17287,7 +17301,7 @@ function registerCompatibilityAPI(app2) {
         if (currentUserId !== user1Id && currentUserId !== user2Id) {
           return res.status(403).json({ message: "Access denied" });
         }
-        await db.update(compatibilityAnalysis).set({
+        await getDb.update(compatibilityAnalysis).set({
           isActive: false,
           updatedAt: /* @__PURE__ */ new Date()
         }).where(
@@ -17327,8 +17341,8 @@ function registerCompatibilityAPI(app2) {
         if (currentUserId !== user1Id && currentUserId !== user2Id) {
           return res.status(403).json({ message: "Access denied" });
         }
-        const [user1Data] = await db.select().from(users).where(eq2(users.id, user1Id)).limit(1);
-        const [user2Data] = await db.select().from(users).where(eq2(users.id, user2Id)).limit(1);
+        const [user1Data] = await getDb.select().from(users).where(eq2(users.id, user1Id)).limit(1);
+        const [user2Data] = await getDb.select().from(users).where(eq2(users.id, user2Id)).limit(1);
         if (!user1Data || !user2Data) {
           return res.status(404).json({ message: "One or both users not found" });
         }
@@ -17336,7 +17350,7 @@ function registerCompatibilityAPI(app2) {
           user1Data,
           user2Data
         );
-        const updatedAnalysis = await db.update(compatibilityAnalysis).set({
+        const updatedAnalysis = await getDb.update(compatibilityAnalysis).set({
           compatibilityData: JSON.stringify(compatibilityData),
           overallScore: Math.round(compatibilityData.overall_score),
           // Ensure integer
@@ -17384,7 +17398,7 @@ function registerCompatibilityAPI(app2) {
       try {
         const matchId = parseInt(req.params.matchId);
         const currentUserId = req.user.id;
-        const [match] = await db.select().from(matches).where(eq2(matches.id, matchId)).limit(1);
+        const [match] = await getDb.select().from(matches).where(eq2(matches.id, matchId)).limit(1);
         if (!match) {
           return res.status(404).json({ message: "Match not found" });
         }
@@ -22745,7 +22759,7 @@ function registerKwameAPI(app2) {
           return res.status(400).json({ message: "No primary photo available to generate avatar" });
         }
         const dataUrl = await kwameAI.generatePixarStyleImage(source);
-        await db.update(users).set({
+        await getDb.update(users).set({
           avatarPhoto: dataUrl,
           showAvatar: true,
           updatedAt: /* @__PURE__ */ new Date()
@@ -22767,16 +22781,16 @@ function registerKwameAPI(app2) {
       console.log(
         `[KWAME-API][AVATAR-DELETE] Deleting avatar for user ${userId}`
       );
-      const userBefore = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+      const userBefore = await getDb.select().from(users).where(eq3(users.id, userId)).limit(1);
       console.log(
         `[KWAME-API][AVATAR-DELETE] User before update: avatarPhoto=${userBefore[0]?.avatarPhoto}, showAvatar=${userBefore[0]?.showAvatar}`
       );
-      const result = await db.update(users).set({
+      const result = await getDb.update(users).set({
         avatarPhoto: null,
         showAvatar: false,
         updatedAt: /* @__PURE__ */ new Date()
       }).where(eq3(users.id, userId));
-      const userAfter = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+      const userAfter = await getDb.select().from(users).where(eq3(users.id, userId)).limit(1);
       console.log(
         `[KWAME-API][AVATAR-DELETE] User after update: avatarPhoto=${userAfter[0]?.avatarPhoto}, showAvatar=${userAfter[0]?.showAvatar}`
       );
@@ -23199,7 +23213,7 @@ Return only the rephrased statement.`,
           return res.status(401).json({ message: "Unauthorized" });
         }
         const userId = req.user.id;
-        const userRecord = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+        const userRecord = await getDb.select().from(users).where(eq3(users.id, userId)).limit(1);
         if (userRecord.length === 0) {
           return res.status(404).json({ message: "User not found" });
         }
@@ -23228,7 +23242,7 @@ Return only the rephrased statement.`,
           return res.status(401).json({ message: "Unauthorized" });
         }
         const userId = req.user.id;
-        const userRecord = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+        const userRecord = await getDb.select().from(users).where(eq3(users.id, userId)).limit(1);
         if (userRecord.length === 0) {
           return res.status(404).json({ message: "User not found" });
         }
@@ -23275,7 +23289,7 @@ Return only the rephrased statement.`,
           return res.status(400).json({ message: "Invalid question index or answer" });
         }
         const userId = req.user.id;
-        const userRecord = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+        const userRecord = await getDb.select().from(users).where(eq3(users.id, userId)).limit(1);
         if (userRecord.length === 0) {
           return res.status(404).json({ message: "User not found" });
         }
@@ -23285,7 +23299,7 @@ Return only the rephrased statement.`,
           personalityRecords.push(null);
         }
         personalityRecords[questionIndex] = answer;
-        await db.update(users).set({
+        await getDb.update(users).set({
           personalityRecords: JSON.stringify(personalityRecords),
           updatedAt: /* @__PURE__ */ new Date()
         }).where(eq3(users.id, userId));
@@ -23322,7 +23336,7 @@ Return only the rephrased statement.`,
           return res.status(401).json({ message: "Unauthorized" });
         }
         const userId = req.user.id;
-        const userRecord = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+        const userRecord = await getDb.select().from(users).where(eq3(users.id, userId)).limit(1);
         if (userRecord.length === 0) {
           return res.status(404).json({ message: "User not found" });
         }
@@ -23347,7 +23361,7 @@ Return only the rephrased statement.`,
         const big5Profile = big5_scoring_service_default.generateBig5Profile(
           personalityRecords
         );
-        await db.update(users).set({
+        await getDb.update(users).set({
           personalityTestCompleted: true,
           big5Profile: JSON.stringify(big5Profile),
           big5ComputedAt: /* @__PURE__ */ new Date(),
@@ -23374,7 +23388,7 @@ Return only the rephrased statement.`,
           return res.status(401).json({ message: "Unauthorized" });
         }
         const userId = req.user.id;
-        const userRecord = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+        const userRecord = await getDb.select().from(users).where(eq3(users.id, userId)).limit(1);
         if (userRecord.length === 0) {
           return res.status(404).json({ message: "User not found" });
         }
@@ -23419,7 +23433,7 @@ Return only the rephrased statement.`,
             validTraits
           });
         }
-        const userRecord = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+        const userRecord = await getDb.select().from(users).where(eq3(users.id, userId)).limit(1);
         if (userRecord.length === 0) {
           return res.status(404).json({ message: "User not found" });
         }
@@ -25945,12 +25959,12 @@ async function registerRoutes(app2) {
           archiveError
         );
       }
-      await db.delete(typingStatus).where(eq6(typingStatus.matchId, matchId));
-      await db.delete(videoCalls).where(eq6(videoCalls.matchId, matchId));
+      await getDb().delete(typingStatus).where(eq6(typingStatus.matchId, matchId));
+      await getDb().delete(videoCalls).where(eq6(videoCalls.matchId, matchId));
       const messages2 = await storage.getMessagesByMatchId(matchId);
       if (messages2 && messages2.length > 0) {
         for (const message of messages2) {
-          await db.delete(messages).where(eq6(messages.id, message.id));
+          await getDb.delete(messages).where(eq6(messages.id, message.id));
         }
       }
       await storage.deleteMatch(matchId);
@@ -25958,14 +25972,14 @@ async function registerRoutes(app2) {
         `[UNMATCH] Creating bidirectional dislike records for users ${currentUserId} and ${otherUserId}`
       );
       try {
-        await db.insert(matches).values({
+        await getDb().insert(matches).values({
           userId1: currentUserId,
           userId2: otherUserId,
           matched: false,
           isDislike: true,
           createdAt: /* @__PURE__ */ new Date()
         });
-        await db.insert(matches).values({
+        await getDb().insert(matches).values({
           userId1: otherUserId,
           userId2: currentUserId,
           matched: false,
@@ -26068,7 +26082,7 @@ async function registerRoutes(app2) {
               "user_deletion"
             );
             await storage.deleteMatch(matchId);
-            await db.insert(matches).values([
+            await getDb().insert(matches).values([
               {
                 userId1: reportingUserId,
                 userId2: validatedData.reportedUserId,
@@ -27322,7 +27336,7 @@ ${message.trim()}`
           console.log(
             `[SWIPE] Created like record: ${currentUserId} -> ${targetUserId}`
           );
-          const mutualLike = await db.select().from(matches).where(
+          const mutualLike = await getDb.select().from(matches).where(
             and5(
               eq6(matches.userId1, targetUserId),
               eq6(matches.userId2, currentUserId),
@@ -27375,7 +27389,7 @@ ${message.trim()}`
                 );
               }
             }
-            await db.update(matches).set({
+            await getDb.update(matches).set({
               matched: true,
               metadata: JSON.stringify(finalMetadata)
             }).where(
@@ -28103,7 +28117,7 @@ ${message.trim()}`
         ).toString();
         const expiresAt = /* @__PURE__ */ new Date();
         expiresAt.setMinutes(expiresAt.getMinutes() + 10);
-        await db.insert(passwordResetCodes).values({
+        await getDb().insert(passwordResetCodes).values({
           email,
           resetCode,
           isUsed: false,
@@ -28163,7 +28177,7 @@ ${message.trim()}`
         if (!email || !resetCode) {
           return res.status(400).json({ message: "Email and reset code are required" });
         }
-        const validCode = await db.select().from(passwordResetCodes).where(
+        const validCode = await getDb.select().from(passwordResetCodes).where(
           and5(
             eq6(passwordResetCodes.email, email),
             eq6(passwordResetCodes.resetCode, resetCode),
@@ -28194,7 +28208,7 @@ ${message.trim()}`
             message: "Email, reset code, and new password are required"
           });
         }
-        const validCode = await db.select().from(passwordResetCodes).where(
+        const validCode = await getDb.select().from(passwordResetCodes).where(
           and5(
             eq6(passwordResetCodes.email, email),
             eq6(passwordResetCodes.resetCode, resetCode),
@@ -28211,7 +28225,7 @@ ${message.trim()}`
         }
         const hashedPassword = await hashPassword(newPassword);
         await storage.updateUserPassword(user.id, hashedPassword);
-        await db.update(passwordResetCodes).set({ isUsed: true }).where(eq6(passwordResetCodes.id, validCode[0].id));
+        await getDb.update(passwordResetCodes).set({ isUsed: true }).where(eq6(passwordResetCodes.id, validCode[0].id));
         res.status(200).json({
           message: "Password reset successfully",
           success: true
@@ -28585,7 +28599,7 @@ ${message.trim()}`
         console.log(
           `[SUBSCRIPTION-EXPIRY] Checking for expired subscriptions...`
         );
-        const expiredUsers = await db.select().from(users).where(
+        const expiredUsers = await getDb.select().from(users).where(
           sql5`subscription_status = 'canceled' 
               AND premium_access = true 
               AND subscription_expires_at < NOW()`
@@ -30341,7 +30355,7 @@ ${message.trim()}`
             console.error("Error deleting image file:", mediaError);
           }
         }
-        const deleteResult = await db.delete(messages).where(eq6(messages.id, messageId));
+        const deleteResult = await getDb.delete(messages).where(eq6(messages.id, messageId));
         const verificationMessage = await storage.getMessageById(messageId);
         if (verificationMessage) {
           console.warn(
@@ -34693,7 +34707,7 @@ function registerGodmodelAPI(app2) {
     }
     const userId = req.user?.id;
     try {
-      const result = await db.execute(
+      const result = await getDb().execute(
         sql6`SELECT personality_records FROM users WHERE id = ${userId} LIMIT 1;`
       );
       const value = result?.rows?.[0]?.personality_records || null;
@@ -34710,7 +34724,7 @@ function registerGodmodelAPI(app2) {
     const userId = req.user?.id;
     const { progress } = req.body || {};
     try {
-      await db.execute(
+      await getDb().execute(
         sql6`UPDATE users SET personality_records = ${JSON.stringify(progress)} WHERE id = ${userId};`
       );
       res.json({ success: true });
@@ -34731,7 +34745,7 @@ function registerGodmodelAPI(app2) {
       console.log(
         `[GODMODEL] Saving personality records to database for user ${userId}`
       );
-      await db.execute(sql6`
+      await getDb().execute(sql6`
         UPDATE users 
         SET personality_records = ${finalData}, 
             personality_test_completed = TRUE 
@@ -34762,7 +34776,7 @@ function registerGodmodelAPI(app2) {
         console.log(`[GODMODEL-BIG5] Sample mapped responses:`, big5Responses.slice(0, 5));
         console.log(`[GODMODEL-BIG5] Total responses for Big 5:`, big5Responses.length);
         const big5Profile = big5ScoringService.generateBig5Profile(big5Responses);
-        await db.execute(sql6`
+        await getDb().execute(sql6`
           UPDATE users 
           SET big5_profile = ${JSON.stringify(big5Profile)},
               big5_computed_at = ${/* @__PURE__ */ new Date()},

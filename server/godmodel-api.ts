@@ -45,7 +45,7 @@ export function registerGodmodelAPI(app: Express) {
     }
     const userId = (req as any).user?.id as number;
     try {
-      const result: any = await db.execute(
+      const result: any = await db().execute(
         sql`SELECT personality_records FROM users WHERE id = ${userId} LIMIT 1;`,
       );
       const value = result?.rows?.[0]?.personality_records || null;
@@ -64,7 +64,7 @@ export function registerGodmodelAPI(app: Express) {
     const userId = (req as any).user?.id as number;
     const { progress } = req.body || {};
     try {
-      await db.execute(
+      await db().execute(
         sql`UPDATE users SET personality_records = ${JSON.stringify(progress)} WHERE id = ${userId};`,
       );
       res.json({ success: true });
@@ -91,7 +91,7 @@ export function registerGodmodelAPI(app: Express) {
       );
 
       // Save the godmodel data first
-      await db.execute(sql`
+      await db().execute(sql`
         UPDATE users 
         SET personality_records = ${finalData}, 
             personality_test_completed = TRUE 
@@ -138,7 +138,7 @@ export function registerGodmodelAPI(app: Express) {
         const big5Profile = big5ScoringService.generateBig5Profile(big5Responses);
         
         // Save Big 5 results to database
-        await db.execute(sql`
+        await db().execute(sql`
           UPDATE users 
           SET big5_profile = ${JSON.stringify(big5Profile)},
               big5_computed_at = ${new Date()},

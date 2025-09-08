@@ -33,35 +33,53 @@ if (typeof process !== "undefined" && process.versions?.node) {
   process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
 }
 
-// Create a connection pool with SSL configuration
-export const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? true : false
-});
+// Lazy database connection to prevent startup crashes
+let pool: any = null;
+let db: any = null;
 
-// Create a drizzle client
-export const db = drizzle(pool, {
-  schema: {
-    users,
-    userPreferences,
-    matches,
-    messages,
-    userInterests,
-    typingStatus,
-    videoCalls,
-    globalInterests,
-    globalDealBreakers,
-    globalTribes,
-    globalReligions,
-    verificationCodes,
-    userPhotos,
-    messageReactions,
-    userMatchSettings,
-    suiteJobProfiles,
-    suiteMentorshipProfiles,
-    suiteNetworkingProfiles,
-    suiteProfileSettings,
-    compatibilityAnalysis,
-    kwameConversations,
-  },
-});
+function getPool() {
+  if (!pool) {
+    console.log("[DB] Creating database pool connection...");
+    pool = new Pool({ 
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? true : false
+    });
+  }
+  return pool;
+}
+
+function getDb() {
+  if (!db) {
+    console.log("[DB] Creating drizzle client...");
+    db = drizzle(getPool(), {
+      schema: {
+        users,
+        userPreferences,
+        matches,
+        messages,
+        userInterests,
+        typingStatus,
+        videoCalls,
+        globalInterests,
+        globalDealBreakers,
+        globalTribes,
+        globalReligions,
+        verificationCodes,
+        userPhotos,
+        messageReactions,
+        userMatchSettings,
+        suiteJobProfiles,
+        suiteMentorshipProfiles,
+        suiteNetworkingProfiles,
+        suiteProfileSettings,
+        compatibilityAnalysis,
+        kwameConversations,
+      },
+    });
+  }
+  return db;
+}
+
+// Export the lazy-loaded connections
+export { getPool as pool };
+export { getDb as db };

@@ -108,7 +108,7 @@ export class ArchivingService {
           deletedForUserId: message.deletedForUserId || undefined
         }));
         
-        await db.insert(archivedMessages).values(archivedMessagesData);
+        await db().insert(archivedMessages).values(archivedMessagesData);
         console.log(`[ARCHIVE] Archived ${messages.length} messages`);
       }
       

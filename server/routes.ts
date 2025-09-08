@@ -2500,10 +2500,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Delete typing status records associated with this match (to handle foreign key constraint)
-      await db.delete(typingStatus).where(eq(typingStatus.matchId, matchId));
+      await db().delete(typingStatus).where(eq(typingStatus.matchId, matchId));
 
       // Delete video call records associated with this match (to handle foreign key constraint)
-      await db.delete(videoCalls).where(eq(videoCalls.matchId, matchId));
+      await db().delete(videoCalls).where(eq(videoCalls.matchId, matchId));
 
       // Delete messages associated with this match
       const messages = await storage.getMessagesByMatchId(matchId);
@@ -2527,7 +2527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       try {
         // Create dislike record: current user "dislikes" other user
-        await db.insert(matchesTable).values({
+        await db().insert(matchesTable).values({
           userId1: currentUserId,
           userId2: otherUserId,
           matched: false,
@@ -2536,7 +2536,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Create dislike record: other user "dislikes" current user
-        await db.insert(matchesTable).values({
+        await db().insert(matchesTable).values({
           userId1: otherUserId,
           userId2: currentUserId,
           matched: false,
@@ -2682,7 +2682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.deleteMatch(matchId);
 
             // Create bidirectional dislike records to prevent future matching
-            await db.insert(matchesTable).values([
+            await db().insert(matchesTable).values([
               {
                 userId1: reportingUserId,
                 userId2: validatedData.reportedUserId,
@@ -5429,7 +5429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expiresAt.setMinutes(expiresAt.getMinutes() + 10);
 
         // Store the reset code in database
-        await db.insert(passwordResetCodes).values({
+        await db().insert(passwordResetCodes).values({
           email: email,
           resetCode: resetCode,
           isUsed: false,
