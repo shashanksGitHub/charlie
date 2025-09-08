@@ -1,0 +1,398 @@
+/* Enhanced Tinder-like smooth finger swipe animations */
+/* Performance optimized animations for swipe card with hardware acceleration */
+
+/* Smooth card transforms for finger tracking */
+.swipe-card {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+  /* Optimize for smooth finger tracking */
+}
+
+/* All swipe animations removed - no physics interactions */
+
+/* Performance optimized animations for swipe card */
+/* Use transform and opacity for hardware acceleration */
+
+/* Faster pulse animation for sparkle effects */
+@keyframes pulse-fast {
+  0% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(1.2);
+  }
+
+  100% {
+    opacity: 0.4;
+    transform: scale(0.8);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-fast 1.2s ease-in-out infinite;
+  /* Faster animation */
+  will-change: transform, opacity;
+  /* Hint for browser optimization */
+}
+
+/* High-performance compatibility score effects */
+.compatibility-score {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  /* Faster transition */
+  will-change: transform, box-shadow;
+  /* Hint for browser optimization */
+}
+
+.compatibility-score:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+}
+
+/* Optimized indicators for swipe direction */
+.left-indicator,
+.right-indicator {
+  transition: opacity 0.15s ease-in-out;
+  /* Faster transition */
+  will-change: opacity;
+  /* Hint for browser optimization */
+}
+
+/* Enhanced swipe button effects with improved animations */
+.swipe-button {
+  position: relative;
+  overflow: hidden;
+  will-change: transform, box-shadow;
+  /* Optimize for animations */
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Mobile touch optimizations */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  /* Ensure buttons are properly sized for touch */
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Button click ripple effect */
+.swipe-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 120%;
+  height: 120%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 70%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, opacity;
+  /* Hint for browser optimization */
+}
+
+/* Improved active state with faster, more impactful animation */
+.swipe-button:active::after {
+  transform: translate(-50%, -50%) scale(1.5);
+  opacity: 0.5;
+  transition: 0s;
+}
+
+/* Press down effect when button is clicked */
+.swipe-button:active {
+  transform: perspective(500px) rotateX(15deg) scale(0.95) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15),
+    inset 0 2px 6px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 5px rgba(0, 0, 0, 0.1) !important;
+  transition: 0.1s !important;
+}
+
+/* Button click animation */
+@keyframes button-click {
+  0% {
+    transform: perspective(500px) rotateX(10deg) scale(1);
+  }
+
+  50% {
+    transform: perspective(500px) rotateX(15deg) scale(0.92);
+  }
+
+  100% {
+    transform: perspective(500px) rotateX(10deg) scale(1);
+  }
+}
+
+.button-click-animation {
+  animation: button-click 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* New class for high-performance card rendering */
+.fast-card {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  /* Prevents flicker */
+  transform: translateZ(0);
+  /* Force GPU acceleration */
+  opacity: 1;
+}
+
+/* Fast appear animation for cards */
+@keyframes fast-appear {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.fast-appear {
+  animation: fast-appear 0.3s ease-out forwards;
+}
+
+/* Card restore animations for undo functionality */
+@keyframes super-reliable-fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Using a unique class name to avoid conflicts */
+.super-reliable-fade-in {
+  animation: super-reliable-fade-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+  will-change: transform, opacity;
+  z-index: 100 !important;
+  /* Ensure the restored card is on top */
+  backface-visibility: hidden;
+  /* Prevent flickering */
+  transform: translateZ(0);
+  /* Force GPU acceleration */
+}
+
+/* 3D Shiny Industries/Domain Badge Animation */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) skewX(-12deg);
+  }
+
+  100% {
+    transform: translateX(200%) skewX(-12deg);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+/* Star Flight Animation */
+@keyframes star-flight {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+  }
+
+  /* 50% {
+    transform: translate3d(5vw, calc(-40vh), 0) scale(1.2);
+    opacity: 1;
+  } */
+
+  100% {
+    transform: translate3d(10vw, calc(-70vh), 0) scale(2.9);
+    opacity: 1;
+  }
+}
+
+/* Star Rotation Animation */
+@keyframes star-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Confetti Explosion Animation */
+@keyframes confetti-explosion {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(10.5);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+/* Confetti Particles Animation Variants */
+@keyframes confetti-particle-0 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-20px, -30px) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+@keyframes confetti-particle-1 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(25px, -25px) rotate(270deg);
+    opacity: 0;
+  }
+}
+
+@keyframes confetti-particle-2 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-20px, 10px) rotate(90deg);
+    opacity: 0;
+  }
+}
+
+@keyframes confetti-particle-3 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(5px, 15px) rotate(135deg);
+    opacity: 0;
+  }
+}
+
+/* Briefcase Flight Animation for SUITE Mentorship */
+@keyframes briefcase-flight {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+  }
+
+  /* 50% {
+    transform: translate3d(15vw, calc(-40vh), 0) scale(1.2);
+    opacity: 1;
+  } */
+  100% {
+    transform: translate3d(9vw, calc(-53vh), 0) scale(2.9);
+    opacity: 1;
+  }
+}
+
+/* Briefcase Rotation Animation */
+@keyframes briefcase-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Briefcase Confetti Explosion Animation */
+@keyframes briefcase-confetti-explosion {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.5);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+/* Briefcase Confetti Particles */
+@keyframes briefcase-confetti-particle-0 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-25px, -35px) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+@keyframes briefcase-confetti-particle-1 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(30px, -30px) rotate(270deg);
+    opacity: 0;
+  }
+}
+
+@keyframes briefcase-confetti-particle-2 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-35px, 25px) rotate(90deg);
+    opacity: 0;
+  }
+}
+
+@keyframes briefcase-confetti-particle-3 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(20px, 40px) rotate(135deg);
+    opacity: 0;
+  }
+}

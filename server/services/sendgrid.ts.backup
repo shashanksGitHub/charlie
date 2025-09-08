@@ -1,0 +1,1164 @@
+import { MailService } from "@sendgrid/mail";
+
+const mailService = new MailService();
+
+// Initialize SendGrid with API key from environment
+if (process.env.SENDGRID_API_KEY) {
+  mailService.setApiKey(process.env.SENDGRID_API_KEY);
+  console.log("[SENDGRID] API key initialized successfully");
+} else {
+  console.error("[SENDGRID] No API key found in environment variables");
+}
+
+interface ContactFormData {
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  message: string;
+}
+
+interface WelcomeEmailData {
+  name: string;
+  email: string;
+  dateOfBirth?: string | Date;
+}
+
+interface PremiumSubscriptionEmailData {
+  name: string;
+  email: string;
+  planType: string;
+  subscriptionId: string;
+  subscriptionExpiresAt?: Date;
+}
+
+interface EmailParams {
+  to: string;
+  from: string;
+  subject: string;
+  text?: string;
+  html?: string;
+}
+
+// Optimized email sending function with connection pooling
+export async function sendEmail(
+  apiKey: string,
+  params: EmailParams,
+): Promise<boolean> {
+  try {
+    // Use global mailService instance for connection pooling
+    if (!process.env.SENDGRID_API_KEY) {
+      mailService.setApiKey(apiKey);
+    }
+
+    const emailData: any = {
+      to: params.to,
+      from: params.from,
+      subject: params.subject,
+    };
+
+    if (params.text) {
+      emailData.text = params.text;
+    }
+    if (params.html) {
+      emailData.html = params.html;
+    }
+
+    // Send email with optimized configuration
+    await mailService.send(emailData);
+    return true;
+  } catch (error) {
+    console.error("SendGrid email error:", error);
+    return false;
+  }
+}
+
+// Test function to verify SendGrid configuration
+export async function testSendGridConfig(): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  try {
+    console.log("[SENDGRID-TEST] Testing SendGrid configuration...");
+    console.log(
+      "[SENDGRID-TEST] API Key present:",
+      !!process.env.SENDGRID_API_KEY,
+    );
+    console.log(
+      "[SENDGRID-TEST] API Key starts with:",
+      process.env.SENDGRID_API_KEY?.substring(0, 10),
+    );
+
+    // Try to send a simple test email
+    const testEmail = {
+      to: "admin@kronogon.com",
+      from: "admin@kronogon.com", // Simplified format
+      subject: "SendGrid Test Email",
+      text: "This is a test email to verify SendGrid configuration.",
+    };
+
+    await mailService.send(testEmail);
+    console.log("[SENDGRID-TEST] Test email sent successfully!");
+    return { success: true, message: "SendGrid test successful" };
+  } catch (error: any) {
+    console.error("[SENDGRID-TEST] Test failed:", error);
+    if (error.response) {
+      console.error("[SENDGRID-TEST] Error details:", {
+        status: error.code,
+        body: error.response?.body,
+        message: error.message,
+      });
+    }
+    return {
+      success: false,
+      message: `SendGrid test failed: ${error.message}`,
+    };
+  }
+}
+
+export async function sendContactFormConfirmationEmail(
+  data: ContactFormData,
+): Promise<boolean> {
+  try {
+    console.log(
+      "[SENDGRID] Sending contact form confirmation email to user...",
+    );
+
+    const emailContent = {
+      to: data.email,
+      from: "admin@kronogon.com",
+      subject: "We received your message - CHARLEY Support",
+      text: `
+Dear ${data.name},
+
+Thank you for contacting CHARLEY Support. We have received your message and will get back to you shortly.
+
+Your message:
+"${data.message}"
+
+Our support team typically responds within 24 hours during business days. If your matter requires immediate attention, please don't hesitate to contact us directly at admin@kronogon.com or call us at +1 (469) 496-5620.
+
+Thank you for using CHARLEY!
+
+Best regards,
+The CHARLEY Support Team
+
+---
+This is an automated confirmation email. Please do not reply to this message.
+      `.trim(),
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;">
+              Message Received ✓
+            </h1>
+            <p style="color: #e0e7ff; margin: 10px 0 0 0; font-size: 16px;">
+              Thank you for contacting CHARLEY Support
+            </p>
+          </div>
+
+          <!-- Content -->
+          <div style="padding: 30px; background: #ffffff;">
+            <p style="color: #1f2937; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+              Dear <strong>${data.name}</strong>,
+            </p>
+
+            <p style="color: #1f2937; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+              Thank you for reaching out to us. We have received your message and our support team will review it shortly.
+            </p>
+
+            <!-- Message Summary -->
+            <div style="background: #f8fafc; padding: 20px; border-left: 4px solid #6366f1; border-radius: 0 6px 6px 0; margin: 20px 0;">
+              <h3 style="color: #475569; margin: 0 0 10px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
+                Your Message:
+              </h3>
+              <p style="color: #334155; line-height: 1.6; margin: 0; font-style: italic;">
+                "${data.message}"
+              </p>
+            </div>
+
+            <!-- Response Time -->
+            <div style="background: #ecfdf5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="color: #065f46; font-size: 16px; margin: 0; font-weight: 500;">
+                📞 <strong>Expected Response Time:</strong> Within 24 hours during business days
+              </p>
+            </div>
+
+            <!-- Contact Info -->
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 30px;">
+              <p style="color: #6b7280; font-size: 14px; margin: 0 0 10px 0;">
+                <strong>Need immediate help?</strong>
+              </p>
+              <p style="color: #6b7280; font-size: 14px; margin: 0;">
+                📧 Email: admin@kronogon.com<br>
+                📞 Phone: +1 (469) 496-5620 (Mon-Fri, 9am-5pm ET)
+              </p>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="background: #f9fafb; padding: 20px; text-align: center; border-radius: 0 0 8px 8px; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 12px; margin: 0;">
+              This is an automated confirmation email. Please do not reply to this message.
+            </p>
+            <p style="color: #6b7280; font-size: 12px; margin: 5px 0 0 0;">
+              © 2025 CHARLEY. All rights reserved.
+            </p>
+          </div>
+        </div>
+      `,
+    };
+
+    await mailService.send(emailContent);
+    console.log(
+      `[SENDGRID] Contact form confirmation email sent successfully to ${data.email}`,
+    );
+    return true;
+  } catch (error: any) {
+    console.error(
+      "[SENDGRID] Failed to send contact form confirmation email:",
+      error,
+    );
+
+    if (error.response) {
+      console.error("[SENDGRID] Confirmation email error response:", {
+        status: error.code,
+        body: error.response?.body,
+      });
+    }
+
+    return false;
+  }
+}
+
+export async function sendContactFormEmail(
+  data: ContactFormData,
+): Promise<boolean> {
+  try {
+    console.log("[SENDGRID] Attempting to send contact form email...");
+
+    // Use simpler email format that might work better
+    const emailContent = {
+      to: "admin@kronogon.com",
+      from: "admin@kronogon.com", // Simplified - just the email
+      subject: `Contact Form Submission from ${data.name}`,
+      text: `
+Name: ${data.name}
+Email: ${data.email}
+Phone: ${data.phoneNumber || "Not provided"}
+
+Message:
+${data.message}
+
+---
+This message was sent via the CHARLEY Contact Form.
+      `.trim(),
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333; border-bottom: 2px solid #6366f1; padding-bottom: 10px;">
+            New Contact Form Submission
+          </h2>
+
+          <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Name:</strong> ${data.name}</p>
+            <p><strong>Email:</strong> ${data.email}</p>
+            <p><strong>Phone:</strong> ${data.phoneNumber || "Not provided"}</p>
+          </div>
+
+          <div style="background: #ffffff; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h3 style="color: #475569; margin-top: 0;">Message:</h3>
+            <p style="line-height: 1.6; color: #334155;">${data.message.replace(/\n/g, "<br>")}</p>
+          </div>
+
+          <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px;">
+            This message was sent via the CHARLEY Contact Form.
+          </div>
+        </div>
+      `,
+    };
+
+    await mailService.send(emailContent);
+    console.log(
+      `[SENDGRID] Contact form email sent successfully from ${data.email}`,
+    );
+    return true;
+  } catch (error: any) {
+    console.error("[SENDGRID] Failed to send contact form email:", error);
+
+    // Log specific error details for debugging
+    if (error.response) {
+      console.error("[SENDGRID] Error response:", {
+        status: error.code,
+        body: error.response?.body,
+        headers: error.response?.headers,
+      });
+
+      // Check for specific 403 errors
+      if (error.code === 403) {
+        console.error("[SENDGRID] 403 Forbidden - This usually means:");
+        console.error(
+          "1. The sender email address needs to be verified in SendGrid",
+        );
+        console.error("2. The API key doesn't have sufficient permissions");
+        console.error("3. Account is suspended or has issues");
+      }
+    }
+
+    return false;
+  }
+}
+
+// Helper function to calculate age from date of birth
+const calculateAge = (dateOfBirth: Date | string): number => {
+  const today = new Date();
+  const birthDate = new Date(dateOfBirth);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getDate() < birthDate.getDate())
+  ) {
+    age--;
+  }
+
+  return age;
+};
+
+export async function sendUnderAgeApologyEmail(
+  data: WelcomeEmailData,
+): Promise<boolean> {
+  try {
+    console.log("[SENDGRID] Sending under-age apology email to:", data.email);
+
+    const userAge = data.dateOfBirth ? calculateAge(data.dateOfBirth) : null;
+    console.log(
+      `[SENDGRID] User age: ${userAge} - sending apology email for under-age user`,
+    );
+
+    const emailContent = {
+      to: data.email,
+      from: "admin@kronogon.com",
+      subject: `Thank you for your interest in CHARLEY, ${data.name}`,
+      text: `
+Dear ${data.name},
+
+Thank you for your interest in joining CHARLEY, our innovative social and professional networking platform.
+
+Unfortunately, our platform currently requires users to be 14 years or older to access our dating and professional networking features. This policy is in place to ensure the safety and appropriate experience for all our users.
+
+However, we want you to know that we value your interest in our platform, and we encourage you to return when you reach the minimum age requirement. In the meantime, we recommend:
+
+- Focus on building meaningful friendships and connections in your local community
+- Develop your skills and interests that will serve you well in future professional networking
+- Stay safe online and always prioritize your education and personal growth
+
+We apologize for any inconvenience this may cause, and we look forward to welcoming you to the CHARLEY community in the future.
+
+If you have any questions, please don't hesitate to contact us at admin@kronogon.com.
+
+Best regards,
+The CHARLEY Team
+BTechnos.com
+      `.trim(),
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta name="color-scheme" content="light">
+          <meta name="supported-color-schemes" content="light">
+          <style>
+            :root { color-scheme: light; supported-color-schemes: light; }
+            body, table, td, p, h1, h2, h3, h4, h5, h6 { color: #111827 !important; }
+          </style>
+          <title>Thank you for your interest in CHARLEY</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; min-height: 100vh; color: #111827;">
+
+          <!-- Main Container -->
+          <div style="max-width: 650px; margin: 0 auto; background: #ffffff; box-shadow: 0 25px 50px rgba(0,0,0,0.08); border-radius: 16px; overflow: hidden; margin-top: 40px; margin-bottom: 40px;">
+
+            <!-- Header Section -->
+            <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 50px 40px; text-align: center; position: relative; overflow: hidden;">
+              <!-- Floating orbs -->
+              <div style="position: absolute; top: -20px; left: -20px; width: 100px; height: 100px; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 70%); border-radius: 50%;"></div>
+              <div style="position: absolute; bottom: -30px; right: -30px; width: 80px; height: 80px; background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.08) 70%); border-radius: 50%;"></div>
+
+              <div style="position: relative; z-index: 10;">
+                <h1 style="color: #ffffff; font-size: 36px; font-weight: 700; margin: 0 0 15px 0; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                  Thank You for Your Interest
+                </h1>
+                <div style="background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius: 25px; padding: 12px 25px; display: inline-block;">
+                  <p style="color: rgba(255,255,255,0.95); font-size: 18px; margin: 0; font-weight: 400;">
+                    Dear ${data.name}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Main Content -->
+            <div style="padding: 40px 30px;">
+
+              <!-- Apology Message -->
+              <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #ef4444; margin-bottom: 30px;">
+                <h2 style="color: #dc2626; font-size: 22px; margin: 0 0 15px 0; font-weight: 600;">
+                  Age Requirement Notice
+                </h2>
+                <p style="color: #1f2937; line-height: 1.7; margin: 0; font-size: 16px;">
+                  We appreciate your interest in CHARLEY, our innovative social and professional networking platform. Unfortunately, our platform currently requires users to be <strong>14 years or older</strong> to access our dating and professional networking features.
+                </p>
+              </div>
+
+              <!-- Why This Policy -->
+              <div style="margin-bottom: 30px;">
+                <h3 style="color: #1e293b; font-size: 20px; margin: 0 0 15px 0; font-weight: 600;">
+                  🛡️ Why This Policy Exists
+                </h3>
+                <p style="color: #1f2937; line-height: 1.7; margin: 0; font-size: 16px;">
+                  This policy is in place to ensure the safety and appropriate experience for all our users. We are committed to creating a secure environment that complies with digital safety standards and protects our community members.
+                </p>
+              </div>
+
+              <!-- Recommendations -->
+              <div style="background: #f8fafc; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 30px;">
+                <h3 style="color: #1e293b; font-size: 20px; margin: 0 0 20px 0; font-weight: 600;">
+                  💡 In the Meantime, We Recommend:
+                </h3>
+                <ul style="color: #1f2937; line-height: 1.7; margin: 0; padding-left: 20px; font-size: 16px;">
+                  <li style="margin-bottom: 12px;">Focus on building meaningful friendships and connections in your local community</li>
+                  <li style="margin-bottom: 12px;">Develop your skills and interests that will serve you well in future professional networking</li>
+                  <li style="margin-bottom: 12px;">Stay safe online and always prioritize your education and personal growth</li>
+                  <li style="margin-bottom: 0;">Explore age-appropriate social platforms designed for your age group</li>
+                </ul>
+              </div>
+
+              <!-- Future Welcome -->
+              <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #0ea5e9; margin-bottom: 30px;">
+                <h3 style="color: #0369a1; font-size: 20px; margin: 0 0 15px 0; font-weight: 600;">
+                  🌟 We Look Forward to Welcoming You
+                </h3>
+                <p style="color: #1f2937; line-height: 1.7; margin: 0; font-size: 16px;">
+                  We encourage you to return when you reach the minimum age requirement. CHARLEY will be here, ready to help you build meaningful connections and advance your professional journey when the time is right.
+                </p>
+              </div>
+
+              <!-- Contact Info -->
+              <div style="text-align: center; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <p style="color: #64748b; margin: 0 0 10px 0; font-size: 14px;">
+                  If you have any questions, please contact us at:
+                </p>
+                <a href="mailto:admin@kronogon.com" style="color: #6366f1; text-decoration: none; font-weight: 600; font-size: 16px;">
+                  admin@kronogon.com
+                </a>
+              </div>
+
+              <!-- Closing -->
+              <div style="text-align: center; color: #64748b; font-size: 16px; line-height: 1.6; margin-top: 30px;">
+                <p style="margin: 0 0 10px 0; font-weight: 600; color: #1e293b;">Best regards,</p>
+                <p style="margin: 0; font-style: italic;">The CHARLEY Team</p>
+                <p style="margin: 5px 0 0 0; font-size: 14px;">
+                  <a href="https://btechnos.com" style="color: #6366f1; text-decoration: none;">
+                    BTechnos.com
+                  </a>
+                </p>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="background: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="color: #64748b; font-size: 12px; margin: 0; line-height: 1.5;">
+                This email was sent from CHARLEY by BTechnos. You're receiving this because you attempted to create an account with us.<br>
+                © 2025 BTechnos. All rights reserved. | <a href="https://btechnos.com" style="color: #6366f1; text-decoration: none;">btechnos.com</a>
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+
+    await mailService.send(emailContent);
+    console.log(
+      `[SENDGRID] Under-age apology email sent successfully to ${data.email}`,
+    );
+    return true;
+  } catch (error: any) {
+    console.error("[SENDGRID] Failed to send under-age apology email:", error);
+
+    if (error.response) {
+      console.error("[SENDGRID] Under-age apology email error details:", {
+        status: error.code,
+        body: error.response?.body,
+        headers: error.response?.headers,
+      });
+    }
+
+    return false;
+  }
+}
+
+export async function sendTeenageWelcomeEmail(
+  data: WelcomeEmailData,
+): Promise<boolean> {
+  try {
+    console.log("[SENDGRID] Sending teenage welcome email to:", data.email);
+
+    // Calculate user age for logging
+    const userAge = data.dateOfBirth ? calculateAge(data.dateOfBirth) : null;
+    console.log(`[SENDGRID] Teenage user age: ${userAge}`);
+
+    const emailContent = {
+      to: data.email,
+      from: "admin@kronogon.com",
+      subject: `Welcome to CHARLEY, ${data.name}! 🌟 Your Friendship Journey Begins`,
+      text: `
+Welcome to CHARLEY, ${data.name}!
+
+Thank you for joining our community! We're excited to have you on board for an amazing friendship and networking journey.
+
+CHARLEY is designed to help young people like you build meaningful friendships and start exploring professional opportunities in a safe, age-appropriate environment. We believe that genuine connections and early career development are key to a bright future.
+
+What Makes CHARLEY Special for You:
+- Safe, moderated environment designed specifically for teens
+- Focus on friendship-building and meaningful connections
+- Early professional networking opportunities
+- Mentorship programs to help guide your journey
+- Educational content and career exploration tools
+
+Your CHARLEY Experience Includes:
+- MEET (friendship): Connect with peers who share your interests and values
+- SUITE (networking): Start building professional connections for your future
+- Mentorship programs: Learn from experienced professionals in your areas of interest
+
+Important Guidelines:
+- Complete your profile to unlock CHARLEY's full potential
+- Always prioritize your safety and privacy online
+- Engage respectfully with other community members
+- Focus on building genuine, meaningful connections
+- Take advantage of mentorship opportunities
+
+Our Commitment to You:
+We're dedicated to providing a positive, educational, and safe space where you can grow personally and professionally. Our platform includes robust safety features and content moderation to ensure your experience is both enriching and secure.
+
+Getting Started:
+1. Complete your profile with your interests and goals
+2. Explore the friendship connections in MEET
+3. Check out early networking opportunities in SUITE
+4. Look for mentorship matches that align with your interests
+
+Visit us at btechnos.com to learn more about our mission and the technology behind CHARLEY.
+
+Welcome to your bright future!
+The CHARLEY Team
+BTechnos.com
+      `.trim(),
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta name="color-scheme" content="light">
+          <meta name="supported-color-schemes" content="light">
+          <style>
+            :root { color-scheme: light; supported-color-schemes: light; }
+            body, table, td, p, h1, h2, h3, h4, h5, h6 { color: #111827 !important; }
+          </style>
+          <title>Welcome to CHARLEY - Your Friendship Journey</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f9ff; min-height: 100vh; color: #111827;">
+
+          <!-- Main Container -->
+          <div style="max-width: 650px; margin: 0 auto; background: #ffffff; box-shadow: 0 25px 50px rgba(0,0,0,0.08); border-radius: 16px; overflow: hidden; margin-top: 40px; margin-bottom: 40px;">
+
+            <!-- Header Section - Youthful Design -->
+            <div style="background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 25%, #8b5cf6 50%, #ec4899 75%, #f59e0b 100%); padding: 60px 40px; text-align: center; position: relative; overflow: hidden;">
+              <!-- Animated elements for teens -->
+              <div style="position: absolute; top: -20px; left: -20px; width: 100px; height: 100px; background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 70%); border-radius: 50%;"></div>
+              <div style="position: absolute; top: 30px; right: -30px; width: 70px; height: 70px; background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.08) 70%); border-radius: 50%;"></div>
+
+              <!-- Star sparkles -->
+              <div style="position: absolute; top: 20%; left: 20%; width: 6px; height: 6px; background: rgba(255,255,255,0.9); border-radius: 50%; box-shadow: 0 0 12px rgba(255,255,255,0.9);"></div>
+              <div style="position: absolute; top: 35%; right: 25%; width: 4px; height: 4px; background: rgba(255,255,255,0.8); border-radius: 50%; box-shadow: 0 0 8px rgba(255,255,255,0.8);"></div>
+
+              <!-- Main header content -->
+              <div style="position: relative; z-index: 10;">
+                <h1 style="color: white; font-size: 42px; font-weight: 800; margin: 0 0 10px 0; text-shadow: 0 4px 20px rgba(0,0,0,0.3); letter-spacing: -1px;">
+                  Welcome to CHARLEY! 🌟
+                </h1>
+                <p style="color: rgba(255,255,255,0.95); font-size: 22px; margin: 0; font-weight: 500; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+                  Your Friendship Journey Begins Here
+                </p>
+              </div>
+            </div>
+
+            <!-- Welcome Message -->
+            <div style="padding: 50px 40px;">
+              <div style="text-align: center; margin-bottom: 40px;">
+                <h2 style="color: #1e293b; font-size: 28px; font-weight: 700; margin: 0 0 15px 0;">
+                  Hi ${data.name}! 👋
+                </h2>
+                <p style="color: #475569; font-size: 18px; line-height: 1.6; margin: 0;">
+                  We're thrilled to have you join our community of young innovators, friendship-builders, and future leaders!
+                </p>
+              </div>
+
+              <!-- What Makes CHARLEY Special -->
+              <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 30px; border-radius: 12px; margin-bottom: 30px; border-left: 4px solid #0ea5e9;">
+                <h3 style="color: #0c4a6e; font-size: 20px; font-weight: 600; margin: 0 0 20px 0;">
+                  🚀 What Makes CHARLEY Special for You
+                </h3>
+                <ul style="color: #1e293b; line-height: 1.7; margin: 0; padding-left: 20px; font-size: 16px;">
+                  <li style="margin-bottom: 10px;"><strong>Safe Environment:</strong> Moderated platform designed specifically for young people</li>
+                  <li style="margin-bottom: 10px;"><strong>Friendship Focus:</strong> Build meaningful connections with peers who share your interests</li>
+                  <li style="margin-bottom: 10px;"><strong>Future Building:</strong> Early professional networking and career exploration</li>
+                  <li style="margin-bottom: 0;"><strong>Mentorship:</strong> Learn from experienced professionals in your areas of interest</li>
+                </ul>
+              </div>
+
+              <!-- Your CHARLEY Experience -->
+              <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 30px; border-radius: 12px; margin-bottom: 30px; border-left: 4px solid #f59e0b;">
+                <h3 style="color: #92400e; font-size: 20px; font-weight: 600; margin: 0 0 20px 0;">
+                  🎯 Your CHARLEY Experience
+                </h3>
+                <div style="display: grid; gap: 15px;">
+                  <div style="background: rgba(255,255,255,0.7); padding: 20px; border-radius: 8px;">
+                    <h4 style="color: #7c2d12; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">MEET (Friendship)</h4>
+                    <p style="color: #451a03; margin: 0; font-size: 14px; line-height: 1.5;">Connect with peers who share your values and interests</p>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.7); padding: 20px; border-radius: 8px;">
+                    <h4 style="color: #7c2d12; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">SUITE (Networking)</h4>
+                    <p style="color: #451a03; margin: 0; font-size: 14px; line-height: 1.5;">Start building professional connections for your future career</p>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.7); padding: 20px; border-radius: 8px;">
+                    <h4 style="color: #7c2d12; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">Mentorship Programs</h4>
+                    <p style="color: #451a03; margin: 0; font-size: 14px; line-height: 1.5;">Learn from experienced professionals and explore career paths</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Getting Started Steps -->
+              <div style="background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%); padding: 30px; border-radius: 12px; margin-bottom: 30px; border-left: 4px solid #8b5cf6;">
+                <h3 style="color: #581c87; font-size: 20px; font-weight: 600; margin: 0 0 20px 0;">
+                  🎉 Getting Started
+                </h3>
+                <div style="color: #1f2937; line-height: 1.6;">
+                  <div style="background: rgba(255,255,255,0.6); padding: 15px; border-radius: 8px; margin-bottom: 12px;">
+                    <strong style="color: #581c87;">Step 1:</strong> Complete your profile with interests and goals
+                  </div>
+                  <div style="background: rgba(255,255,255,0.6); padding: 15px; border-radius: 8px; margin-bottom: 12px;">
+                    <strong style="color: #581c87;">Step 2:</strong> Explore friendship connections in MEET
+                  </div>
+                  <div style="background: rgba(255,255,255,0.6); padding: 15px; border-radius: 8px; margin-bottom: 12px;">
+                    <strong style="color: #581c87;">Step 3:</strong> Check out networking opportunities in SUITE
+                  </div>
+                  <div style="background: rgba(255,255,255,0.6); padding: 15px; border-radius: 8px;">
+                    <strong style="color: #581c87;">Step 4:</strong> Find mentorship matches in your areas of interest
+                  </div>
+                </div>
+              </div>
+
+              <!-- Safety Reminder -->
+              <div style="background: #fef2f2; padding: 25px; border-radius: 12px; margin-bottom: 30px; border-left: 4px solid #ef4444;">
+                <h4 style="color: #991b1b; font-size: 16px; font-weight: 600; margin: 0 0 15px 0;">
+                  🛡️ Important Safety Reminders
+                </h4>
+                <ul style="color: #7f1d1d; line-height: 1.6; margin: 0; padding-left: 20px; font-size: 14px;">
+                  <li style="margin-bottom: 8px;">Always prioritize your safety and privacy online</li>
+                  <li style="margin-bottom: 8px;">Engage respectfully with other community members</li>
+                  <li style="margin-bottom: 0;">Report any inappropriate behavior to our moderation team</li>
+                </ul>
+              </div>
+
+              <!-- Website Link -->
+              <div style="text-align: center; margin-bottom: 30px;">
+                <a href="https://btechnos.com" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 25px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); transition: all 0.3s ease;">
+                  Explore BTechnos.com
+                </a>
+              </div>
+
+              <!-- Closing -->
+              <div style="text-align: center; color: #64748b; font-size: 16px; line-height: 1.6;">
+                <p style="margin: 0 0 10px 0; font-weight: 600; color: #1e293b;">Welcome to your bright future!</p>
+                <p style="margin: 0; font-style: italic;">The CHARLEY Team</p>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="background: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="color: #64748b; font-size: 12px; margin: 0; line-height: 1.5;">
+                This email was sent from CHARLEY by BTechnos. You're receiving this because you successfully created an account with us.<br>
+                © 2025 BTechnos. All rights reserved. | <a href="https://btechnos.com" style="color: #3b82f6; text-decoration: none;">btechnos.com</a>
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+
+    await mailService.send(emailContent);
+    console.log(
+      `[SENDGRID] Teenage welcome email sent successfully to ${data.email}`,
+    );
+    return true;
+  } catch (error: any) {
+    console.error("[SENDGRID] Failed to send teenage welcome email:", error);
+
+    if (error.response) {
+      console.error("[SENDGRID] Teenage welcome email error details:", {
+        status: error.code,
+        body: error.response?.body,
+      });
+    }
+
+    return false;
+  }
+}
+
+export async function sendWelcomeEmail(
+  data: WelcomeEmailData,
+): Promise<boolean> {
+  try {
+    console.log("[SENDGRID] Sending adult welcome email to:", data.email);
+
+    // Calculate user age for logging
+    const userAge = data.dateOfBirth ? calculateAge(data.dateOfBirth) : null;
+    console.log(`[SENDGRID] Adult user age: ${userAge}`);
+
+    const emailContent = {
+      to: data.email,
+      from: "admin@kronogon.com",
+      subject: `Welcome to CHARLEY, ${data.name}! 🎉 Join the Social Revolution`,
+      text: `
+Welcome to CHARLEY, ${data.name}!
+
+Thank you for joining us on this incredible journey to revolutionize how people connect, build relationships, and create meaningful professional networks.
+
+CHARLEY is not just another app; it’s a bold movement toward restoring authenticity and depth to human connection. Born from a simple, yet profound question—“What if technology could truly understand us?”—CHARLEY brings together dating, networking, and mentorship into a single, seamless platform. It’s more than a tool; it’s a community shaped by empathy, powered by innovative AI, and guided by a commitment to human flourishing.
+
+Why CHARLEY? Because we believe every connection should mean something. Our story began with a vision to move beyond superficial swipes and transactional exchanges, and instead, create a space where compatibility, mentorship, and meaningful professional relationships can thrive—across continents, backgrounds, and ambitions.
+
+Our Mission:
+- Revolutionize dating by focusing on authentic compatibility
+- Transform professional networking through meaningful connections
+- Democratize mentorship and personal growth opportunities
+- Create a global community built on trust, respect, and genuine human values
+
+Message from The Leadership Team:
+
+CEO Sam's Message:
+"At Kronogon, we see CHARLEY as more than a product—it’s a movement grounded in the universal longing for belonging. In an age where loneliness quietly thrives behind curated profiles and viral trends, we are driven by both heart and intellect to redefine what connection means in the digital era. CHARLEY draws from cross-disciplinary insights—psychology, sociology, and design thinking—to create a space where vulnerability isn’t a liability, but a strength, and where every interaction is an opportunity for understanding. We are committed to building a community that not only reflects the rich diversity of our world, but actively nurtures empathy and authentic human flourishing. Technology alone does not create connection—people do. Our role is to set the stage for meaningful encounters, guided by both evidence and empathy."
+
+CTO Obed's Message:
+"As CTO, my approach to CHARLEY has always been informed by both rigorous engineering and a deep respect for the human spirit. Our team blends advanced data science, ethical design, and behavioral research to construct systems that protect, empower, and inspire. We challenge ourselves to see technology through the lens of lived experience: How do we foster trust in code? How can algorithms promote genuine dialogue rather than division? Each technical decision is anchored in the best research and a commitment to digital well-being. CHARLEY stands as a testament to what’s possible when technology serves as a bridge, not a barrier—amplifying the complexity and beauty of human relationships. Together, with our users and partners, we are co-authoring a new chapter in the science—and the art—of connection."
+
+Important Reminders:
+- Please take time to review our Privacy Policy and Terms of Service
+- Complete your profile to unlock CHARLEY's full potential
+- Explore all three platforms: MEET (dating), SUITE (professional networking), and our mentorship programs
+
+Visit us at btechnos.com to learn more about our vision and the technology behind CHARLEY.
+
+Welcome aboard!
+The BTechnos Team
+      `.trim(),
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta name="color-scheme" content="light">
+          <meta name="supported-color-schemes" content="light">
+          <style>
+            :root { color-scheme: light; supported-color-schemes: light; }
+            body, table, td, p, h1, h2, h3, h4, h5, h6 { color: #111827 !important; }
+          </style>
+          <title>Welcome to CHARLEY</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; min-height: 100vh; color: #111827;">
+
+          <!-- Main Container -->
+          <div style="max-width: 650px; margin: 0 auto; background: #ffffff; box-shadow: 0 25px 50px rgba(0,0,0,0.08); border-radius: 16px; overflow: hidden;">
+
+            <!-- Header Section -->
+            <div style="background: linear-gradient(135deg, #ff6b6b 0%, #feca57 25%, #ff9ff3 50%, #54a0ff 75%, #5f27cd 100%); padding: 60px 40px; text-align: center; position: relative; overflow: hidden;">
+              <!-- Animated floating orbs -->
+              <div style="position: absolute; top: -30px; left: -30px; width: 120px; height: 120px; background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 70%); border-radius: 50%; animation: float 6s ease-in-out infinite;"></div>
+              <div style="position: absolute; top: 20px; right: -40px; width: 80px; height: 80px; background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.08) 70%); border-radius: 50%; animation: float 4s ease-in-out infinite reverse;"></div>
+              <div style="position: absolute; bottom: -20px; left: 30%; width: 60px; height: 60px; background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 70%); border-radius: 50%; animation: float 5s ease-in-out infinite;"></div>
+
+              <!-- Sparkling effects -->
+              <div style="position: absolute; top: 25%; left: 15%; width: 4px; height: 4px; background: rgba(255,255,255,0.8); border-radius: 50%; box-shadow: 0 0 10px rgba(255,255,255,0.8);"></div>
+              <div style="position: absolute; top: 40%; right: 20%; width: 3px; height: 3px; background: rgba(255,255,255,0.9); border-radius: 50%; box-shadow: 0 0 8px rgba(255,255,255,0.9);"></div>
+              <div style="position: absolute; bottom: 30%; left: 25%; width: 2px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 50%; box-shadow: 0 0 6px rgba(255,255,255,0.7);"></div>
+
+              <!-- Main content with enhanced styling -->
+              <div style="position: relative; z-index: 10;">
+                <h1 style="color: #ffffff; font-size: 48px; font-weight: 800; margin: 0 0 20px 0; text-shadow: 0 4px 8px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2); letter-spacing: -1.5px; background: linear-gradient(45deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.9) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                  Welcome to CHARLEY
+                </h1>
+                <div style="background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius: 25px; padding: 15px 30px; display: inline-block; margin-top: 10px;">
+                  <p style="color: rgba(255,255,255,0.95); font-size: 20px; margin: 0; font-weight: 400; text-shadow: 0 1px 2px rgba(0,0,0,0.2);">
+                    Join the Social Revolution, ${data.name}!
+                  </p>
+                </div>
+              </div>
+
+              <!-- CSS Animation -->
+              <style>
+                @keyframes float {
+                  0%, 100% { transform: translateY(0px) rotate(0deg); }
+                  50% { transform: translateY(-20px) rotate(180deg); }
+                }
+              </style>
+            </div>
+
+            <!-- Main Content -->
+            <div style="padding: 40px 30px;">
+
+              <!-- Personal Welcome -->
+              <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #6366f1; margin-bottom: 30px;">
+                <h2 style="color: #1e293b; font-size: 24px; margin: 0 0 15px 0; font-weight: 600;">
+                  Dear ${data.name},
+                </h2>
+                <p style="color: #1f2937; line-height: 1.7; margin: 0; font-size: 16px;">
+                  Thank you for joining us on this incredible journey to revolutionize how people connect, build relationships, and create meaningful professional networks. You're not just signing up for an app—you're becoming part of a movement.
+                </p>
+              </div>
+
+              <!-- Our Story Section -->
+              <div style="margin-bottom: 35px;">
+                <h3 style="color: #1e293b; font-size: 22px; margin: 0 0 20px 0; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                  🚀 Why CHARLEY?
+                </h3>
+                <p style="color: #1f2937; line-height: 1.7; margin: 0 0 15px 0; font-size: 16px;">
+                  Our story began with a simple question: <em>"What if we could create a platform that truly understands human connection?"</em> From this question emerged CHARLEY—an AI-powered ecosystem that goes beyond superficial matching to create genuine, lasting relationships across all areas of life.
+                </p>
+                <div style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                  <h4 style="color: #6366f1; margin: 0 0 12px 0; font-size: 18px; font-weight: 600;">Our Mission:</h4>
+                  <ul style="color: #1f2937; line-height: 1.6; margin: 0; padding-left: 20px; font-size: 15px;">
+                    <li style="margin-bottom: 8px; color: #1f2937;">Revolutionize dating by focusing on authentic compatibility</li>
+                    <li style="margin-bottom: 8px; color: #1f2937;">Transform professional networking through meaningful connections</li>
+                    <li style="margin-bottom: 8px; color: #1f2937;">Democratize mentorship and personal growth opportunities</li>
+                    <li style="margin-bottom: 0; color: #1f2937;">Create a global community built on trust, respect, and genuine human values</li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- Leadership Messages -->
+              <div style="margin-bottom: 35px;">
+                <h3 style="color: #1e293b; font-size: 22px; margin: 0 0 25px 0; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+                  👥 Messages from Our Leadership Team
+                </h3>
+
+                <!-- CEO Message -->
+                <div style="background: linear-gradient(135deg, #fef3f2 0%, #fef2f2 100%); border: 1px solid #fecaca; border-radius: 12px; padding: 25px; margin-bottom: 20px; position: relative;">
+                  <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">
+                      <span style="color: white; font-weight: 700; font-size: 24px;">S</span>
+                    </div>
+                    <div>
+                      <h4 style="color: #1e293b; margin: 0; font-size: 18px; font-weight: 600;">Sam - Chief Executive Officer</h4>
+                    </div>
+                  </div>
+                  <blockquote style="color: #1f2937; font-style: italic; line-height: 1.6; margin: 0; font-size: 15px; border-left: 3px solid #ef4444; padding-left: 15px;">
+                    "At Kronogon, we see CHARLEY as more than a product—it’s a movement grounded in the universal longing for belonging. In an age where loneliness quietly thrives behind curated profiles and viral trends, we are driven by both heart and intellect to redefine what connection means in the digital era. CHARLEY draws from cross-disciplinary insights—psychology, sociology, and design thinking—to create a space where vulnerability isn’t a liability, but a strength, and where every interaction is an opportunity for understanding. We are committed to building a community that not only reflects the rich diversity of our world, but actively nurtures empathy and authentic human flourishing. Technology alone does not create connection—people do. Our role is to set the stage for meaningful encounters, guided by both evidence and empathy."
+                  </blockquote>
+                </div>
+
+                <!-- CTO Message -->
+                <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #7dd3fc; border-radius: 12px; padding: 25px; position: relative;">
+                  <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);">
+                      <span style="color: white; font-weight: 700; font-size: 24px;">O</span>
+                    </div>
+                    <div>
+                      <h4 style="color: #1e293b; margin: 0; font-size: 18px; font-weight: 600;">Obed - Chief Technology Officer</h4>
+                    </div>
+                  </div>
+                  <blockquote style="color: #1f2937; font-style: italic; line-height: 1.6; margin: 0; font-size: 15px; border-left: 3px solid #0ea5e9; padding-left: 15px;">
+                    "As CTO, my approach to CHARLEY has always been informed by both rigorous engineering and a deep respect for the human spirit. Our team blends advanced data science, ethical design, and behavioral research to construct systems that protect, empower, and inspire. We challenge ourselves to see technology through the lens of lived experience: How do we foster trust in code? How can algorithms promote genuine dialogue rather than division? Each technical decision is anchored in the best research and a commitment to digital well-being. CHARLEY stands as a testament to what’s possible when technology serves as a bridge, not a barrier—amplifying the complexity and beauty of human relationships. Together, with our users and partners, we are co-authoring a new chapter in the science—and the art—of connection."
+                  </blockquote>
+                </div>
+              </div>
+
+              <!-- Important Reminders -->
+              <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1px solid #fbbf24; border-radius: 12px; padding: 25px; margin-bottom: 35px;">
+                <h4 style="color: #92400e; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+                  ⚡ Important Reminders
+                </h4>
+                <ul style="color: #1f2937; line-height: 1.6; margin: 0; padding-left: 20px; font-size: 15px;">
+                  <li style="margin-bottom: 8px;">Please take time to review our Privacy Policy and Terms of Service</li>
+                  <li style="margin-bottom: 8px;">Complete your profile to unlock CHARLEY's full potential</li>
+                  <li style="margin-bottom: 0;">Explore all three platforms: MEET (dating), SUITE (professional networking), and our mentorship programs</li>
+                </ul>
+              </div>
+
+              <!-- Website Link -->
+              <div style="text-align: center; margin-bottom: 30px;">
+                <a href="https://btechnos.com" style="display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 25px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4); transition: all 0.3s ease;">
+                  Visit BTechnos.com
+                </a>
+              </div>
+
+              <!-- Closing -->
+              <div style="text-align: center; color: #64748b; font-size: 16px; line-height: 1.6;">
+                <p style="margin: 0 0 10px 0; font-weight: 600; color: #1e293b;">Welcome aboard!</p>
+                <p style="margin: 0; font-style: italic;">The BTechnos Team</p>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="background: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="color: #64748b; font-size: 12px; margin: 0; line-height: 1.5;">
+                This email was sent from CHARLEY by BTechnos. You're receiving this because you successfully created an account with us.<br>
+                © 2025 BTechnos. All rights reserved. | <a href="https://btechnos.com" style="color: #6366f1; text-decoration: none;">btechnos.com</a>
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+
+    await mailService.send(emailContent);
+    console.log(`[SENDGRID] Welcome email sent successfully to ${data.email}`);
+    return true;
+  } catch (error: any) {
+    console.error("[SENDGRID] Failed to send welcome email:", error);
+
+    if (error.response) {
+      console.error("[SENDGRID] Welcome email error details:", {
+        status: error.code,
+        body: error.response?.body,
+        headers: error.response?.headers,
+      });
+    }
+
+    return false;
+  }
+}
+
+export async function sendPremiumSubscriptionEmail(
+  data: PremiumSubscriptionEmailData,
+): Promise<boolean> {
+  try {
+    console.log(
+      "[SENDGRID] Sending premium subscription confirmation email to:",
+      data.email,
+    );
+
+    // Format plan type for display
+    const planDisplayName = data.planType
+      .replace("_", " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+
+    // Format expiration date if available
+    const expirationText = data.subscriptionExpiresAt
+      ? new Date(data.subscriptionExpiresAt).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : "Active";
+
+    const emailContent = {
+      to: data.email,
+      from: "admin@kronogon.com",
+      subject: `🎉 Welcome to CHARLEY Premium, ${data.name}! Your Premium Journey Begins Now`,
+      text: `
+Welcome to CHARLEY Premium, ${data.name}!
+
+🎉 Congratulations! Your premium subscription is now active.
+
+SUBSCRIPTION DETAILS:
+- Plan: ${planDisplayName}
+- Status: Active
+- Next billing: ${expirationText}
+
+PREMIUM FEATURES NOW UNLOCKED:
+✓ Ghost Mode - Browse profiles anonymously
+✓ Hide My Age - Keep your age private
+✓ Advanced Privacy Controls - Full control over your visibility
+✓ Priority Customer Support - Get help when you need it
+✓ Enhanced Matching Algorithm - Better compatibility scores
+✓ Unlimited Likes & Super Likes - No daily limits
+✓ Read Receipts - See when messages are read
+✓ Advanced Filters - Find exactly who you're looking for
+
+WHAT'S NEXT?
+1. Explore your new premium features in the Settings page
+2. Update your privacy preferences with Ghost Mode
+3. Try the advanced matching filters
+4. Enjoy unlimited interactions across MEET, HEAT, and SUITE
+
+Thank you for choosing CHARLEY Premium. We're excited to help you find meaningful connections!
+
+The CHARLEY Team
+BTechnos.com
+      `,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Welcome to CHARLEY Premium</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh;">
+          <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1); margin-top: 20px; margin-bottom: 20px;">
+
+            <!-- Premium Header with Crown Animation -->
+            <div style="background: linear-gradient(135deg, #ffd700 0%, #ffb700 50%, #ff8c00 100%); padding: 40px 30px; text-align: center; position: relative; overflow: hidden;">
+              <div style="position: absolute; top: 10px; right: 20px; font-size: 40px; animation: float 3s ease-in-out infinite;">👑</div>
+              <div style="position: absolute; top: 20px; left: 20px; font-size: 30px; animation: float 3s ease-in-out infinite reverse;">✨</div>
+
+              <h1 style="color: #1a1a1a; margin: 0 0 15px 0; font-size: 32px; font-weight: 800; text-shadow: 2px 2px 4px rgba(0,0,0,0.1);">
+                🎉 Welcome to CHARLEY Premium!
+              </h1>
+              <p style="color: #2d2d2d; font-size: 18px; margin: 0; font-weight: 600;">
+                Dear ${data.name}, your premium journey begins now!
+              </p>
+
+              <style>
+                @keyframes float {
+                  0%, 100% { transform: translateY(0px) rotate(0deg); }
+                  50% { transform: translateY(-10px) rotate(5deg); }
+                }
+              </style>
+            </div>
+
+            <!-- Subscription Status Card -->
+            <div style="padding: 30px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);">
+              <div style="background: white; padding: 25px; border-radius: 15px; border: 2px solid #ffd700; box-shadow: 0 8px 25px rgba(255, 215, 0, 0.2);">
+                <h2 style="color: #1e293b; font-size: 24px; margin: 0 0 20px 0; font-weight: 700; text-align: center;">
+                  🏆 Subscription Activated
+                </h2>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                  <div style="background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 14px; color: #64748b; font-weight: 600; margin-bottom: 5px;">PLAN</div>
+                    <div style="font-size: 18px; color: #1e293b; font-weight: 700;">${planDisplayName}</div>
+                  </div>
+                  <div style="background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 14px; color: #64748b; font-weight: 600; margin-bottom: 5px;">STATUS</div>
+                    <div style="font-size: 18px; color: #10b981; font-weight: 700;">✅ Active</div>
+                  </div>
+                </div>
+
+
+              </div>
+            </div>
+
+            <!-- Premium Features Showcase -->
+            <div style="padding: 30px;">
+              <h2 style="color: #1e293b; font-size: 26px; margin: 0 0 25px 0; font-weight: 700; text-align: center;">
+                ✨ Premium Features Unlocked
+              </h2>
+
+              <div style="display: grid; gap: 15px;">
+                <div style="background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #8b5cf6;">
+                  <h3 style="color: #6b21a8; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">👻 Ghost Mode</h3>
+                  <p style="color: #1f2937; margin: 0; font-size: 15px; line-height: 1.5;">Browse profiles completely anonymously - they won't know you viewed them unless you interact!</p>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #fef3f2 0%, #fecaca 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #ef4444;">
+                  <h3 style="color: #b91c1c; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">🔒 Hide My Age</h3>
+                  <p style="color: #1f2937; margin: 0; font-size: 15px; line-height: 1.5;">Keep your age private while still getting matched with age-appropriate connections.</p>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #f0f9ff 0%, #bfdbfe 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #3b82f6;">
+                  <h3 style="color: #1d4ed8; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">⚡ Unlimited Interactions</h3>
+                  <p style="color: #1f2937; margin: 0; font-size: 15px; line-height: 1.5;">No daily limits on likes, super likes, or messages. Connect as much as you want!</p>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #f0fdf4 0%, #bbf7d0 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #10b981;">
+                  <h3 style="color: #047857; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">🎯 Advanced Filters</h3>
+                  <p style="color: #1f2937; margin: 0; font-size: 15px; line-height: 1.5;">Precise filtering options to find exactly who you're looking for across all platforms.</p>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #fffbeb 0%, #fed7aa 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #f59e0b;">
+                  <h3 style="color: #b45309; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">👑 Priority Support</h3>
+                  <p style="color: #1f2937; margin: 0; font-size: 15px; line-height: 1.5;">Get premium customer support with faster response times and dedicated assistance.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Next Steps -->
+            <div style="padding: 30px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);">
+              <h2 style="color: #1e293b; font-size: 24px; margin: 0 0 25px 0; font-weight: 700; text-align: center;">
+                🚀 What's Next?
+              </h2>
+
+              <div style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                <ol style="color: #1f2937; line-height: 1.7; margin: 0; padding-left: 20px; font-size: 16px;">
+                  <li style="margin-bottom: 12px;"><strong>Explore Premium Features:</strong> Visit your Settings page to configure Ghost Mode and privacy options</li>
+                  <li style="margin-bottom: 12px;"><strong>Update Your Profile:</strong> Premium users get priority in the matching algorithm</li>
+                  <li style="margin-bottom: 12px;"><strong>Try Advanced Filters:</strong> Find your perfect match with precision filtering</li>
+                  <li style="margin-bottom: 0;"><strong>Connect Without Limits:</strong> Enjoy unlimited interactions across MEET, HEAT, and SUITE</li>
+                </ol>
+              </div>
+            </div>
+
+            <!-- CTA Section -->
+            <div style="padding: 30px; text-align: center;">
+              <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 25px; border-radius: 15px; margin-bottom: 25px;">
+                <h3 style="color: white; margin: 0 0 15px 0; font-size: 22px; font-weight: 700;">
+                  Ready to Experience Premium?
+                </h3>
+                <p style="color: white; margin: 0 0 20px 0; font-size: 16px; opacity: 0.9;">
+                  Your premium features are already active and waiting for you!
+                </p>
+                <a href="https://charley.btechnos.com/settings" style="display: inline-block; background: white; color: #6366f1; text-decoration: none; padding: 12px 30px; border-radius: 25px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 15px rgba(255, 255, 255, 0.3);">
+                  Explore Premium Features →
+                </a>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="background: #1e293b; padding: 30px; text-align: center; color: white;">
+              <div style="margin-bottom: 20px;">
+                <h3 style="color: #ffd700; margin: 0 0 10px 0; font-size: 24px; font-weight: 700;">CHARLEY</h3>
+                <p style="color: #94a3b8; margin: 0; font-size: 14px;">Premium Dating & Professional Networking</p>
+              </div>
+
+              <div style="border-top: 1px solid #334155; padding-top: 20px;">
+                <p style="color: #94a3b8; font-size: 12px; margin: 0; line-height: 1.5;">
+                  This email was sent from CHARLEY by BTechnos. You're receiving this because you successfully subscribed to CHARLEY Premium.<br>
+                  Need help? Contact us at admin@kronogon.com<br>
+                  © 2025 BTechnos. All rights reserved. | <a href="https://btechnos.com" style="color: #ffd700; text-decoration: none;">btechnos.com</a>
+                </p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+
+    await mailService.send(emailContent);
+    console.log(
+      `[SENDGRID] Premium subscription email sent successfully to ${data.email}`,
+    );
+    return true;
+  } catch (error: any) {
+    console.error(
+      "[SENDGRID] Failed to send premium subscription email:",
+      error,
+    );
+
+    if (error.response) {
+      console.error("[SENDGRID] Premium subscription email error details:", {
+        status: error.code,
+        body: error.response?.body,
+        headers: error.response?.headers,
+      });
+    }
+
+    return false;
+  }
+}

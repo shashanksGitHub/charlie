@@ -1,0 +1,22 @@
+{
+  "extraversion": {
+    "facets": ["assertiveness", "activity", "excitement_seeking", "positive_emotions", "gregariousness", "warmth"],
+    "weights": [0.8, 0.7, 0.6, 0.7, 0.8, 0.9]
+  },
+  "agreeableness": {
+    "facets": ["trust", "straightforwardness", "altruism", "compliance", "modesty", "tender_mindedness"],
+    "weights": [0.8, 0.7, 0.9, 0.6, 0.5, 0.8]
+  },
+  "conscientiousness": {
+    "facets": ["competence", "order", "dutifulness", "achievement_striving", "self_discipline", "deliberation"],
+    "weights": [0.9, 0.7, 0.8, 0.8, 0.9, 0.6]
+  },
+  "neuroticism": {
+    "facets": ["anxiety", "angry_hostility", "depression", "self_consciousness", "impulsiveness", "vulnerability"],
+    "weights": [0.8, 0.7, 0.9, 0.6, 0.5, 0.8]
+  },
+  "openness": {
+    "facets": ["fantasy", "aesthetics", "feelings", "actions", "ideas", "values"],
+    "weights": [0.6, 0.7, 0.8, 0.7, 0.9, 0.8]
+  }
+}

@@ -1,0 +1,281 @@
+/* Optimized CSS for SwipeCard - Performance Focused with Enhanced Button Animations */
+
+/* Apply GPU acceleration to all card animations */
+.fast-card {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+  will-change: transform, opacity;
+}
+
+/* Optimized image rendering */
+.card-image {
+  -webkit-backface-visibility: hidden;
+  -moz-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-transform: translateZ(0) scale(1.0, 1.0);
+  transform: translateZ(0) scale(1.0, 1.0);
+  image-rendering: -webkit-optimize-contrast;
+  /* For Chrome */
+  will-change: transform;
+}
+
+/* All swipe animations removed - no physics interactions */
+
+/* Static gradients that don't animate for better performance */
+.static-gradient {
+  background-size: 100% 100% !important;
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Optimize no animation class */
+.no-animation {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Simpler and more performant rain animation */
+@keyframes raindrop-fall {
+  0% {
+    transform: translateY(-100%) translateZ(0);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.7;
+  }
+
+  90% {
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: translateY(1000%) translateZ(0);
+    opacity: 0;
+  }
+}
+
+/* Optimized celebration animations */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-20px) translateZ(0) rotate(0deg);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(100px) translateZ(0) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes heart-float {
+  0% {
+    transform: translateY(0) translateZ(0) scale(0.5);
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: translateY(-80px) translateZ(0) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes star-twinkle {
+  0% {
+    transform: scale(0.1) translateZ(0);
+    opacity: 0;
+  }
+
+  50% {
+    transform: scale(1) translateZ(0);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: scale(0.1) translateZ(0);
+    opacity: 0;
+  }
+}
+
+/* Button Animation Keyframes */
+@keyframes button-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 15px rgba(255, 255, 255, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+
+@keyframes button-shimmer {
+  0% {
+    background-position: -100% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes icon-bounce {
+
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-3px) scale(1.1);
+  }
+}
+
+/* Button confirmation animations */
+.button-success {
+  position: relative;
+  overflow: hidden;
+}
+
+.button-success::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg,
+      rgba(16, 185, 129, 0) 0%,
+      rgba(16, 185, 129, 0.2) 50%,
+      rgba(16, 185, 129, 0) 100%);
+  animation: button-shimmer 1.2s linear infinite;
+  background-size: 200% 100%;
+  border-radius: inherit;
+}
+
+/* Message button sent animation */
+.message-sent-animation {
+  animation: button-pulse 0.8s cubic-bezier(0.455, 0.03, 0.515, 0.955);
+}
+
+/* Message icon animation */
+.message-icon-animation {
+  animation: icon-bounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Button click effects */
+.button-click-effect {
+  position: relative;
+}
+
+.button-click-effect::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 140%;
+  height: 140%;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 60%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  border-radius: 50%;
+  z-index: 2;
+  transition: all 0.4s cubic-bezier(0.17, 0.84, 0.44, 1);
+}
+
+.button-click-effect.active::after {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 0.4;
+  transition: 0s;
+}
+
+/* Optimized card restore animations for instant undo functionality */
+@keyframes restore-from-left {
+  0% {
+    transform: translate3d(-100%, 40px, 0) rotate(-10deg) scale(0.9);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes restore-from-right {
+  0% {
+    transform: translate3d(100%, -40px, 0) rotate(10deg) scale(0.9);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes super-reliable-fade-in {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.card-restore-left {
+  animation: restore-from-left 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+.card-restore-right {
+  animation: restore-from-right 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+.super-reliable-fade-in {
+  animation: super-reliable-fade-in 0.3s ease-out;
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
+
+/* Reduce motion for users with that preference */
+@media (prefers-reduced-motion) {
+
+  .card-restore-left,
+  .card-restore-right,
+  .raindrop,
+  .confetti,
+  .heart-particle,
+  .star-particle,
+  .sparkle-particle,
+  .button-success::before,
+  .message-sent-animation,
+  .message-icon-animation {
+    animation-duration: 0.1s !important;
+    transition-duration: 0.1s !important;
+  }
+
+  .static-gradient,
+  .no-animation {
+    animation: none !important;
+    transition: none !important;
+  }
+}

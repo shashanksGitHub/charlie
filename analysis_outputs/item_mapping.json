@@ -1,0 +1,39 @@
+{
+  "items": [
+    {
+      "id": 1,
+      "text": "I am talkative",
+      "aspect": "extraversion",
+      "facet": "assertiveness",
+      "reverse": false
+    },
+    {
+      "id": 2,
+      "text": "I find fault with others",
+      "aspect": "agreeableness",
+      "facet": "trust",
+      "reverse": true
+    },
+    {
+      "id": 3,
+      "text": "I do a thorough job",
+      "aspect": "conscientiousness",
+      "facet": "competence",
+      "reverse": false
+    },
+    {
+      "id": 4,
+      "text": "I am depressed, blue",
+      "aspect": "neuroticism",
+      "facet": "depression",
+      "reverse": false
+    },
+    {
+      "id": 5,
+      "text": "I am original, come up with new ideas",
+      "aspect": "openness",
+      "facet": "ideas",
+      "reverse": false
+    }
+  ]
+}

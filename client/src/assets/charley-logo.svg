@@ -1,0 +1,29 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Adinkra symbol (stylized Sankofa) -->
+  <path d="M60 20C37.91 20 20 37.91 20 60C20 82.09 37.91 100 60 100C82.09 100 100 82.09 100 60C100 37.91 82.09 20 60 20ZM60 95C40.67 95 25 79.33 25 60C25 40.67 40.67 25 60 25C79.33 25 95 40.67 95 60C95 79.33 79.33 95 60 95Z" fill="url(#paint0_linear)"/>
+  
+  <!-- Curved bird neck part -->
+  <path d="M50 40C44 42 40 46 38 50C36 54 36 60 40 64C44 68 54 66 58 62C62 58 65 48 60 42C55 36 45 38 42 44C39 50 42 58 48 60" stroke="url(#paint1_linear)" stroke-width="5" stroke-linecap="round"/>
+  
+  <!-- Heart pattern -->
+  <path d="M74 42C72 40 68 40 66 42C64 44 64 47 66 49L74 57L82 49C84 47 84 44 82 42C80 40 76 40 74 42Z" fill="url(#paint2_linear)"/>
+  
+  <!-- Linear Gradients -->
+  <defs>
+    <linearGradient id="paint0_linear" x1="20" y1="20" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#7e22ce"/>
+      <stop offset="50%" stop-color="#9333EA"/>
+      <stop offset="100%" stop-color="#fb923c"/>
+    </linearGradient>
+    
+    <linearGradient id="paint1_linear" x1="35" y1="40" x2="60" y2="65" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#fb923c"/>
+    </linearGradient>
+    
+    <linearGradient id="paint2_linear" x1="64" y1="40" x2="85" y2="57" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#f43f5e"/>
+    </linearGradient>
+  </defs>
+</svg>

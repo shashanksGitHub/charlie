@@ -1,0 +1,252 @@
+/* Safari and Edge Browser Compatibility CSS */
+/* Fallbacks for unsupported CSS features */
+
+/* Safari-compatible card transforms */
+.swipe-card {
+  /* Use simpler transforms for Safari/Edge */
+  -webkit-transform: translateZ(0);
+  -moz-transform: translateZ(0);
+  -ms-transform: translateZ(0);
+  transform: translateZ(0);
+  
+  /* Simplified will-change for older browsers */
+  -webkit-backface-visibility: hidden;
+  -moz-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Safari-compatible pulse animation */
+@-webkit-keyframes pulse-fast-safari {
+  0% {
+    opacity: 0.4;
+    -webkit-transform: scale(0.8);
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.8;
+    -webkit-transform: scale(1.2);
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0.4;
+    -webkit-transform: scale(0.8);
+    transform: scale(0.8);
+  }
+}
+
+@keyframes pulse-fast-safari {
+  0% {
+    opacity: 0.4;
+    -webkit-transform: scale(0.8);
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 0.8;
+    -webkit-transform: scale(1.2);
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0.4;
+    -webkit-transform: scale(0.8);
+    transform: scale(0.8);
+  }
+}
+
+.animate-pulse-slow-safari {
+  -webkit-animation: pulse-fast-safari 1.2s ease-in-out infinite;
+  animation: pulse-fast-safari 1.2s ease-in-out infinite;
+}
+
+/* Safari-compatible compatibility score effects */
+.compatibility-score-safari {
+  -webkit-transition: -webkit-transform 0.2s ease, box-shadow 0.2s ease;
+  -moz-transition: -moz-transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.compatibility-score-safari:hover {
+  -webkit-transform: scale(1.05);
+  -moz-transform: scale(1.05);
+  -ms-transform: scale(1.05);
+  transform: scale(1.05);
+}
+
+/* Safari-compatible button effects */
+.swipe-button-safari {
+  position: relative;
+  overflow: hidden;
+  -webkit-transition: -webkit-transform 0.3s ease, box-shadow 0.3s ease;
+  -moz-transition: -moz-transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Safari-compatible button click effect without complex perspective */
+.swipe-button-safari:active {
+  -webkit-transform: scale(0.95) !important;
+  -moz-transform: scale(0.95) !important;
+  -ms-transform: scale(0.95) !important;
+  transform: scale(0.95) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15) !important;
+  -webkit-transition: 0.1s !important;
+  -moz-transition: 0.1s !important;
+  transition: 0.1s !important;
+}
+
+/* Safari-compatible appear animation */
+@-webkit-keyframes fast-appear-safari {
+  from {
+    opacity: 0;
+    -webkit-transform: translateY(30px) scale(0.95);
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    -webkit-transform: translateY(0) scale(1);
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fast-appear-safari {
+  from {
+    opacity: 0;
+    -webkit-transform: translateY(30px) scale(0.95);
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    -webkit-transform: translateY(0) scale(1);
+    transform: translateY(0) scale(1);
+  }
+}
+
+.fast-appear-safari {
+  -webkit-animation: fast-appear-safari 0.3s ease-out forwards;
+  animation: fast-appear-safari 0.3s ease-out forwards;
+}
+
+/* Safari-compatible fade-in animation */
+@-webkit-keyframes reliable-fade-in-safari {
+  0% {
+    opacity: 0;
+    -webkit-transform: scale(0.92);
+    transform: scale(0.92);
+  }
+  60% {
+    opacity: 1;
+    -webkit-transform: scale(1.02);
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    -webkit-transform: scale(1);
+    transform: scale(1);
+  }
+}
+
+@keyframes reliable-fade-in-safari {
+  0% {
+    opacity: 0;
+    -webkit-transform: scale(0.92);
+    transform: scale(0.92);
+  }
+  60% {
+    opacity: 1;
+    -webkit-transform: scale(1.02);
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    -webkit-transform: scale(1);
+    transform: scale(1);
+  }
+}
+
+.reliable-fade-in-safari {
+  -webkit-animation: reliable-fade-in-safari 0.25s ease forwards !important;
+  animation: reliable-fade-in-safari 0.25s ease forwards !important;
+  z-index: 100 !important;
+  -webkit-backface-visibility: hidden;
+  -moz-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-transform: translateZ(0);
+  -moz-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+/* Safari-compatible shimmer animation */
+@-webkit-keyframes shimmer-safari {
+  0% {
+    -webkit-transform: translateX(-100%);
+    transform: translateX(-100%);
+  }
+  100% {
+    -webkit-transform: translateX(200%);
+    transform: translateX(200%);
+  }
+}
+
+@keyframes shimmer-safari {
+  0% {
+    -webkit-transform: translateX(-100%);
+    transform: translateX(-100%);
+  }
+  100% {
+    -webkit-transform: translateX(200%);
+    transform: translateX(200%);
+  }
+}
+
+.animate-shimmer-safari {
+  -webkit-animation: shimmer-safari 2s infinite;
+  animation: shimmer-safari 2s infinite;
+}
+
+/* Safari-compatible star flight animation using simpler transforms */
+@-webkit-keyframes star-flight-safari {
+  0% {
+    -webkit-transform: translate(0, 0) scale(1);
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    -webkit-transform: translate(50px, -300px) scale(2.5);
+    transform: translate(50px, -300px) scale(2.5);
+    opacity: 1;
+  }
+}
+
+@keyframes star-flight-safari {
+  0% {
+    -webkit-transform: translate(0, 0) scale(1);
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    -webkit-transform: translate(50px, -300px) scale(2.5);
+    transform: translate(50px, -300px) scale(2.5);
+    opacity: 1;
+  }
+}
+
+/* Safari-compatible star rotation */
+@-webkit-keyframes star-rotate-safari {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes star-rotate-safari {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
+}

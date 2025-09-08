@@ -1,0 +1,199 @@
+/* Handshake flight animation for SUITE Networking cards */
+@keyframes handshake-flight {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+
+  /* 20% {
+    transform: translate(50px, -100px) scale(0.8) rotate(45deg);
+    opacity: 0.9;
+  }
+  40% {
+    transform: translate(150px, -200px) scale(0.6) rotate(90deg);
+    opacity: 0.8;
+  }
+  60% {
+    transform: translate(250px, -300px) scale(0.4) rotate(135deg);
+    opacity: 0.7;
+  }
+  80% {
+    transform: translate(300px, -350px) scale(0.2) rotate(180deg);
+    opacity: 0.5;
+  } */
+  100% {
+    transform: translate3d(10vw, calc(-68vh), 0) scale(2.0);
+    opacity: 1;
+  }
+}
+
+/* Confetti explosion animation */
+@keyframes confetti-explosion {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 1;
+  }
+
+  20% {
+    transform: scale(1.2) rotate(45deg);
+    opacity: 0.9;
+  }
+
+  40% {
+    transform: scale(1.5) rotate(90deg);
+    opacity: 0.7;
+  }
+
+  60% {
+    transform: scale(1.8) rotate(135deg);
+    opacity: 0.5;
+  }
+
+  80% {
+    transform: scale(2.2) rotate(180deg);
+    opacity: 0.3;
+  }
+
+  100% {
+    transform: scale(2.5) rotate(225deg);
+    opacity: 0;
+  }
+}
+
+/* Individual confetti particle animations */
+@keyframes confetti-particle-1 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-30px, 40px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes confetti-particle-2 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(30px, 40px) rotate(-360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes confetti-particle-3 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(-20px, -20px) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+@keyframes confetti-particle-4 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(20px, -20px) rotate(-180deg);
+    opacity: 0;
+  }
+}
+
+@keyframes confetti-particle-5 {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(0, 50px) rotate(270deg);
+    opacity: 0;
+  }
+}
+
+/* Pulse effect for percentage badge hit */
+@keyframes percentage-badge-hit {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+  }
+
+  50% {
+    transform: scale(1.2);
+    box-shadow: 0 0 0 20px rgba(59, 130, 246, 0);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+/* Flying handshake container */
+.handshake-flying {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  animation: handshake-flight 1.5s ease-in-out forwards;
+}
+
+/* Confetti container */
+.confetti-container {
+  position: fixed;
+  z-index: 9998;
+  pointer-events: none;
+  animation: confetti-explosion 0.8s ease-out forwards;
+}
+
+/* Individual confetti particles */
+.confetti-particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.confetti-particle-1 {
+  background: #60a5fa;
+  animation: confetti-particle-1 0.8s ease-out forwards;
+  animation-delay: 0.1s;
+}
+
+.confetti-particle-2 {
+  background: #34d399;
+  animation: confetti-particle-2 0.8s ease-out forwards;
+  animation-delay: 0.2s;
+}
+
+.confetti-particle-3 {
+  background: #fbbf24;
+  animation: confetti-particle-3 0.8s ease-out forwards;
+  animation-delay: 0.15s;
+}
+
+.confetti-particle-4 {
+  background: #f87171;
+  animation: confetti-particle-4 0.8s ease-out forwards;
+  animation-delay: 0.25s;
+}
+
+.confetti-particle-5 {
+  background: #a78bfa;
+  animation: confetti-particle-5 0.8s ease-out forwards;
+  animation-delay: 0.3s;
+}
+
+/* Percentage badge hit animation */
+.percentage-badge-hit {
+  animation: percentage-badge-hit 0.6s ease-out forwards;
+}

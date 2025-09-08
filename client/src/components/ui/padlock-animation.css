@@ -1,0 +1,384 @@
+/* Beautiful Padlock Unlock Animation System */
+
+/* Initial padlock state - beautiful 3D styling overlaying the entire badge */
+.padlock-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99999 !important;
+  font-size: 64px !important;
+  /* animation: padlock-pulse 2s ease-in-out infinite; */
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.8)) !important;
+  pointer-events: none;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, 0.3) !important;
+  backdrop-filter: blur(2px);
+  transform: translateZ(50px) !important;
+  transform-style: preserve-3d;
+}
+
+/* Padlock pulse animation when locked */
+@keyframes padlock-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Padlock unlock animation - beautiful opening effect */
+@keyframes padlock-unlock {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  20% {
+    transform: scale(1.1) rotate(5deg);
+    opacity: 0.8;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  50% {
+    transform: scale(1.2) rotate(-10deg);
+    opacity: 0.5;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  100% {
+    transform: scale(0) rotate(15deg);
+    opacity: 0;
+    background: rgba(255, 255, 255, 0);
+  }
+}
+
+/* Padlock unlock animation class */
+.padlock-unlock {
+  animation: padlock-unlock 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Percentage blur effect when locked */
+.percentage-blurred {
+  filter: blur(8px);
+  transition: filter 0.3s ease-out;
+}
+
+/* Percentage reveal effect when unlocked */
+.percentage-revealed {
+  filter: blur(0px);
+  transition: filter 0.3s ease-out;
+}
+
+/* Beautiful padlock icons for different contexts */
+.padlock-jobs {
+  color: #3b82f6;
+  text-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.padlock-networking {
+  color: #10b981;
+  text-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.padlock-mentorship {
+  color: #8b5cf6;
+  text-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+}
+
+.padlock-meet {
+  color: #f59e0b;
+  text-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+}
+
+/* Enhanced percentage badge container for padlock system */
+.percentage-badge-container {
+  position: relative;
+  overflow: visible;
+}
+
+/* Glow effect when padlock is unlocked */
+@keyframes unlock-glow {
+  0% {
+    box-shadow: 0 0 0 rgba(59, 130, 246, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+  }
+
+  100% {
+    box-shadow: 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+.badge-unlock-glow {
+  animation: unlock-glow 1s ease-out;
+}
+
+/* Beautiful sparkle effect when unlocked */
+@keyframes unlock-sparkle {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+
+  50% {
+    transform: scale(1.2) rotate(180deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(0) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.unlock-sparkle {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  font-size: 16px;
+  color: #fbbf24;
+  animation: unlock-sparkle 0.8s ease-out;
+  pointer-events: none;
+  z-index: 15;
+}
+
+/* Long Directional Arrow Guide System */
+.unlock-guide-arrow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 200;
+  pointer-events: none;
+  animation: arrow-appear 0.5s ease-out forwards;
+}
+
+/* Arrow line container */
+.arrow-line-container {
+  position: absolute;
+  top: 60px;
+  /* Start from percentage badge area */
+  right: 50px;
+  /* Align with percentage badge */
+  width: 4px;
+  height: 800px;
+  /* Base length for mobile devices */
+  transform-origin: top center;
+  transform: rotate(16deg);
+  /* 18-degree angle for mobile screens */
+  animation: arrow-draw 1.5s ease-out forwards;
+}
+
+/* Responsive arrow lengths for different screen sizes */
+/* Tablet and larger screens */
+@media (min-width: 768px) {
+  .arrow-line-container {
+    height: 1000px;
+    transform: rotate(16deg);
+    /* 20-degree angle for tablet screens */
+  }
+}
+
+/* Desktop and larger screens */
+@media (min-width: 1024px) {
+  .arrow-line-container {
+    height: 1200px;
+    transform: rotate(16deg);
+    /* 22-degree angle for desktop screens */
+  }
+}
+
+/* Main arrow line */
+.arrow-line {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, transparent 0%, currentColor 10%, currentColor 90%, transparent 100%);
+  border-radius: 2px;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* Arrow head */
+.arrow-head {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 16px solid currentColor;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+/* Arrow drawing animation - Mobile base */
+@keyframes arrow-draw {
+  0% {
+    height: 0;
+    opacity: 0;
+  }
+
+  /* 20% {
+    height: 100px;
+    opacity: 1;
+  }
+
+  80% {
+    height: 600px;
+    opacity: 1;
+  } */
+
+  100% {
+    height: 420px;
+    opacity: 1;
+  }
+}
+
+/* Responsive arrow animations for different screen sizes */
+@media (min-width: 768px) {
+  @keyframes arrow-draw {
+    0% {
+      height: 0;
+      opacity: 0;
+    }
+
+    /* 20% {
+      height: 120px;
+      opacity: 1;
+    }
+
+    80% {
+      height: 800px;
+      opacity: 1;
+    } */
+
+    100% {
+      height: 1000px;
+      opacity: 1;
+    }
+  }
+}
+
+@media (min-width: 1024px) {
+  @keyframes arrow-draw {
+    0% {
+      height: 0;
+      opacity: 0;
+    }
+
+    /* 20% {
+      height: 150px;
+      opacity: 1;
+    }
+
+    80% {
+      height: 1000px;
+      opacity: 1;
+    } */
+
+    100% {
+      height: 510px;
+      opacity: 1;
+    }
+  }
+}
+
+/* Arrow appearance animation */
+@keyframes arrow-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Arrow pulse animation */
+@keyframes arrow-pulse {
+  0% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+
+  100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+}
+
+.unlock-guide-arrow.pulsing .arrow-line-container {
+  animation: arrow-pulse 1.5s ease-in-out infinite;
+}
+
+/* Arrow text styling */
+.unlock-guide-text {
+  position: absolute;
+  top: 20px;
+  right: 70px;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.8));
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  animation: text-fade-in 0.8s ease-out forwards;
+}
+
+@keyframes text-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Different arrow colors for different contexts */
+.arrow-jobs {
+  color: #3b82f6;
+}
+
+.arrow-networking {
+  color: #10b981;
+}
+
+.arrow-mentorship {
+  color: #8b5cf6;
+}
+
+.arrow-meet {
+  color: #f59e0b;
+}
