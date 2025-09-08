@@ -50,8 +50,8 @@ export function setupAuth(app: Express) {
   
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "charley-app-secret-key",
-    resave: false, // Don't save session if unmodified
-    saveUninitialized: false, // Don't create session until something is stored
+    resave: true, // Force session save to ensure persistence
+    saveUninitialized: true, // Create session immediately to maintain ID
     store: storage.sessionStore, // Using PostgreSQL store for persistence
     cookie: {
       maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year expiration for long-term persistence
@@ -60,14 +60,12 @@ export function setupAuth(app: Express) {
       httpOnly: true, // Prevent JavaScript access to cookies
       path: '/'
     },
-    rolling: true, // Reset expiration with each request to keep session alive
+    rolling: false, // Don't reset expiration - preserve session ID
     name: 'connect.sid', // Explicit session cookie name
   };
 
-  // Only set trust proxy in production
-  if (isProduction) {
-    app.set("trust proxy", 1);
-  }
+  // Set trust proxy for all environments to handle headers properly
+  app.set("trust proxy", 1);
   
   app.use(session(sessionSettings));
   app.use(passport.initialize());
