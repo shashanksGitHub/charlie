@@ -34936,6 +34936,7 @@ app.use((req, res, next) => {
   const isProduction = process.env.REPLIT_DEPLOYMENT === "1" || process.env.NODE_ENV === "production";
   if (isProduction) {
     console.log("[SERVER] Running in production mode - serving static files");
+    console.log("[SERVER] API routes should be registered before static serving");
     serveStatic(app);
   } else {
     console.log("[SERVER] Running in development mode - using Vite middleware");
