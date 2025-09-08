@@ -29,15 +29,10 @@ import ws from "ws";
 if (typeof process !== "undefined" && process.versions?.node) {
   neonConfig.fetchConnectionCache = true;
   neonConfig.webSocketConstructor = ws;
-  // Disable SSL verification for self-signed certificates in development
-  process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
 }
 
-// Create a connection pool with SSL configuration
-export const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? true : false
-});
+// Create a connection pool
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 // Create a drizzle client
 export const db = drizzle(pool, {
