@@ -189,15 +189,15 @@ export function setupAuth(app: Express) {
         
         // Check email uniqueness across multiple sources
         existenceChecks.push(
-          storage.getUserByEmail(normalizedEmail).then(user => ({ type: 'email', user, source: 'users' }))
+          storage.getUserByEmail(normalizedEmail).then(user => ({ type: 'email' as const, user, source: 'users' as const }))
         );
         
         // CRITICAL: Also check if email exists in blocked phone numbers table
         existenceChecks.push(
           storage.isEmailInBlockedPhoneNumbers(normalizedEmail).then(blockedRecord => ({ 
-            type: 'email', 
+            type: 'email' as const, 
             user: blockedRecord, 
-            source: 'blocked_phones' 
+            source: 'blocked_phones' as const
           }))
         );
       }
@@ -213,7 +213,7 @@ export function setupAuth(app: Express) {
             if (result.type === 'phone') {
               errorMessage = 'Phone number already in use by another account';
             } else if (result.type === 'email') {
-              if (result.source === 'blocked_phones') {
+              if ((result as any).source === 'blocked_phones') {
                 // Email was found in blocked phone numbers - provide specific guidance
                 errorMessage = 'This email is associated with a blocked account. Please use a different email address or contact support if you believe this is an error.';
                 console.log(`[EMAIL-UNIQUENESS] Blocked email duplicate attempt: ${req.body.email} (found in blocked phone numbers table)`);
@@ -225,7 +225,7 @@ export function setupAuth(app: Express) {
             }
             
             // Log duplicate account creation attempts for security monitoring
-            console.log(`[DUPLICATE-ACCOUNT-PREVENTION] Blocked ${result.type} duplicate from ${result.source}: ${result.type === 'phone' ? req.body.phoneNumber : req.body.email}`);
+            console.log(`[DUPLICATE-ACCOUNT-PREVENTION] Blocked ${result.type} duplicate from ${(result as any).source}: ${result.type === 'phone' ? req.body.phoneNumber : req.body.email}`);
             
             return res.status(400).send(errorMessage);
           }
@@ -368,7 +368,7 @@ export function setupAuth(app: Express) {
     console.log(`[API-USER] Request received, sessionID: ${req.sessionID}, session exists: ${!!req.session}`);
     console.log(`[API-USER] req.user: ${req.user ? `User ID ${req.user.id}` : 'null'}`);
     console.log(`[API-USER] req.isAuthenticated(): ${req.isAuthenticated()}`);
-    console.log(`[API-USER] Session passport: ${req.session?.passport ? JSON.stringify(req.session.passport) : 'none'}`);
+    console.log(`[API-USER] Session passport: ${(req.session as any)?.passport ? JSON.stringify((req.session as any).passport) : 'none'}`);
     
     if (!req.isAuthenticated()) {
       console.log("User authentication check failed");
