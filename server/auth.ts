@@ -48,10 +48,12 @@ export const touchSession = (req: Request, res: Response, next: NextFunction) =>
 };
 
 export function setupAuth(app: Express) {
-  // PRODUCTION-READY SESSION CONFIG
+  // PRODUCTION-READY SESSION CONFIG  
   // Detect if running on HTTPS (Replit domain) vs HTTP (preview)
-  const isProduction = process.env.REPL_SLUG || process.env.NODE_ENV === 'production';
-  const isHTTPS = process.env.REPLIT_DOMAINS || process.env.NODE_ENV === 'production';
+  const isProduction = Boolean(process.env.REPL_SLUG || process.env.REPLIT_SLUG || process.env.NODE_ENV === 'production');
+  const isHTTPS = Boolean(process.env.REPLIT_DOMAINS || process.env.REPLIT_DB_URL || isProduction);
+  
+  console.log(`[SESSION-CONFIG] Environment detection: production=${isProduction}, https=${isHTTPS}`);
   
   // Enable trust proxy for Replit deployments
   if (isProduction) {
