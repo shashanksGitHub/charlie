@@ -9,7 +9,15 @@ import { neon } from '@neondatabase/serverless';
 import dotenv from 'dotenv';
 
 dotenv.config();
-const sql = neon(process.env.DATABASE_URL);
+
+// Lazy database connection to prevent startup crashes
+let sql: any = null;
+function getSql() {
+  if (!sql) {
+    sql = neon(process.env.DATABASE_URL!);
+  }
+  return sql;
+}
 
 export interface DemographicProfile {
   userId: number;
@@ -36,7 +44,7 @@ export class DemographicClustering {
     try {
       console.log(`[DEMOGRAPHIC-CLUSTERING] Generating profile for user ${userId}`);
 
-      const userDemographics = await sql`
+      const userDemographics = await getSql()`
         SELECT 
           id,
           date_of_birth,
@@ -418,7 +426,7 @@ export class DemographicClustering {
       const targetProfile = await this.generateDemographicProfile(targetUserId);
 
       // Get candidate users from database (active users only)
-      const candidateUsers = await sql`
+      const candidateUsers = await getSql()`
         SELECT DISTINCT u.id
         FROM users u
         WHERE u.id != ${targetUserId}
@@ -488,7 +496,7 @@ export class DemographicClustering {
       }
 
       // Find other users in the same cluster
-      const clusterUsers = await sql`
+      const clusterUsers = await getSql()`
         SELECT DISTINCT u.id
         FROM users u
         WHERE u.id != ${targetUserId}
@@ -546,7 +554,7 @@ export class DemographicClustering {
     try {
       console.log('[DEMOGRAPHIC-CLUSTERING] Generating cluster statistics');
 
-      const activeUsers = await sql`
+      const activeUsers = await getSql()`
         SELECT DISTINCT u.id
         FROM users u
         WHERE EXISTS (

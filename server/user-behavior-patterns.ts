@@ -11,7 +11,15 @@ import type { User, UserPreference } from "@shared/schema";
 import { geocodingService } from "./geocoding-service.ts";
 
 dotenv.config();
-const sql = neon(process.env.DATABASE_URL!);
+
+// Lazy database connection to prevent startup crashes
+let sql: any = null;
+function getSql() {
+  if (!sql) {
+    sql = neon(process.env.DATABASE_URL!);
+  }
+  return sql;
+}
 
 export interface TemporalContextProfile {
   userId: number;
@@ -77,7 +85,7 @@ export class UserBehaviorPatterns {
     try {
       console.log(`[USER-BEHAVIOR] Calculating online status for user ${userId}`);
 
-      const userActivity = await sql`
+      const userActivity = await getSql()`
         SELECT 
           id,
           last_active,
@@ -137,7 +145,7 @@ export class UserBehaviorPatterns {
     try {
       console.log(`[USER-BEHAVIOR] Calculating recency score for user ${userId}`);
 
-      const userRecency = await sql`
+      const userRecency = await getSql()`
         SELECT 
           id,
           last_active,
@@ -181,7 +189,7 @@ export class UserBehaviorPatterns {
       console.log(`[USER-BEHAVIOR] Calculating profile freshness for user ${userId}`);
 
       // Check for updated_at column first
-      const updateTimestamp = await sql`
+      const updateTimestamp = await getSql()`
         SELECT 
           id,
           updated_at,
@@ -230,7 +238,7 @@ export class UserBehaviorPatterns {
       console.log(`[USER-BEHAVIOR] Analyzing peak activity hours for user ${userId}`);
 
       // Analyze message activity patterns
-      const messageActivity = await sql`
+      const messageActivity = await getSql()`
         SELECT 
           EXTRACT(HOUR FROM created_at) as activity_hour,
           COUNT(*) as message_count
@@ -243,7 +251,7 @@ export class UserBehaviorPatterns {
       `;
 
       // Analyze swipe activity patterns
-      const swipeActivity = await sql`
+      const swipeActivity = await getSql()`
         SELECT 
           EXTRACT(HOUR FROM timestamp) as activity_hour,
           COUNT(*) as swipe_count
@@ -669,7 +677,7 @@ export class UserBehaviorPatterns {
       console.log(`[TEMPORAL-CONTEXT] Calculating temporal factors for user ${userId}`);
 
       // Get user data
-      const userResult = await sql`SELECT * FROM users WHERE id = ${userId}`;
+      const userResult = await getSql()`SELECT * FROM users WHERE id = ${userId}`;
       if (userResult.length === 0) {
         return {
           activityPatternScore: 0.5,
@@ -922,7 +930,7 @@ export class UserBehaviorPatterns {
     try {
       console.log(`[RECIPROCITY] Calculating response rate: ${userId} ↔ ${targetUserId}`);
 
-      const responseAnalysis = await sql`
+      const responseAnalysis = await getSql()`
         WITH conversation_threads AS (
           SELECT 
             sender_id,
@@ -983,7 +991,7 @@ export class UserBehaviorPatterns {
     try {
       console.log(`[ENGAGEMENT] Calculating message engagement: ${userId} ↔ ${targetUserId}`);
 
-      const engagementAnalysis = await sql`
+      const engagementAnalysis = await getSql()`
         SELECT 
           COUNT(*) as total_messages,
           AVG(LENGTH(content)) as avg_message_length,
@@ -1043,7 +1051,7 @@ export class UserBehaviorPatterns {
       console.log(`[PROFILE-VIEWS] Calculating view frequency: ${userId} → ${targetUserId}`);
 
       // Check for dedicated profile_views table first
-      const profileViewsExists = await sql`
+      const profileViewsExists = await getSql()`
         SELECT EXISTS (
           SELECT FROM information_schema.tables 
           WHERE table_schema = 'public' AND table_name = 'profile_views'
@@ -1052,7 +1060,7 @@ export class UserBehaviorPatterns {
 
       if (profileViewsExists[0]?.exists) {
         // Use dedicated profile_views table
-        const viewData = await sql`
+        const viewData = await getSql()`
           SELECT 
             view_count,
             last_viewed_at,
@@ -1077,7 +1085,7 @@ export class UserBehaviorPatterns {
       }
 
       // Fallback: Use swipe_history as proxy for profile views
-      const swipeInteractions = await sql`
+      const swipeInteractions = await getSql()`
         SELECT 
           COUNT(*) as total_interactions,
           MAX(timestamp) as last_interaction,
@@ -1120,7 +1128,7 @@ export class UserBehaviorPatterns {
       console.log(`[LIKE-PROBABILITY] Calculating like probability: ${userId} → ${targetUserId}`);
 
       // Get user profiles for similarity analysis
-      const userProfiles = await sql`
+      const userProfiles = await getSql()`
         SELECT 
           id,
           ethnicity,
@@ -1142,7 +1150,7 @@ export class UserBehaviorPatterns {
       const targetProfile = userProfiles.find(u => u.id === targetUserId);
 
       // Analyze historical patterns for similar profiles
-      const similarityPatterns = await sql`
+      const similarityPatterns = await getSql()`
         WITH user_similarities AS (
           SELECT 
             sh.user_id,
