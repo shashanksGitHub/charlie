@@ -54,10 +54,15 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
+  // Determine environment - prioritize REPLIT_DEPLOYMENT over NODE_ENV
+  const isProduction = process.env.REPLIT_DEPLOYMENT === "1" || process.env.NODE_ENV === "production";
+  
+  if (isProduction) {
+    console.log("[SERVER] Running in production mode - serving static files");
     serveStatic(app);
+  } else {
+    console.log("[SERVER] Running in development mode - using Vite middleware");
+    await setupVite(app, server);
   }
 
   startServer(server, () => {

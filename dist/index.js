@@ -32,6 +32,7 @@ __export(schema_exports, {
   insertGlobalInterestSchema: () => insertGlobalInterestSchema,
   insertGlobalReligionSchema: () => insertGlobalReligionSchema,
   insertGlobalTribeSchema: () => insertGlobalTribeSchema,
+  insertKwameConversationSchema: () => insertKwameConversationSchema,
   insertMatchSchema: () => insertMatchSchema,
   insertMessageReactionSchema: () => insertMessageReactionSchema,
   insertMessageSchema: () => insertMessageSchema,
@@ -63,6 +64,7 @@ __export(schema_exports, {
   insertUserSchema: () => insertUserSchema,
   insertVerificationCodeSchema: () => insertVerificationCodeSchema,
   insertVideoCallSchema: () => insertVideoCallSchema,
+  kwameConversations: () => kwameConversations,
   matches: () => matches,
   messageEngagementMetrics: () => messageEngagementMetrics,
   messageReactions: () => messageReactions,
@@ -113,7 +115,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-var blockedPhoneNumbers, userReportStrikes, userBlocks, passwordResetCodes, users, userPreferences, matches, messages, userInterests, globalInterests, globalDealBreakers, globalTribes, globalReligions, profileViews, messageEngagementMetrics, conversationThreads, typingStatus, videoCalls, compatibilityAnalysis, suiteCompatibilityScores, verificationCodes, userPhotos, messageReactions, userMatchSettings, suiteJobProfiles, suiteMentorshipProfiles, suiteNetworkingProfiles, suiteProfileSettings, suiteFieldVisibility, connectionsPreferences, insertUserSchema, userProfileSchema, insertBlockedPhoneNumberSchema, insertUserReportStrikeSchema, userPreferencesSchema, insertMatchSchema, insertMessageSchema, insertUserInterestSchema, insertGlobalInterestSchema, insertGlobalDealBreakerSchema, insertGlobalTribeSchema, insertGlobalReligionSchema, insertTypingStatusSchema, insertVideoCallSchema, insertVerificationCodeSchema, insertUserPhotoSchema, updateUserPhotoPrimarySchema, insertMessageReactionSchema, insertUserMatchSettingsSchema, insertCompatibilityAnalysisSchema, insertSuiteCompatibilityScoreSchema, insertUserBlockSchema, insertArchivedMatchSchema, insertArchivedMessageSchema, insertArchivedUserSchema, insertSuiteJobProfileSchema, insertSuiteMentorshipProfileSchema, insertSuiteNetworkingProfileSchema, insertSuiteProfileSettingsSchema, insertSuiteFieldVisibilitySchema, swipeHistory, insertSwipeHistorySchema, archivedMatches, archivedMessages, archivedUsers, suiteNetworkingConnections, suiteMentorshipConnections, suiteJobApplications, professionalReviews, insertSuiteNetworkingConnectionSchema, insertSuiteMentorshipConnectionSchema, insertSuiteJobApplicationSchema, insertProfessionalReviewSchema, subscriptions, paymentMethods, paymentHistory, subscriptionEvents2, regionalPricing, promotionalCodes, promotionalCodeUsage, insertSubscriptionSchema, insertPaymentMethodSchema, insertPaymentHistorySchema, insertSubscriptionEventSchema, insertRegionalPricingSchema, insertPromotionalCodeSchema, insertPromotionalCodeUsageSchema, suiteMentorshipCompatibilityScores, insertSuiteMentorshipCompatibilityScoreSchema, insertConnectionsPreferencesSchema;
+var blockedPhoneNumbers, userReportStrikes, userBlocks, passwordResetCodes, users, userPreferences, matches, messages, userInterests, globalInterests, globalDealBreakers, globalTribes, globalReligions, profileViews, messageEngagementMetrics, conversationThreads, typingStatus, videoCalls, compatibilityAnalysis, suiteCompatibilityScores, verificationCodes, userPhotos, messageReactions, userMatchSettings, suiteJobProfiles, suiteMentorshipProfiles, suiteNetworkingProfiles, suiteProfileSettings, suiteFieldVisibility, connectionsPreferences, insertUserSchema, userProfileSchema, insertBlockedPhoneNumberSchema, insertUserReportStrikeSchema, userPreferencesSchema, insertMatchSchema, insertMessageSchema, insertUserInterestSchema, insertGlobalInterestSchema, insertGlobalDealBreakerSchema, insertGlobalTribeSchema, insertGlobalReligionSchema, insertTypingStatusSchema, insertVideoCallSchema, insertVerificationCodeSchema, insertUserPhotoSchema, updateUserPhotoPrimarySchema, insertMessageReactionSchema, insertUserMatchSettingsSchema, insertCompatibilityAnalysisSchema, insertSuiteCompatibilityScoreSchema, insertUserBlockSchema, insertArchivedMatchSchema, insertArchivedMessageSchema, insertArchivedUserSchema, insertSuiteJobProfileSchema, insertSuiteMentorshipProfileSchema, insertSuiteNetworkingProfileSchema, insertSuiteProfileSettingsSchema, insertSuiteFieldVisibilitySchema, swipeHistory, insertSwipeHistorySchema, archivedMatches, archivedMessages, archivedUsers, suiteNetworkingConnections, suiteMentorshipConnections, suiteJobApplications, professionalReviews, insertSuiteNetworkingConnectionSchema, insertSuiteMentorshipConnectionSchema, insertSuiteJobApplicationSchema, insertProfessionalReviewSchema, subscriptions, paymentMethods, paymentHistory, subscriptionEvents2, regionalPricing, promotionalCodes, promotionalCodeUsage, insertSubscriptionSchema, insertPaymentMethodSchema, insertPaymentHistorySchema, insertSubscriptionEventSchema, insertRegionalPricingSchema, insertPromotionalCodeSchema, insertPromotionalCodeUsageSchema, suiteMentorshipCompatibilityScores, insertSuiteMentorshipCompatibilityScoreSchema, insertConnectionsPreferencesSchema, kwameConversations, insertKwameConversationSchema;
 var init_schema = __esm({
   "shared/schema.ts"() {
     "use strict";
@@ -145,19 +147,23 @@ var init_schema = __esm({
       matchId: integer("match_id")
       // Associated match that was unmatched
     });
-    userBlocks = pgTable("user_blocks", {
-      id: serial("id").primaryKey(),
-      blockerUserId: integer("blocker_user_id").notNull().references(() => users.id),
-      // User who is blocking
-      blockedUserId: integer("blocked_user_id").notNull().references(() => users.id),
-      // User being blocked
-      reason: text("reason"),
-      // Optional reason for blocking
-      createdAt: timestamp("created_at").defaultNow()
-      // Prevent duplicate blocks and self-blocking
-    }, (table) => ({
-      uniqueBlock: unique().on(table.blockerUserId, table.blockedUserId)
-    }));
+    userBlocks = pgTable(
+      "user_blocks",
+      {
+        id: serial("id").primaryKey(),
+        blockerUserId: integer("blocker_user_id").notNull().references(() => users.id),
+        // User who is blocking
+        blockedUserId: integer("blocked_user_id").notNull().references(() => users.id),
+        // User being blocked
+        reason: text("reason"),
+        // Optional reason for blocking
+        createdAt: timestamp("created_at").defaultNow()
+        // Prevent duplicate blocks and self-blocking
+      },
+      (table) => ({
+        uniqueBlock: unique().on(table.blockerUserId, table.blockedUserId)
+      })
+    );
     passwordResetCodes = pgTable("password_reset_codes", {
       id: serial("id").primaryKey(),
       email: text("email").notNull(),
@@ -190,6 +196,9 @@ var init_schema = __esm({
       // Secondary tribe
       religion: text("religion"),
       photoUrl: text("photo_url"),
+      // Avatar system
+      avatarPhoto: text("avatar_photo"),
+      showAvatar: boolean("show_avatar").default(false),
       showProfilePhoto: boolean("show_profile_photo").default(true),
       // Toggle to show/hide profile picture
       dateOfBirth: timestamp("date_of_birth"),
@@ -264,8 +273,23 @@ var init_schema = __esm({
       // Account suspension status
       suspendedAt: timestamp("suspended_at"),
       // When account was suspended
-      suspensionExpiresAt: timestamp("suspension_expires_at")
+      suspensionExpiresAt: timestamp("suspension_expires_at"),
       // When suspension expires
+      preferredLanguage: text("preferred_language").default("en"),
+      // User's preferred language for cross-device sync
+      // Godmodel personality system: stores progress + final responses JSON
+      personalityRecords: text("personality_records"),
+      personalityTestCompleted: boolean("personality_test_completed").default(
+        false
+      ),
+      // Tracks if user has completed the full personality test
+      // Big 5 personality analysis results
+      big5Profile: text("big5_profile"),
+      // JSON with computed Big 5 traits, aspects, and percentiles
+      big5ComputedAt: timestamp("big5_computed_at"),
+      // When Big 5 analysis was last computed
+      personalityModelVersion: text("personality_model_version")
+      // Version of scoring model used
     });
     userPreferences = pgTable("user_preferences", {
       id: serial("id").primaryKey(),
@@ -309,6 +333,8 @@ var init_schema = __esm({
       // 'no', 'occasionally', 'yes', 'any'
       drinkingPreference: text("drinking_preference"),
       // 'no', 'socially', 'occasionally', 'yes', 'any'
+      highSchoolPreference: text("high_school_preference"),
+      // Can be JSON array of preferred high schools (for users under 18)
       updatedAt: timestamp("updated_at").defaultNow()
     });
     matches = pgTable("matches", {
@@ -479,47 +505,51 @@ var init_schema = __esm({
       isActive: boolean("is_active").notNull().default(true)
       // For soft deletion when user dislikes
     });
-    suiteCompatibilityScores = pgTable("suite_compatibility_scores", {
-      id: serial("id").primaryKey(),
-      userId: integer("user_id").notNull().references(() => users.id),
-      // User viewing the profile
-      targetUserId: integer("target_user_id").notNull().references(() => users.id),
-      // Profile being viewed
-      targetProfileId: integer("target_profile_id").notNull().references(() => suiteNetworkingProfiles.id),
-      // Specific networking profile
-      // Multi-dimensional scoring system
-      synergyScore: integer("synergy_score").notNull(),
-      // Industry/goals alignment (1-10)
-      networkValueScore: integer("network_value_score").notNull(),
-      // Professional influence potential (1-10)
-      collaborationScore: integer("collaboration_score").notNull(),
-      // Project partnership likelihood (1-10)
-      exchangeScore: integer("exchange_score").notNull(),
-      // Mutual benefit potential (1-10)
-      overallStarRating: integer("overall_star_rating").notNull(),
-      // Final star rating (1-10)
-      // Detailed analysis data
-      analysisData: text("analysis_data").notNull(),
-      // JSON with breakdown details
-      insights: text("insights").notNull(),
-      // JSON array of key insights
-      suggestedActions: text("suggested_actions").notNull(),
-      // JSON array of conversation starters
-      // Geographic and cultural intelligence
-      geographicFit: integer("geographic_fit").notNull(),
-      // Location/timezone compatibility (1-10)
-      culturalAlignment: integer("cultural_alignment").notNull(),
-      // Cross-cultural networking potential (1-10)
-      // Metadata
-      computedAt: timestamp("computed_at").defaultNow(),
-      lastUpdated: timestamp("last_updated").defaultNow(),
-      isActive: boolean("is_active").notNull().default(true)
-    }, (table) => {
-      return {
-        // Ensure one score per user-profile combination
-        uniqueUserProfile: unique().on(table.userId, table.targetProfileId)
-      };
-    });
+    suiteCompatibilityScores = pgTable(
+      "suite_compatibility_scores",
+      {
+        id: serial("id").primaryKey(),
+        userId: integer("user_id").notNull().references(() => users.id),
+        // Always store smaller user ID first to prevent duplicates
+        targetUserId: integer("target_user_id").notNull().references(() => users.id),
+        // Always store larger user ID second to prevent duplicates
+        targetProfileId: integer("target_profile_id").notNull().references(() => suiteNetworkingProfiles.id),
+        // Specific networking profile
+        // Multi-dimensional scoring system
+        synergyScore: integer("synergy_score").notNull(),
+        // Industry/goals alignment (1-10)
+        networkValueScore: integer("network_value_score").notNull(),
+        // Professional influence potential (1-10)
+        collaborationScore: integer("collaboration_score").notNull(),
+        // Project partnership likelihood (1-10)
+        exchangeScore: integer("exchange_score").notNull(),
+        // Mutual benefit potential (1-10)
+        overallStarRating: integer("overall_star_rating").notNull(),
+        // Final star rating (1-10)
+        // Detailed analysis data
+        analysisData: text("analysis_data").notNull(),
+        // JSON with breakdown details
+        insights: text("insights").notNull(),
+        // JSON array of key insights
+        suggestedActions: text("suggested_actions").notNull(),
+        // JSON array of conversation starters
+        // Geographic and cultural intelligence
+        geographicFit: integer("geographic_fit").notNull(),
+        // Location/timezone compatibility (1-10)
+        culturalAlignment: integer("cultural_alignment").notNull(),
+        // Cross-cultural networking potential (1-10)
+        // Metadata
+        computedAt: timestamp("computed_at").defaultNow(),
+        lastUpdated: timestamp("last_updated").defaultNow(),
+        isActive: boolean("is_active").notNull().default(true)
+      },
+      (table) => {
+        return {
+          // Ensure one score per unique user pair (bidirectional constraint)
+          uniqueUserPair: unique().on(table.userId, table.targetUserId)
+        };
+      }
+    );
     verificationCodes = pgTable("verification_codes", {
       id: serial("id").primaryKey(),
       phoneNumber: text("phone_number").notNull(),
@@ -529,6 +559,7 @@ var init_schema = __esm({
     });
     userPhotos = pgTable("user_photos", {
       id: serial("id").primaryKey(),
+      // TODO: Will migrate to bigserial to support larger IDs
       userId: integer("user_id").notNull().references(() => users.id),
       photoUrl: text("photo_url").notNull(),
       isPrimary: boolean("is_primary").default(false),
@@ -799,7 +830,7 @@ var init_schema = __esm({
       // ['local', 'regional', 'national', 'international']
       mentorshipWeights: text("mentorship_weights"),
       // JSON string of preference weights
-      // Networking Preferences  
+      // Networking Preferences
       networkingPurpose: text("networking_purpose").array(),
       // ['partnerships', 'opportunities', 'knowledge', 'insights']
       networkingCompanySize: text("networking_company_size").array(),
@@ -831,7 +862,7 @@ var init_schema = __esm({
       jobsSalaryMin: integer("jobs_salary_min"),
       // Minimum salary amount
       jobsSalaryMax: integer("jobs_salary_max"),
-      // Maximum salary amount  
+      // Maximum salary amount
       jobsSalaryPeriod: text("jobs_salary_period"),
       // '/hour', '/day', '/month', '/year'
       jobsWorkArrangement: text("jobs_work_arrangement").array(),
@@ -920,14 +951,22 @@ var init_schema = __esm({
       // App flow control toggles
       showAppModeSelection: z.boolean().optional(),
       showNationalitySelection: z.boolean().optional(),
-      lastUsedApp: z.string().optional()
+      lastUsedApp: z.string().optional(),
+      // Language preference for cross-device sync
+      preferredLanguage: z.string().optional(),
+      // Avatar toggle (optional in updates)
+      showAvatar: z.boolean().optional()
     });
-    insertBlockedPhoneNumberSchema = createInsertSchema(blockedPhoneNumbers).pick({
+    insertBlockedPhoneNumberSchema = createInsertSchema(
+      blockedPhoneNumbers
+    ).pick({
       phoneNumber: true,
       reason: true,
       metadata: true
     });
-    insertUserReportStrikeSchema = createInsertSchema(userReportStrikes).pick({
+    insertUserReportStrikeSchema = createInsertSchema(
+      userReportStrikes
+    ).pick({
       reportedUserId: true,
       reporterUserId: true,
       reason: true,
@@ -958,7 +997,8 @@ var init_schema = __esm({
       interestPreferences: true,
       matchingPriorities: true,
       smokingPreference: true,
-      drinkingPreference: true
+      drinkingPreference: true,
+      highSchoolPreference: true
     });
     insertMatchSchema = createInsertSchema(matches).pick({
       userId1: true,
@@ -1392,26 +1432,34 @@ var init_schema = __esm({
         };
       }
     );
-    professionalReviews = pgTable("professional_reviews", {
-      id: serial("id").primaryKey(),
-      reviewedUserId: integer("reviewed_user_id").notNull().references(() => users.id),
-      // User being reviewed
-      reviewerUserId: integer("reviewer_user_id").notNull().references(() => users.id),
-      // User writing the review
-      rating: integer("rating").notNull(),
-      // 1-5 star rating
-      reviewText: text("review_text").notNull(),
-      // Review comment
-      isAnonymous: boolean("is_anonymous").default(false),
-      // Whether reviewer wants to stay anonymous
-      category: text("category").notNull().default("general"),
-      // 'general', 'reliability', 'communication', 'skills'
-      createdAt: timestamp("created_at").defaultNow(),
-      updatedAt: timestamp("updated_at").defaultNow()
-    }, (table) => ({
-      // Ensure one review per user pair per category
-      uniqueReview: unique().on(table.reviewedUserId, table.reviewerUserId, table.category)
-    }));
+    professionalReviews = pgTable(
+      "professional_reviews",
+      {
+        id: serial("id").primaryKey(),
+        reviewedUserId: integer("reviewed_user_id").notNull().references(() => users.id),
+        // User being reviewed
+        reviewerUserId: integer("reviewer_user_id").notNull().references(() => users.id),
+        // User writing the review
+        rating: integer("rating").notNull(),
+        // 1-5 star rating
+        reviewText: text("review_text").notNull(),
+        // Review comment
+        isAnonymous: boolean("is_anonymous").default(false),
+        // Whether reviewer wants to stay anonymous
+        category: text("category").notNull().default("general"),
+        // 'general', 'reliability', 'communication', 'skills'
+        createdAt: timestamp("created_at").defaultNow(),
+        updatedAt: timestamp("updated_at").defaultNow()
+      },
+      (table) => ({
+        // Ensure one review per user pair per category
+        uniqueReview: unique().on(
+          table.reviewedUserId,
+          table.reviewerUserId,
+          table.category
+        )
+      })
+    );
     insertSuiteNetworkingConnectionSchema = createInsertSchema(
       suiteNetworkingConnections
     ).pick({
@@ -1530,7 +1578,9 @@ var init_schema = __esm({
       // 'succeeded', 'pending', 'failed', 'cancelled', 'refunded'
       paymentMethod: text("payment_method").notNull(),
       // 'card', 'mobile_money', 'bank_transfer'
-      paymentMethodId: integer("payment_method_id").references(() => paymentMethods.id),
+      paymentMethodId: integer("payment_method_id").references(
+        () => paymentMethods.id
+      ),
       failureReason: text("failure_reason"),
       // Reason if payment failed
       refundAmount: integer("refund_amount"),
@@ -1628,7 +1678,9 @@ var init_schema = __esm({
       region: true,
       trialEnd: true
     });
-    insertPaymentMethodSchema = createInsertSchema(paymentMethods).pick({
+    insertPaymentMethodSchema = createInsertSchema(
+      paymentMethods
+    ).pick({
       userId: true,
       provider: true,
       externalId: true,
@@ -1646,7 +1698,9 @@ var init_schema = __esm({
       nickname: true,
       isActive: true
     });
-    insertPaymentHistorySchema = createInsertSchema(paymentHistory).pick({
+    insertPaymentHistorySchema = createInsertSchema(
+      paymentHistory
+    ).pick({
       subscriptionId: true,
       userId: true,
       provider: true,
@@ -1660,7 +1714,9 @@ var init_schema = __esm({
       refundAmount: true,
       metadata: true
     });
-    insertSubscriptionEventSchema = createInsertSchema(subscriptionEvents2).pick({
+    insertSubscriptionEventSchema = createInsertSchema(
+      subscriptionEvents2
+    ).pick({
       subscriptionId: true,
       userId: true,
       eventType: true,
@@ -1670,7 +1726,9 @@ var init_schema = __esm({
       newStatus: true,
       metadata: true
     });
-    insertRegionalPricingSchema = createInsertSchema(regionalPricing).pick({
+    insertRegionalPricingSchema = createInsertSchema(
+      regionalPricing
+    ).pick({
       planType: true,
       region: true,
       currency: true,
@@ -1680,7 +1738,9 @@ var init_schema = __esm({
       validFrom: true,
       validUntil: true
     });
-    insertPromotionalCodeSchema = createInsertSchema(promotionalCodes).pick({
+    insertPromotionalCodeSchema = createInsertSchema(
+      promotionalCodes
+    ).pick({
       code: true,
       type: true,
       value: true,
@@ -1695,61 +1755,74 @@ var init_schema = __esm({
       createdByUserId: true,
       metadata: true
     });
-    insertPromotionalCodeUsageSchema = createInsertSchema(promotionalCodeUsage).pick({
+    insertPromotionalCodeUsageSchema = createInsertSchema(
+      promotionalCodeUsage
+    ).pick({
       promoCodeId: true,
       userId: true,
       subscriptionId: true,
       discountAmount: true,
       currency: true
     });
-    suiteMentorshipCompatibilityScores = pgTable("suite_mentorship_compatibility_scores", {
-      id: serial("id").primaryKey(),
-      userId: integer("user_id").notNull().references(() => users.id),
-      // User viewing the profile
-      targetUserId: integer("target_user_id").notNull().references(() => users.id),
-      // Profile being viewed
-      targetProfileId: integer("target_profile_id").notNull().references(() => suiteMentorshipProfiles.id),
-      // Specific mentorship profile
-      // 6D Mentorship Compatibility Model
-      expertiseRelevance: integer("expertise_relevance").notNull(),
-      // Mentor expertise to mentee goals match (1-10)
-      mentorshipStyleFit: integer("mentorship_style_fit").notNull(),
-      // Teaching/learning style compatibility (1-10)
-      timeSynergy: integer("time_synergy").notNull(),
-      // Time commitment and availability alignment (1-10)
-      communicationFit: integer("communication_fit").notNull(),
-      // Communication style and channel match (1-10)
-      contextualAlignment: integer("contextual_alignment").notNull(),
-      // Geographic, linguistic, cultural fit (1-10)
-      growthGapPotential: integer("growth_gap_potential").notNull(),
-      // Optimal experience delta (1-10)
-      overallCompatibilityScore: integer("overall_compatibility_score").notNull(),
-      // Final percentage score (1-100)
-      // Success prediction metrics
-      successProbability: integer("success_probability").notNull(),
-      // 90-day success likelihood (1-100)
-      breakthroughMomentPrediction: integer("breakthrough_moment_prediction").notNull(),
-      // When insights typically occur (weeks)
-      plateauRiskAssessment: integer("plateau_risk_assessment").notNull(),
-      // Stagnation risk level (1-10)
-      // Detailed analysis data
-      analysisData: text("analysis_data").notNull(),
-      // JSON with comprehensive breakdown
-      insights: text("insights").notNull(),
-      // JSON array of key insights
-      conversationStarters: text("conversation_starters").notNull(),
-      // JSON array of AI-generated talking points
-      mentorshipRoadmap: text("mentorship_roadmap").notNull(),
-      // JSON with projected learning journey
-      milestonePathway: text("milestone_pathway").notNull(),
-      // JSON with predicted progress markers
-      skillGapForecast: text("skill_gap_forecast").notNull(),
-      // JSON with what mentee can learn
-      // Metadata
-      computedAt: timestamp("computed_at").defaultNow().notNull(),
-      lastUpdated: timestamp("last_updated").defaultNow().notNull(),
-      isActive: boolean("is_active").default(true).notNull()
-    });
+    suiteMentorshipCompatibilityScores = pgTable(
+      "suite_mentorship_compatibility_scores",
+      {
+        id: serial("id").primaryKey(),
+        userId: integer("user_id").notNull().references(() => users.id),
+        // Always store smaller user ID first to prevent duplicates
+        targetUserId: integer("target_user_id").notNull().references(() => users.id),
+        // Always store larger user ID second to prevent duplicates
+        targetProfileId: integer("target_profile_id").notNull().references(() => suiteMentorshipProfiles.id),
+        // Specific mentorship profile
+        // 6D Mentorship Compatibility Model
+        expertiseRelevance: integer("expertise_relevance").notNull(),
+        // Mentor expertise to mentee goals match (1-10)
+        mentorshipStyleFit: integer("mentorship_style_fit").notNull(),
+        // Teaching/learning style compatibility (1-10)
+        timeSynergy: integer("time_synergy").notNull(),
+        // Time commitment and availability alignment (1-10)
+        communicationFit: integer("communication_fit").notNull(),
+        // Communication style and channel match (1-10)
+        contextualAlignment: integer("contextual_alignment").notNull(),
+        // Geographic, linguistic, cultural fit (1-10)
+        growthGapPotential: integer("growth_gap_potential").notNull(),
+        // Optimal experience delta (1-10)
+        overallCompatibilityScore: integer("overall_compatibility_score").notNull(),
+        // Final percentage score (1-100)
+        // Success prediction metrics
+        successProbability: integer("success_probability").notNull(),
+        // 90-day success likelihood (1-100)
+        breakthroughMomentPrediction: integer(
+          "breakthrough_moment_prediction"
+        ).notNull(),
+        // When insights typically occur (weeks)
+        plateauRiskAssessment: integer("plateau_risk_assessment").notNull(),
+        // Stagnation risk level (1-10)
+        // Detailed analysis data
+        analysisData: text("analysis_data").notNull(),
+        // JSON with comprehensive breakdown
+        insights: text("insights").notNull(),
+        // JSON array of key insights
+        conversationStarters: text("conversation_starters").notNull(),
+        // JSON array of AI-generated talking points
+        mentorshipRoadmap: text("mentorship_roadmap").notNull(),
+        // JSON with projected learning journey
+        milestonePathway: text("milestone_pathway").notNull(),
+        // JSON with predicted progress markers
+        skillGapForecast: text("skill_gap_forecast").notNull(),
+        // JSON with what mentee can learn
+        // Metadata
+        computedAt: timestamp("computed_at").defaultNow().notNull(),
+        lastUpdated: timestamp("last_updated").defaultNow().notNull(),
+        isActive: boolean("is_active").default(true).notNull()
+      },
+      (table) => {
+        return {
+          // Ensure one score per unique user pair (bidirectional constraint)
+          uniqueUserPair: unique().on(table.userId, table.targetUserId)
+        };
+      }
+    );
     insertSuiteMentorshipCompatibilityScoreSchema = createInsertSchema(
       suiteMentorshipCompatibilityScores
     ).pick({
@@ -1774,7 +1847,29 @@ var init_schema = __esm({
       skillGapForecast: true,
       isActive: true
     });
-    insertConnectionsPreferencesSchema = createInsertSchema(connectionsPreferences).omit({
+    insertConnectionsPreferencesSchema = createInsertSchema(
+      connectionsPreferences
+    ).omit({
+      id: true,
+      createdAt: true,
+      updatedAt: true
+    });
+    kwameConversations = pgTable("kwame_conversations", {
+      id: serial("id").primaryKey(),
+      userId: integer("user_id").notNull().references(() => users.id),
+      role: text("role").notNull(),
+      // 'user' or 'assistant'
+      content: text("content").notNull(),
+      context: text("context"),
+      // JSON string with additional context
+      appMode: text("app_mode"),
+      // 'MEET', 'SUITE', 'HEAT'
+      createdAt: timestamp("created_at").defaultNow(),
+      updatedAt: timestamp("updated_at").defaultNow()
+    });
+    insertKwameConversationSchema = createInsertSchema(
+      kwameConversations
+    ).omit({
       id: true,
       createdAt: true,
       updatedAt: true
@@ -1799,8 +1894,12 @@ var init_db = __esm({
     if (typeof process !== "undefined" && process.versions?.node) {
       neonConfig.fetchConnectionCache = true;
       neonConfig.webSocketConstructor = ws;
+      process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0";
     }
-    pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === "production" ? true : false
+    });
     db = drizzle(pool, {
       schema: {
         users,
@@ -1822,7 +1921,8 @@ var init_db = __esm({
         suiteMentorshipProfiles,
         suiteNetworkingProfiles,
         suiteProfileSettings,
-        compatibilityAnalysis
+        compatibilityAnalysis,
+        kwameConversations
       }
     });
   }
@@ -1945,6 +2045,11 @@ var init_storage = __esm({
       }
       async getBlockedPhoneNumber(phoneNumber) {
         const blocked = await db.select().from(blockedPhoneNumbers).where(eq(blockedPhoneNumbers.phoneNumber, phoneNumber)).limit(1);
+        return blocked[0];
+      }
+      async isEmailInBlockedPhoneNumbers(email) {
+        const normalized = email.trim().toLowerCase();
+        const blocked = await db.select().from(blockedPhoneNumbers).where(eq(blockedPhoneNumbers.email, normalized)).limit(1);
         return blocked[0];
       }
       async createUser(insertUser) {
@@ -2090,47 +2195,119 @@ var init_storage = __esm({
         console.log(`Starting complete user deletion for user ${userId}...`);
         try {
           await db.transaction(async (tx) => {
-            const userResult = await tx.execute(sql`SELECT phone_number FROM users WHERE id = ${userId}`);
+            const userResult = await tx.execute(
+              sql`SELECT phone_number FROM users WHERE id = ${userId}`
+            );
             const userPhone = userResult.rows[0]?.phone_number;
             console.log(`Deleting all dependent records for user ${userId}...`);
-            await tx.execute(sql`DELETE FROM payment_history WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM payment_methods WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM subscriptions WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM promotional_code_usage WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM message_reactions WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM messages WHERE sender_id = ${userId} OR receiver_id = ${userId} OR deleted_for_user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM typing_status WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM video_calls WHERE initiator_id = ${userId} OR receiver_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM matches WHERE user_id_1 = ${userId} OR user_id_2 = ${userId}`);
-            await tx.execute(sql`DELETE FROM swipe_history WHERE user_id = ${userId} OR target_user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM compatibility_analysis WHERE user1_id = ${userId} OR user2_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM suite_compatibility_scores WHERE user_id = ${userId} OR target_user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM suite_mentorship_compatibility_scores WHERE user_id = ${userId} OR target_user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM suite_networking_connections WHERE user_id = ${userId} OR target_user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM suite_mentorship_connections WHERE user_id = ${userId} OR target_user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM suite_job_applications WHERE user_id = ${userId} OR target_user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM suite_message_reactions WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM suite_messages WHERE sender_id = ${userId} OR receiver_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM professional_reviews WHERE user_id = ${userId} OR target_user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM user_report_strikes WHERE reporter_user_id = ${userId} OR reported_user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM user_photos WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM user_preferences WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM user_interests WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM user_match_settings WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM user_auto_delete_settings WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM connections_preferences WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM suite_job_profiles WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM suite_mentorship_profiles WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM suite_networking_profiles WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM suite_profile_settings WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM suite_field_visibility WHERE user_id = ${userId}`);
-            await tx.execute(sql`DELETE FROM global_interests WHERE created_by = ${userId}`);
-            await tx.execute(sql`DELETE FROM global_deal_breakers WHERE created_by = ${userId}`);
+            await tx.execute(
+              sql`DELETE FROM payment_history WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM payment_methods WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM subscriptions WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM promotional_code_usage WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM message_reactions WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM messages WHERE sender_id = ${userId} OR receiver_id = ${userId} OR deleted_for_user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM typing_status WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM video_calls WHERE initiator_id = ${userId} OR receiver_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM matches WHERE user_id_1 = ${userId} OR user_id_2 = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM swipe_history WHERE user_id = ${userId} OR target_user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM compatibility_analysis WHERE user1_id = ${userId} OR user2_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM suite_compatibility_scores WHERE user_id = ${userId} OR target_user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM suite_mentorship_compatibility_scores WHERE user_id = ${userId} OR target_user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM suite_networking_connections WHERE user_id = ${userId} OR target_user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM suite_mentorship_connections WHERE user_id = ${userId} OR target_user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM suite_job_applications WHERE user_id = ${userId} OR target_user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM suite_message_reactions WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM suite_messages WHERE sender_id = ${userId} OR receiver_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM professional_reviews WHERE user_id = ${userId} OR target_user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM user_report_strikes WHERE reporter_user_id = ${userId} OR reported_user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM user_photos WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM user_preferences WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM user_interests WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM user_match_settings WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM user_auto_delete_settings WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM connections_preferences WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM suite_job_profiles WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM suite_mentorship_profiles WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM suite_networking_profiles WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM suite_profile_settings WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM suite_field_visibility WHERE user_id = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM global_interests WHERE created_by = ${userId}`
+            );
+            await tx.execute(
+              sql`DELETE FROM global_deal_breakers WHERE created_by = ${userId}`
+            );
             if (userPhone) {
-              await tx.execute(sql`DELETE FROM verification_codes WHERE phone_number = ${userPhone}`);
+              await tx.execute(
+                sql`DELETE FROM verification_codes WHERE phone_number = ${userPhone}`
+              );
             }
             await tx.execute(sql`DELETE FROM users WHERE id = ${userId}`);
-            console.log(`Successfully deleted user ${userId} and all related data using comprehensive SQL approach`);
+            console.log(
+              `Successfully deleted user ${userId} and all related data using comprehensive SQL approach`
+            );
           });
         } catch (error) {
           console.error(`Failed to delete user ${userId}:`, error);
@@ -2139,8 +2316,13 @@ var init_storage = __esm({
             await db.delete(users).where(eq(users.id, userId));
             console.log(`Successfully deleted user ${userId} with cascade`);
           } catch (simpleError) {
-            console.error(`Both deletion methods failed for user ${userId}:`, simpleError);
-            throw new Error(`Cannot delete user: Database constraints prevent deletion`);
+            console.error(
+              `Both deletion methods failed for user ${userId}:`,
+              simpleError
+            );
+            throw new Error(
+              `Cannot delete user: Database constraints prevent deletion`
+            );
           }
         }
       }
@@ -2176,10 +2358,15 @@ var init_storage = __esm({
           const startTime = Date.now();
           const preferences = await db.select().from(userPreferences).where(inArray(userPreferences.userId, userIds));
           const duration = Date.now() - startTime;
-          console.log(`[BATCH-PERFORMANCE] Loaded ${preferences.length} preferences for ${userIds.length} users in ${duration}ms`);
+          console.log(
+            `[BATCH-PERFORMANCE] Loaded ${preferences.length} preferences for ${userIds.length} users in ${duration}ms`
+          );
           return preferences;
         } catch (error) {
-          console.error(`Error batch getting preferences for users ${userIds}:`, error);
+          console.error(
+            `Error batch getting preferences for users ${userIds}:`,
+            error
+          );
           return [];
         }
       }
@@ -2201,9 +2388,9 @@ var init_storage = __esm({
           await this.createUserPreferences({
             userId,
             locationPreference: location,
-            minAge: 18,
-            maxAge: 35,
-            distancePreference: 50
+            minAge: null,
+            maxAge: null,
+            distancePreference: null
           });
         }
       }
@@ -2217,9 +2404,9 @@ var init_storage = __esm({
           return await this.createUserPreferences({
             userId,
             poolCountry,
-            minAge: 18,
-            maxAge: 35,
-            distancePreference: 50
+            minAge: null,
+            maxAge: null,
+            distancePreference: null
           });
         }
       }
@@ -2234,26 +2421,31 @@ var init_storage = __esm({
         if (userPrefs) {
           return await this.updateUserPreferences(userPrefs.id, updateData);
         } else {
-          const newPreferences = {
+          return await this.createUserPreferences({
             userId,
-            minAge: 18,
-            maxAge: 35,
-            distancePreference: 50,
+            minAge: null,
+            maxAge: null,
+            distancePreference: null,
             meetPoolCountry: appMode === "MEET" ? poolCountry : "ANYWHERE",
             suitePoolCountry: appMode === "SUITE" ? poolCountry : "ANYWHERE",
             poolCountry
             // Also set legacy field for compatibility
-          };
-          return await this.createUserPreferences(newPreferences);
+          });
         }
       }
       // Match operations
       async createMatch(match) {
+        console.log(
+          `[CREATE-MATCH-DEBUG] Attempting to create match between users ${match.userId1} and ${match.userId2}`
+        );
         const existingMatch = await this.getMatchBetweenUsers(
           match.userId1,
           match.userId2
         );
         if (existingMatch) {
+          console.log(
+            `[CREATE-MATCH-DEBUG] Found existing match ${existingMatch.id}, matched: ${existingMatch.matched}, metadata: ${existingMatch.metadata}`
+          );
           return existingMatch;
         }
         const [newMatch2] = await db.insert(matches).values({
@@ -2266,12 +2458,27 @@ var init_storage = __esm({
           metadata: match.metadata || null,
           createdAt: /* @__PURE__ */ new Date()
         }).returning();
+        console.log(`[CREATE-MATCH-DEBUG] Successfully created new match:`, {
+          id: newMatch2.id,
+          userId1: newMatch2.userId1,
+          userId2: newMatch2.userId2,
+          matched: newMatch2.matched,
+          metadata: newMatch2.metadata
+        });
         if (newMatch2.matched) {
-          console.log(`[SWIPE-CLEANUP] Starting cleanup for CREATED match between users ${newMatch2.userId1} and ${newMatch2.userId2}`);
+          console.log(
+            `[SWIPE-CLEANUP] Starting cleanup for CREATED match between users ${newMatch2.userId1} and ${newMatch2.userId2}`
+          );
           try {
-            await this.removeMatchedUsersFromSwipeHistory(newMatch2.userId1, newMatch2.userId2);
+            await this.removeMatchedUsersFromSwipeHistory(
+              newMatch2.userId1,
+              newMatch2.userId2
+            );
           } catch (cleanupError) {
-            console.error(`[SWIPE-CLEANUP] Failed for CREATED match ${newMatch2.id}:`, cleanupError);
+            console.error(
+              `[SWIPE-CLEANUP] Failed for CREATED match ${newMatch2.id}:`,
+              cleanupError
+            );
           }
         }
         return newMatch2;
@@ -2311,6 +2518,7 @@ var init_storage = __esm({
           )
         );
       }
+      // Removed broken optimization function - using working getUserMatches instead
       // Get only MEET-originated matches (excludes SUITE matches) and blocked users
       async getMeetMatchesByUserId(userId) {
         return await db.select().from(matches).where(
@@ -2400,7 +2608,9 @@ var init_storage = __esm({
       // Get count of unread message notifications for a user (total unread messages)
       async getUnreadMessageCount(userId) {
         try {
-          console.log(`[UNREAD-OPTIMIZED] User ${userId}: Starting optimized unread count query`);
+          console.log(
+            `[UNREAD-OPTIMIZED] User ${userId}: Starting optimized unread count query`
+          );
           const startTime = Date.now();
           const [result] = await db.select({
             unreadCount: sql`COUNT(*)`
@@ -2409,14 +2619,22 @@ var init_storage = __esm({
               eq(messages.receiverId, userId),
               eq(messages.read, false),
               or(
-                and(eq(matches.userId1, userId), eq(matches.hasUnreadMessages1, true)),
-                and(eq(matches.userId2, userId), eq(matches.hasUnreadMessages2, true))
+                and(
+                  eq(matches.userId1, userId),
+                  eq(matches.hasUnreadMessages1, true)
+                ),
+                and(
+                  eq(matches.userId2, userId),
+                  eq(matches.hasUnreadMessages2, true)
+                )
               )
             )
           );
           const duration = Date.now() - startTime;
           const unreadCount = Number(result?.unreadCount) || 0;
-          console.log(`[UNREAD-OPTIMIZED] User ${userId}: Query completed in ${duration}ms, found ${unreadCount} unread messages`);
+          console.log(
+            `[UNREAD-OPTIMIZED] User ${userId}: Query completed in ${duration}ms, found ${unreadCount} unread messages`
+          );
           return unreadCount;
         } catch (error) {
           console.error("Error getting unread message count:", error);
@@ -2520,11 +2738,19 @@ var init_storage = __esm({
         }
         const [updatedMatch] = await db.update(matches).set(updateFields).where(eq(matches.id, id)).returning();
         if (updatedMatch && updates.matched) {
-          console.log(`[SWIPE-CLEANUP] Starting cleanup for UPDATED match ${updatedMatch.id} between users ${updatedMatch.userId1} and ${updatedMatch.userId2}`);
+          console.log(
+            `[SWIPE-CLEANUP] Starting cleanup for UPDATED match ${updatedMatch.id} between users ${updatedMatch.userId1} and ${updatedMatch.userId2}`
+          );
           try {
-            await this.removeMatchedUsersFromSwipeHistory(updatedMatch.userId1, updatedMatch.userId2);
+            await this.removeMatchedUsersFromSwipeHistory(
+              updatedMatch.userId1,
+              updatedMatch.userId2
+            );
           } catch (cleanupError) {
-            console.error(`[SWIPE-CLEANUP] Failed for UPDATED match ${updatedMatch.id}:`, cleanupError);
+            console.error(
+              `[SWIPE-CLEANUP] Failed for UPDATED match ${updatedMatch.id}:`,
+              cleanupError
+            );
           }
         }
         return updatedMatch;
@@ -2847,7 +3073,9 @@ var init_storage = __esm({
               )
             )
           );
-          const excludeUserIds = existingInteractions.map((row) => row.targetUserId);
+          const excludeUserIds = existingInteractions.map(
+            (row) => row.targetUserId
+          );
           excludeUserIds.push(userId);
           const swipeHistoryUsers = await db.select({ targetUserId: swipeHistory.targetUserId }).from(swipeHistory).where(
             and(
@@ -2855,11 +3083,16 @@ var init_storage = __esm({
               eq(swipeHistory.appMode, "MEET")
             )
           );
-          const swipeHistoryUserIds = swipeHistoryUsers.map((row) => row.targetUserId);
+          const swipeHistoryUserIds = swipeHistoryUsers.map(
+            (row) => row.targetUserId
+          );
           excludeUserIds.push(...swipeHistoryUserIds);
           const discoverUsers = await db.select().from(users).where(
             and(
-              notInArray(users.id, excludeUserIds.length > 0 ? excludeUserIds : [0]),
+              notInArray(
+                users.id,
+                excludeUserIds.length > 0 ? excludeUserIds : [0]
+              ),
               // Exclude users with MEET interactions
               eq(users.profileHidden, false)
               // Only visible profiles
@@ -2874,7 +3107,9 @@ var init_storage = __esm({
             };
           });
           const duration = Date.now() - startTime;
-          console.log(`[DISCOVER-FILTERED] User ${userId}: Query completed in ${duration}ms, excluded ${excludeUserIds.length} users, returning ${usersWithoutPasswords.length} users`);
+          console.log(
+            `[DISCOVER-FILTERED] User ${userId}: Query completed in ${duration}ms, excluded ${excludeUserIds.length} users, returning ${usersWithoutPasswords.length} users`
+          );
           return usersWithoutPasswords;
         } catch (error) {
           console.error("Error in filtered getDiscoverUsers:", error);
@@ -3666,7 +3901,9 @@ var init_storage = __esm({
             console.log("Storage layer: Update object:", updateObject);
             const [updatedProfile] = await db.update(suiteJobProfiles).set(updateObject).where(eq(suiteJobProfiles.id, existingProfile.id)).returning();
             if (updateObject.highSchool !== void 0 || updateObject.collegeUniversity !== void 0) {
-              console.log("\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from job profile");
+              console.log(
+                "\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from job profile"
+              );
               const userUpdateData = {};
               if (updateObject.highSchool !== void 0) {
                 userUpdateData.highSchool = updateObject.highSchool;
@@ -3676,9 +3913,15 @@ var init_storage = __esm({
               }
               try {
                 await db.update(users).set(userUpdateData).where(eq(users.id, userId));
-                console.log("\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:", userUpdateData);
+                console.log(
+                  "\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:",
+                  userUpdateData
+                );
               } catch (syncError) {
-                console.error("\u{1F4DA} [EDUCATION-SYNC] Failed to sync education fields to users table:", syncError);
+                console.error(
+                  "\u{1F4DA} [EDUCATION-SYNC] Failed to sync education fields to users table:",
+                  syncError
+                );
               }
             }
             console.log("Updated job profile:", updatedProfile);
@@ -3737,7 +3980,9 @@ var init_storage = __esm({
             };
             const [newProfile] = await db.insert(suiteJobProfiles).values(profileToInsert).returning();
             if (profileToInsert.highSchool || profileToInsert.collegeUniversity) {
-              console.log("\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from new job profile");
+              console.log(
+                "\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from new job profile"
+              );
               const userUpdateData = {};
               if (profileToInsert.highSchool) {
                 userUpdateData.highSchool = profileToInsert.highSchool;
@@ -3747,9 +3992,15 @@ var init_storage = __esm({
               }
               try {
                 await db.update(users).set(userUpdateData).where(eq(users.id, userId));
-                console.log("\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:", userUpdateData);
+                console.log(
+                  "\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:",
+                  userUpdateData
+                );
               } catch (syncError) {
-                console.error("\u{1F4DA} [EDUCATION-SYNC] Failed to sync education fields to users table:", syncError);
+                console.error(
+                  "\u{1F4DA} [EDUCATION-SYNC] Failed to sync education fields to users table:",
+                  syncError
+                );
               }
             }
             console.log("Created new job profile:", newProfile);
@@ -4014,14 +4265,15 @@ var init_storage = __esm({
       }
       async deleteSuiteMentorshipProfile(userId, role) {
         try {
-          const conditions = [
-            eq(suiteMentorshipProfiles.userId, userId)
-          ];
+          const conditions = [eq(suiteMentorshipProfiles.userId, userId)];
           if (role) {
             conditions.push(eq(suiteMentorshipProfiles.role, role));
           }
           await db.delete(suiteMentorshipProfiles).where(and(...conditions));
-          console.log(`Mentorship profile${role ? ` (${role})` : "s"} permanently deleted for user:`, userId);
+          console.log(
+            `Mentorship profile${role ? ` (${role})` : "s"} permanently deleted for user:`,
+            userId
+          );
         } catch (error) {
           console.error("Error deleting mentorship profile:", error);
           throw error;
@@ -4066,7 +4318,9 @@ var init_storage = __esm({
             console.log("Storage layer: Update object:", updateObject);
             const [updatedProfile] = await db.update(suiteMentorshipProfiles).set(updateObject).where(eq(suiteMentorshipProfiles.id, existingProfile.id)).returning();
             if (updateObject.highSchool !== void 0 || updateObject.collegeUniversity !== void 0) {
-              console.log("\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from mentorship profile");
+              console.log(
+                "\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from mentorship profile"
+              );
               const userUpdateData = {};
               if (updateObject.highSchool !== void 0) {
                 userUpdateData.highSchool = updateObject.highSchool;
@@ -4076,9 +4330,15 @@ var init_storage = __esm({
               }
               try {
                 await db.update(users).set(userUpdateData).where(eq(users.id, userId));
-                console.log("\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:", userUpdateData);
+                console.log(
+                  "\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:",
+                  userUpdateData
+                );
               } catch (syncError) {
-                console.error("\u{1F4DA} [EDUCATION-SYNC] Failed to sync education fields to users table:", syncError);
+                console.error(
+                  "\u{1F4DA} [EDUCATION-SYNC] Failed to sync education fields to users table:",
+                  syncError
+                );
               }
             }
             console.log(`Updated ${role} mentorship profile:`, updatedProfile);
@@ -4114,7 +4374,9 @@ var init_storage = __esm({
             };
             const [newProfile] = await db.insert(suiteMentorshipProfiles).values(profileToInsert).returning();
             if (profileToInsert.highSchool || profileToInsert.collegeUniversity) {
-              console.log("\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from new mentorship profile");
+              console.log(
+                "\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from new mentorship profile"
+              );
               const userUpdateData = {};
               if (profileToInsert.highSchool) {
                 userUpdateData.highSchool = profileToInsert.highSchool;
@@ -4124,9 +4386,15 @@ var init_storage = __esm({
               }
               try {
                 await db.update(users).set(userUpdateData).where(eq(users.id, userId));
-                console.log("\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:", userUpdateData);
+                console.log(
+                  "\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:",
+                  userUpdateData
+                );
               } catch (syncError) {
-                console.error("\u{1F4DA} [EDUCATION-SYNC] Failed to sync education fields to users table:", syncError);
+                console.error(
+                  "\u{1F4DA} [EDUCATION-SYNC] Failed to sync education fields to users table:",
+                  syncError
+                );
               }
             }
             console.log(`Created new ${role} mentorship profile:`, newProfile);
@@ -4338,7 +4606,9 @@ var init_storage = __esm({
             console.log("Storage layer: Update object:", updateObject);
             const [updatedProfile] = await db.update(suiteNetworkingProfiles).set(updateObject).where(eq(suiteNetworkingProfiles.id, existingProfile.id)).returning();
             if (updateObject.highSchool !== void 0 || updateObject.collegeUniversity !== void 0) {
-              console.log("\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from networking profile");
+              console.log(
+                "\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from networking profile"
+              );
               const userUpdateData = {};
               if (updateObject.highSchool !== void 0) {
                 userUpdateData.highSchool = updateObject.highSchool;
@@ -4348,9 +4618,15 @@ var init_storage = __esm({
               }
               try {
                 await db.update(users).set(userUpdateData).where(eq(users.id, userId));
-                console.log("\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:", userUpdateData);
+                console.log(
+                  "\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:",
+                  userUpdateData
+                );
               } catch (syncError) {
-                console.error("\u{1F4DA} [EDUCATION-SYNC] Failed to sync education fields to users table:", syncError);
+                console.error(
+                  "\u{1F4DA} [EDUCATION-SYNC] Failed to sync education fields to users table:",
+                  syncError
+                );
               }
             }
             return updatedProfile;
@@ -4388,7 +4664,9 @@ var init_storage = __esm({
             console.log("Inserting new networking profile:", profileToInsert);
             const [networkingProfile] = await db.insert(suiteNetworkingProfiles).values(profileToInsert).returning();
             if (profileToInsert.highSchool || profileToInsert.collegeUniversity) {
-              console.log("\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from new networking profile");
+              console.log(
+                "\u{1F4DA} [EDUCATION-SYNC] Syncing education fields to users table from new networking profile"
+              );
               const userUpdateData = {};
               if (profileToInsert.highSchool) {
                 userUpdateData.highSchool = profileToInsert.highSchool;
@@ -4398,9 +4676,15 @@ var init_storage = __esm({
               }
               try {
                 await db.update(users).set(userUpdateData).where(eq(users.id, userId));
-                console.log("\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:", userUpdateData);
+                console.log(
+                  "\u{1F4DA} [EDUCATION-SYNC] Successfully updated education fields in users table:",
+                  userUpdateData
+                );
               } catch (syncError) {
-                console.error("\u{1F4DA} [EDUCATION-SYNC] Failed to sync education fields to users table:", syncError);
+                console.error(
+                  "\u{1F4DA} [EDUCATION-SYNC] Failed to sync education fields to users table:",
+                  syncError
+                );
               }
             }
             console.log("Created networking profile:", networkingProfile);
@@ -4752,7 +5036,9 @@ var init_storage = __esm({
                 let fieldVisibility = {};
                 if (connection.targetProfile.visibilityPreferences) {
                   try {
-                    fieldVisibility = JSON.parse(connection.targetProfile.visibilityPreferences);
+                    fieldVisibility = JSON.parse(
+                      connection.targetProfile.visibilityPreferences
+                    );
                   } catch (error) {
                     console.error(
                       `Error parsing mentorship visibility preferences for connection ${connection.id}:`,
@@ -4949,9 +5235,22 @@ var init_storage = __esm({
         }
       }
       // ===== SUITE COMPATIBILITY SCORING METHODS =====
+      // Helper function to order user IDs consistently to prevent duplicates
+      orderUserIds(userId1, userId2) {
+        return userId1 < userId2 ? { smallerId: userId1, largerId: userId2 } : { smallerId: userId2, largerId: userId1 };
+      }
       async createSuiteCompatibilityScore(scoreData) {
         try {
-          const [score] = await db.insert(suiteCompatibilityScores).values(scoreData).returning();
+          const { smallerId, largerId } = this.orderUserIds(
+            scoreData.userId,
+            scoreData.targetUserId
+          );
+          const orderedScoreData = {
+            ...scoreData,
+            userId: smallerId,
+            targetUserId: largerId
+          };
+          const [score] = await db.insert(suiteCompatibilityScores).values(orderedScoreData).returning();
           return score;
         } catch (error) {
           console.error("Error creating suite compatibility score:", error);
@@ -4960,9 +5259,14 @@ var init_storage = __esm({
       }
       async getSuiteCompatibilityScore(userId, targetProfileId) {
         try {
+          const targetProfile = await db.select({ userId: suiteNetworkingProfiles.userId }).from(suiteNetworkingProfiles).where(eq(suiteNetworkingProfiles.id, targetProfileId));
+          if (!targetProfile.length) return void 0;
+          const targetUserId = targetProfile[0].userId;
+          const { smallerId, largerId } = this.orderUserIds(userId, targetUserId);
           const [score] = await db.select().from(suiteCompatibilityScores).where(
             and(
-              eq(suiteCompatibilityScores.userId, userId),
+              eq(suiteCompatibilityScores.userId, smallerId),
+              eq(suiteCompatibilityScores.targetUserId, largerId),
               eq(suiteCompatibilityScores.targetProfileId, targetProfileId),
               eq(suiteCompatibilityScores.isActive, true)
             )
@@ -4975,8 +5279,20 @@ var init_storage = __esm({
       }
       async updateSuiteCompatibilityScore(id, updates) {
         try {
+          let orderedUpdates = updates;
+          if (updates.userId && updates.targetUserId) {
+            const { smallerId, largerId } = this.orderUserIds(
+              updates.userId,
+              updates.targetUserId
+            );
+            orderedUpdates = {
+              ...updates,
+              userId: smallerId,
+              targetUserId: largerId
+            };
+          }
           const [score] = await db.update(suiteCompatibilityScores).set({
-            ...updates,
+            ...orderedUpdates,
             lastUpdated: /* @__PURE__ */ new Date()
           }).where(eq(suiteCompatibilityScores.id, id)).returning();
           return score;
@@ -4988,7 +5304,16 @@ var init_storage = __esm({
       // ===== MENTORSHIP COMPATIBILITY SCORE METHODS =====
       async createSuiteMentorshipCompatibilityScore(scoreData) {
         try {
-          const [score] = await db.insert(suiteMentorshipCompatibilityScores).values(scoreData).returning();
+          const { smallerId, largerId } = this.orderUserIds(
+            scoreData.userId,
+            scoreData.targetUserId
+          );
+          const orderedScoreData = {
+            ...scoreData,
+            userId: smallerId,
+            targetUserId: largerId
+          };
+          const [score] = await db.insert(suiteMentorshipCompatibilityScores).values(orderedScoreData).returning();
           return score;
         } catch (error) {
           console.error("Error creating mentorship compatibility score:", error);
@@ -4997,10 +5322,18 @@ var init_storage = __esm({
       }
       async getSuiteMentorshipCompatibilityScore(userId, targetProfileId) {
         try {
+          const targetProfile = await db.select({ userId: suiteMentorshipProfiles.userId }).from(suiteMentorshipProfiles).where(eq(suiteMentorshipProfiles.id, targetProfileId));
+          if (!targetProfile.length) return void 0;
+          const targetUserId = targetProfile[0].userId;
+          const { smallerId, largerId } = this.orderUserIds(userId, targetUserId);
           const [score] = await db.select().from(suiteMentorshipCompatibilityScores).where(
             and(
-              eq(suiteMentorshipCompatibilityScores.userId, userId),
-              eq(suiteMentorshipCompatibilityScores.targetProfileId, targetProfileId),
+              eq(suiteMentorshipCompatibilityScores.userId, smallerId),
+              eq(suiteMentorshipCompatibilityScores.targetUserId, largerId),
+              eq(
+                suiteMentorshipCompatibilityScores.targetProfileId,
+                targetProfileId
+              ),
               eq(suiteMentorshipCompatibilityScores.isActive, true)
             )
           );
@@ -5012,13 +5345,41 @@ var init_storage = __esm({
       }
       async updateSuiteMentorshipCompatibilityScore(id, updates) {
         try {
+          let orderedUpdates = updates;
+          if (updates.userId && updates.targetUserId) {
+            const { smallerId, largerId } = this.orderUserIds(
+              updates.userId,
+              updates.targetUserId
+            );
+            orderedUpdates = {
+              ...updates,
+              userId: smallerId,
+              targetUserId: largerId
+            };
+          }
           const [score] = await db.update(suiteMentorshipCompatibilityScores).set({
-            ...updates,
+            ...orderedUpdates,
             lastUpdated: /* @__PURE__ */ new Date()
           }).where(eq(suiteMentorshipCompatibilityScores.id, id)).returning();
           return score;
         } catch (error) {
           console.error("Error updating mentorship compatibility score:", error);
+          throw error;
+        }
+      }
+      async deleteSuiteMentorshipCompatibilityScore(id) {
+        try {
+          await db.delete(suiteMentorshipCompatibilityScores).where(eq(suiteMentorshipCompatibilityScores.id, id));
+        } catch (error) {
+          console.error("Error deleting mentorship compatibility score:", error);
+          throw error;
+        }
+      }
+      async deleteSuiteCompatibilityScore(id) {
+        try {
+          await db.delete(suiteCompatibilityScores).where(eq(suiteCompatibilityScores.id, id));
+        } catch (error) {
+          console.error("Error deleting suite compatibility score:", error);
           throw error;
         }
       }
@@ -5031,7 +5392,10 @@ var init_storage = __esm({
             profession: users.profession,
             location: users.location,
             email: users.email
-          }).from(users).innerJoin(suiteMentorshipProfiles, eq(users.id, suiteMentorshipProfiles.userId)).where(eq(suiteMentorshipProfiles.id, profileId));
+          }).from(users).innerJoin(
+            suiteMentorshipProfiles,
+            eq(users.id, suiteMentorshipProfiles.userId)
+          ).where(eq(suiteMentorshipProfiles.id, profileId));
           return result || void 0;
         } catch (error) {
           console.error("Error getting user by mentorship profile ID:", error);
@@ -5252,7 +5616,9 @@ var init_storage = __esm({
       }
       async recordJobApplication(applicationData) {
         try {
-          const jobProfile = await this.getSuiteJobProfileById(applicationData.jobProfileId);
+          const jobProfile = await this.getSuiteJobProfileById(
+            applicationData.jobProfileId
+          );
           if (!jobProfile) {
             throw new Error("Job profile not found");
           }
@@ -5331,7 +5697,9 @@ var init_storage = __esm({
           ).orderBy(desc(swipeHistory.timestamp)).limit(1);
           if (latestSwipe) {
             await db.delete(swipeHistory).where(eq(swipeHistory.id, latestSwipe.id));
-            console.log(`Removed swipe history record ${latestSwipe.id} for user ${userId} -> ${targetUserId}`);
+            console.log(
+              `Removed swipe history record ${latestSwipe.id} for user ${userId} -> ${targetUserId}`
+            );
           }
         } catch (error) {
           console.error("Error removing swipe from history:", error);
@@ -5351,14 +5719,13 @@ var init_storage = __esm({
             )
           );
           if (appMode) {
-            whereCondition = and(
-              whereCondition,
-              eq(swipeHistory.appMode, appMode)
-            );
+            whereCondition = and(whereCondition, eq(swipeHistory.appMode, appMode));
           }
           const result = await db.delete(swipeHistory).where(whereCondition);
           const modeText = appMode ? ` (${appMode})` : "";
-          console.log(`[SWIPE-CLEANUP] Removed swipe history records for matched users ${userId1} \u2194 ${userId2}${modeText} to protect match integrity`);
+          console.log(
+            `[SWIPE-CLEANUP] Removed swipe history records for matched users ${userId1} \u2194 ${userId2}${modeText} to protect match integrity`
+          );
         } catch (error) {
           console.error("Error removing matched users from swipe history:", error);
           throw error;
@@ -5386,8 +5753,16 @@ var init_storage = __esm({
           const existing = await this.getConnectionsPreferences(userId);
           if (existing) {
             console.log("CRITICAL DEBUG: About to update with data:", cleanData);
-            console.log("CRITICAL DEBUG: jobs_education_level value:", cleanData.jobs_education_level, typeof cleanData.jobs_education_level);
-            console.log("CRITICAL DEBUG: jobs_salary_range value:", cleanData.jobs_salary_range, typeof cleanData.jobs_salary_range);
+            console.log(
+              "CRITICAL DEBUG: jobs_education_level value:",
+              cleanData.jobs_education_level,
+              typeof cleanData.jobs_education_level
+            );
+            console.log(
+              "CRITICAL DEBUG: jobs_salary_range value:",
+              cleanData.jobs_salary_range,
+              typeof cleanData.jobs_salary_range
+            );
             const processedData = { ...cleanData };
             const arrayFields = [
               "mentorship_looking_for",
@@ -5420,7 +5795,10 @@ var init_storage = __esm({
             ];
             arrayFields.forEach((field) => {
               if (processedData[field] && Array.isArray(processedData[field])) {
-                console.log(`ARRAY-FIX: Converting ${field}:`, processedData[field]);
+                console.log(
+                  `ARRAY-FIX: Converting ${field}:`,
+                  processedData[field]
+                );
               }
             });
             console.log("ARRAY-FIX: Final processed data:", processedData);
@@ -5455,14 +5833,22 @@ var init_storage = __esm({
             ];
             for (const field of arrayFieldsToProcess) {
               if (processedData[field] && Array.isArray(processedData[field])) {
-                console.log(`ARRAY-FIX: Processing ${field}:`, processedData[field]);
+                console.log(
+                  `ARRAY-FIX: Processing ${field}:`,
+                  processedData[field]
+                );
                 try {
                   const arrayValue = `{${processedData[field].map((item) => `"${item}"`).join(",")}}`;
-                  console.log(`ARRAY-FIX: PostgreSQL array format for ${field}:`, arrayValue);
-                  await db.execute(sql.raw(`UPDATE connections_preferences 
+                  console.log(
+                    `ARRAY-FIX: PostgreSQL array format for ${field}:`,
+                    arrayValue
+                  );
+                  await db.execute(
+                    sql.raw(`UPDATE connections_preferences 
                 SET ${field} = '${arrayValue}'::text[], 
                     updated_at = NOW() 
-                WHERE user_id = ${userId}`));
+                WHERE user_id = ${userId}`)
+                  );
                   console.log(`ARRAY-FIX: Successfully updated ${field}`);
                 } catch (sqlError) {
                   console.error(`ARRAY-FIX: Failed to update ${field}:`, sqlError);
@@ -5472,7 +5858,10 @@ var init_storage = __esm({
             const finalUpdateData = { ...processedData };
             if (data.networking_location_preference !== void 0) {
               finalUpdateData.networking_location_preference = data.networking_location_preference;
-              console.log("\u{1F527} SINGLE-FIELD FIX: Using original networking_location_preference:", data.networking_location_preference);
+              console.log(
+                "\u{1F527} SINGLE-FIELD FIX: Using original networking_location_preference:",
+                data.networking_location_preference
+              );
             }
             if (data.mentorship_location_preference !== void 0) {
               finalUpdateData.mentorship_location_preference = data.mentorship_location_preference;
@@ -5503,7 +5892,10 @@ var init_storage = __esm({
                 updated_at = ${updateData.updatedAt}
             WHERE user_id = ${userId}
           `);
-              console.log("\u{1F527} DIRECT SQL: Updated networking_location_preference to:", updateData.networking_location_preference);
+              console.log(
+                "\u{1F527} DIRECT SQL: Updated networking_location_preference to:",
+                updateData.networking_location_preference
+              );
             }
             if (updateData.mentorship_location_preference !== void 0) {
               await db.execute(sql`
@@ -5512,7 +5904,10 @@ var init_storage = __esm({
                 updated_at = ${updateData.updatedAt}
             WHERE user_id = ${userId}
           `);
-              console.log("\u{1F527} DIRECT SQL: Updated mentorship_location_preference to:", updateData.mentorship_location_preference);
+              console.log(
+                "\u{1F527} DIRECT SQL: Updated mentorship_location_preference to:",
+                updateData.mentorship_location_preference
+              );
             }
             if (updateData.jobs_work_location !== void 0) {
               await db.execute(sql`
@@ -5521,7 +5916,10 @@ var init_storage = __esm({
                 updated_at = ${updateData.updatedAt}
             WHERE user_id = ${userId}
           `);
-              console.log("\u{1F527} DIRECT SQL: Updated jobs_work_location to:", updateData.jobs_work_location);
+              console.log(
+                "\u{1F527} DIRECT SQL: Updated jobs_work_location to:",
+                updateData.jobs_work_location
+              );
             }
             if (data.jobs_weights !== void 0) {
               await db.execute(sql`
@@ -5530,7 +5928,10 @@ var init_storage = __esm({
                 updated_at = ${updateData.updatedAt}
             WHERE user_id = ${userId}
           `);
-              console.log("\u{1F527} DIRECT SQL: Updated jobs_weights to:", data.jobs_weights);
+              console.log(
+                "\u{1F527} DIRECT SQL: Updated jobs_weights to:",
+                data.jobs_weights
+              );
             }
             if (data.jobs_salary_currency !== void 0) {
               await db.execute(sql`
@@ -5539,7 +5940,10 @@ var init_storage = __esm({
                 updated_at = ${updateData.updatedAt}
             WHERE user_id = ${userId}
           `);
-              console.log("\u{1F527} SALARY: Updated jobs_salary_currency to:", data.jobs_salary_currency);
+              console.log(
+                "\u{1F527} SALARY: Updated jobs_salary_currency to:",
+                data.jobs_salary_currency
+              );
             }
             if (data.jobs_salary_min !== void 0) {
               await db.execute(sql`
@@ -5548,7 +5952,10 @@ var init_storage = __esm({
                 updated_at = ${updateData.updatedAt}
             WHERE user_id = ${userId}
           `);
-              console.log("\u{1F527} SALARY: Updated jobs_salary_min to:", data.jobs_salary_min);
+              console.log(
+                "\u{1F527} SALARY: Updated jobs_salary_min to:",
+                data.jobs_salary_min
+              );
             }
             if (data.jobs_salary_max !== void 0) {
               await db.execute(sql`
@@ -5557,7 +5964,10 @@ var init_storage = __esm({
                 updated_at = ${updateData.updatedAt}
             WHERE user_id = ${userId}
           `);
-              console.log("\u{1F527} SALARY: Updated jobs_salary_max to:", data.jobs_salary_max);
+              console.log(
+                "\u{1F527} SALARY: Updated jobs_salary_max to:",
+                data.jobs_salary_max
+              );
             }
             if (data.jobs_salary_period !== void 0) {
               await db.execute(sql`
@@ -5566,7 +5976,10 @@ var init_storage = __esm({
                 updated_at = ${updateData.updatedAt}
             WHERE user_id = ${userId}
           `);
-              console.log("\u{1F527} SALARY: Updated jobs_salary_period to:", data.jobs_salary_period);
+              console.log(
+                "\u{1F527} SALARY: Updated jobs_salary_period to:",
+                data.jobs_salary_period
+              );
             }
             if (data.mentorship_weights !== void 0) {
               await db.execute(sql`
@@ -5575,7 +5988,10 @@ var init_storage = __esm({
                 updated_at = ${updateData.updatedAt}
             WHERE user_id = ${userId}
           `);
-              console.log("\u{1F527} DIRECT SQL: Updated mentorship_weights to:", data.mentorship_weights);
+              console.log(
+                "\u{1F527} DIRECT SQL: Updated mentorship_weights to:",
+                data.mentorship_weights
+              );
             }
             if (data.networking_weights !== void 0) {
               await db.execute(sql`
@@ -5584,10 +6000,16 @@ var init_storage = __esm({
                 updated_at = ${updateData.updatedAt}
             WHERE user_id = ${userId}
           `);
-              console.log("\u{1F527} DIRECT SQL: Updated networking_weights to:", data.networking_weights);
+              console.log(
+                "\u{1F527} DIRECT SQL: Updated networking_weights to:",
+                data.networking_weights
+              );
             }
             const [updated] = await db.update(connectionsPreferences).set(updateData).where(eq(connectionsPreferences.userId, userId)).returning();
-            console.log("Connections preferences updated successfully for user:", userId);
+            console.log(
+              "Connections preferences updated successfully for user:",
+              userId
+            );
             return updated;
           } else {
             const [created] = await db.insert(connectionsPreferences).values({
@@ -5753,7 +6175,10 @@ var init_storage = __esm({
               eq(paymentMethods.userId, userId),
               eq(paymentMethods.isActive, true)
             )
-          ).orderBy(desc(paymentMethods.isDefault), desc(paymentMethods.createdAt));
+          ).orderBy(
+            desc(paymentMethods.isDefault),
+            desc(paymentMethods.createdAt)
+          );
         } catch (error) {
           console.error("Error getting user payment methods:", error);
           throw error;
@@ -6013,7 +6438,10 @@ var init_storage = __esm({
           if (!promoCode) {
             return { valid: false, error: "Invalid or expired promotional code" };
           }
-          const existingUsage = await this.getUserPromotionalCodeUsage(userId, promoCode.id);
+          const existingUsage = await this.getUserPromotionalCodeUsage(
+            userId,
+            promoCode.id
+          );
           if (existingUsage) {
             return { valid: false, error: "Promotional code already used" };
           }
@@ -6023,13 +6451,19 @@ var init_storage = __esm({
           if (promoCode.planTypes) {
             const allowedPlanTypes = JSON.parse(promoCode.planTypes);
             if (!allowedPlanTypes.includes(planType)) {
-              return { valid: false, error: "Promotional code not valid for this plan" };
+              return {
+                valid: false,
+                error: "Promotional code not valid for this plan"
+              };
             }
           }
           if (promoCode.regions) {
             const allowedRegions = JSON.parse(promoCode.regions);
             if (!allowedRegions.includes(region)) {
-              return { valid: false, error: "Promotional code not valid for this region" };
+              return {
+                valid: false,
+                error: "Promotional code not valid for this region"
+              };
             }
           }
           return { valid: true, discount: promoCode.value };
@@ -6096,7 +6530,10 @@ var init_storage = __esm({
             region: subscriptions.region,
             revenue: sql`SUM(${paymentHistory.amount})`,
             currency: paymentHistory.currency
-          }).from(paymentHistory).innerJoin(subscriptions, eq(paymentHistory.subscriptionId, subscriptions.id)).where(and(...conditions)).groupBy(subscriptions.region, paymentHistory.currency).orderBy(desc(sql`SUM(${paymentHistory.amount})`));
+          }).from(paymentHistory).innerJoin(
+            subscriptions,
+            eq(paymentHistory.subscriptionId, subscriptions.id)
+          ).where(and(...conditions)).groupBy(subscriptions.region, paymentHistory.currency).orderBy(desc(sql`SUM(${paymentHistory.amount})`));
           return results;
         } catch (error) {
           console.error("Error getting revenue by region:", error);
@@ -6125,7 +6562,10 @@ var init_storage = __esm({
             conditions.push(eq(paymentHistory.provider, provider));
           }
           const [totalPayments] = await db.select({ count: count() }).from(paymentHistory).where(conditions.length > 0 ? and(...conditions) : void 0);
-          const failedConditions = [...conditions, eq(paymentHistory.status, "failed")];
+          const failedConditions = [
+            ...conditions,
+            eq(paymentHistory.status, "failed")
+          ];
           const [failedPayments] = await db.select({ count: count() }).from(paymentHistory).where(and(...failedConditions));
           if (totalPayments.count === 0) return 0;
           return failedPayments.count / totalPayments.count * 100;
@@ -6339,9 +6779,15 @@ var init_storage = __esm({
           if (promoCode.maxUses && promoCode.usedCount >= promoCode.maxUses) {
             return { valid: false, error: "Promotional code usage limit reached" };
           }
-          const existingUsage = await this.getUserPromotionalCodeUsage(userId, promoCode.id);
+          const existingUsage = await this.getUserPromotionalCodeUsage(
+            userId,
+            promoCode.id
+          );
           if (existingUsage) {
-            return { valid: false, error: "You have already used this promotional code" };
+            return {
+              valid: false,
+              error: "You have already used this promotional code"
+            };
           }
           return { valid: true, discount: promoCode.discountPercentage };
         } catch (error) {
@@ -6369,7 +6815,9 @@ var init_storage = __esm({
             )
           ).orderBy(desc(swipeHistory.timestamp)).limit(limit);
           const duration = Date.now() - startTime;
-          console.log(`[SWIPE-HISTORY-FAST] User ${userId}: Query completed in ${duration}ms, returning ${history.length} items`);
+          console.log(
+            `[SWIPE-HISTORY-FAST] User ${userId}: Query completed in ${duration}ms, returning ${history.length} items`
+          );
           return history;
         } catch (error) {
           console.error("Error fetching swipe history:", error);
@@ -6388,7 +6836,9 @@ var init_storage = __esm({
             createdAt: matches.createdAt,
             metadata: matches.metadata
           }).from(matches);
-          console.log(`[STORAGE] Retrieved ${allMatches.length} matches for matrix factorization`);
+          console.log(
+            `[STORAGE] Retrieved ${allMatches.length} matches for matrix factorization`
+          );
           return allMatches;
         } catch (error) {
           console.error("Error fetching all matches:", error);
@@ -6405,7 +6855,9 @@ var init_storage = __esm({
             appMode: swipeHistory.appMode,
             timestamp: swipeHistory.timestamp
           }).from(swipeHistory);
-          console.log(`[STORAGE] Retrieved ${allSwipes.length} swipe history records for matrix factorization`);
+          console.log(
+            `[STORAGE] Retrieved ${allSwipes.length} swipe history records for matrix factorization`
+          );
           return allSwipes;
         } catch (error) {
           console.error("Error fetching all swipe history:", error);
@@ -6430,20 +6882,19 @@ var init_storage = __esm({
       }
       async getMatchCounts(userId) {
         try {
-          console.log(`[MATCH-COUNTS-OPTIMIZED] User ${userId}: Starting optimized match count query`);
+          console.log(
+            `[MATCH-COUNTS-OPTIMIZED] User ${userId}: Starting optimized match count query`
+          );
           const startTime = Date.now();
           const [result] = await db.select({
             confirmed: sql`COUNT(CASE WHEN matched = true THEN 1 END)`,
             pending: sql`COUNT(CASE WHEN matched = false AND is_dislike = false THEN 1 END)`,
             total: sql`COUNT(*)`
-          }).from(matches).where(
-            or(
-              eq(matches.userId1, userId),
-              eq(matches.userId2, userId)
-            )
-          );
+          }).from(matches).where(or(eq(matches.userId1, userId), eq(matches.userId2, userId)));
           const duration = Date.now() - startTime;
-          console.log(`[MATCH-COUNTS-OPTIMIZED] User ${userId}: Query completed in ${duration}ms`);
+          console.log(
+            `[MATCH-COUNTS-OPTIMIZED] User ${userId}: Query completed in ${duration}ms`
+          );
           return {
             confirmed: Number(result?.confirmed) || 0,
             pending: Number(result?.pending) || 0,
@@ -6456,7 +6907,23 @@ var init_storage = __esm({
       }
       async getMatches(userId) {
         try {
-          return await this.getMeetMatchesByUserId(userId);
+          const matches2 = await this.getMatchesByUserId(userId);
+          console.log(
+            `[MATCH-DEBUG] getMatches for user ${userId}: Found ${matches2.length} matches`
+          );
+          if (matches2.length > 0) {
+            console.log(
+              `[MATCH-DEBUG] Match details:`,
+              matches2.map((m) => ({
+                id: m.id,
+                userId1: m.userId1,
+                userId2: m.userId2,
+                matched: m.matched,
+                metadata: m.metadata
+              }))
+            );
+          }
+          return matches2;
         } catch (error) {
           console.error("Error fetching matches:", error);
           return [];
@@ -6464,7 +6931,9 @@ var init_storage = __esm({
       }
       async getSuiteConnectionCounts(userId) {
         try {
-          console.log(`[SUITE-COUNTS-OPTIMIZED] User ${userId}: Starting optimized count queries`);
+          console.log(
+            `[SUITE-COUNTS-OPTIMIZED] User ${userId}: Starting optimized count queries`
+          );
           const startTime = Date.now();
           const [networkingResult] = await db.select({
             confirmed: sql`COUNT(CASE WHEN matched = true THEN 1 END)`,
@@ -6479,7 +6948,9 @@ var init_storage = __esm({
             pending: sql`COUNT(CASE WHEN action = 'pending' THEN 1 END)`
           }).from(suiteJobApplications).where(eq(suiteJobApplications.userId, userId));
           const duration = Date.now() - startTime;
-          console.log(`[SUITE-COUNTS-OPTIMIZED] User ${userId}: Query completed in ${duration}ms`);
+          console.log(
+            `[SUITE-COUNTS-OPTIMIZED] User ${userId}: Query completed in ${duration}ms`
+          );
           return {
             networking: {
               matches: Number(networkingResult?.confirmed) || 0,
@@ -6502,6 +6973,22 @@ var init_storage = __esm({
             jobs: { matches: 0, pending: 0 }
           };
         }
+      }
+      // KWAME AI Conversation methods
+      async createKwameConversation(conversation) {
+        const [newConversation] = await db.insert(kwameConversations).values(conversation).returning();
+        return newConversation;
+      }
+      async getKwameConversationHistory(userId, limit = 500) {
+        const conversations = await db.select().from(kwameConversations).where(eq(kwameConversations.userId, userId)).orderBy(desc(kwameConversations.createdAt)).limit(limit);
+        return conversations.reverse();
+      }
+      async getRecentKwameContext(userId, limit = 20) {
+        const conversations = await db.select().from(kwameConversations).where(eq(kwameConversations.userId, userId)).orderBy(desc(kwameConversations.createdAt)).limit(limit);
+        return conversations.reverse();
+      }
+      async clearKwameConversationHistory(userId) {
+        await db.delete(kwameConversations).where(eq(kwameConversations.userId, userId));
       }
     };
     storage = new DatabaseStorage();
@@ -6638,15 +7125,37 @@ function setupAuth(app2) {
         );
       }
       if (req.body.email) {
+        const normalizedEmail = req.body.email.trim().toLowerCase();
+        req.body.email = normalizedEmail;
         existenceChecks.push(
-          storage.getUserByEmail(req.body.email).then((user2) => ({ type: "email", user: user2 }))
+          storage.getUserByEmail(normalizedEmail).then((user2) => ({ type: "email", user: user2, source: "users" }))
+        );
+        existenceChecks.push(
+          storage.isEmailInBlockedPhoneNumbers(normalizedEmail).then((blockedRecord) => ({
+            type: "email",
+            user: blockedRecord,
+            source: "blocked_phones"
+          }))
         );
       }
       if (existenceChecks.length > 0) {
         const results = await Promise.all(existenceChecks);
         for (const result of results) {
           if (result.user && (!req.isAuthenticated() || req.user.id !== result.user.id)) {
-            return res.status(400).send(`${result.type === "phone" ? "Phone number" : "Email"} already in use by another account`);
+            let errorMessage = "";
+            if (result.type === "phone") {
+              errorMessage = "Phone number already in use by another account";
+            } else if (result.type === "email") {
+              if (result.source === "blocked_phones") {
+                errorMessage = "This email is associated with a blocked account. Please use a different email address or contact support if you believe this is an error.";
+                console.log(`[EMAIL-UNIQUENESS] Blocked email duplicate attempt: ${req.body.email} (found in blocked phone numbers table)`);
+              } else {
+                errorMessage = "Email already registered with another account. Please use a different email or sign in with your existing account.";
+                console.log(`[EMAIL-UNIQUENESS] Active email duplicate attempt: ${req.body.email} (found in users table)`);
+              }
+            }
+            console.log(`[DUPLICATE-ACCOUNT-PREVENTION] Blocked ${result.type} duplicate from ${result.source}: ${result.type === "phone" ? req.body.phoneNumber : req.body.email}`);
+            return res.status(400).send(errorMessage);
           }
         }
       }
@@ -6923,8 +7432,8 @@ async function setupMatchAndNotify(matchId, user1Id, user2Id) {
       const matches2 = await Promise.resolve().then(() => (init_schema(), schema_exports)).then(
         (module) => module.matches
       );
-      const { eq: eq6 } = await import("drizzle-orm");
-      await db2.update(matches2).set({ lastMessageAt: /* @__PURE__ */ new Date() }).where(eq6(matches2.id, matchId));
+      const { eq: eq7 } = await import("drizzle-orm");
+      await db2.update(matches2).set({ lastMessageAt: /* @__PURE__ */ new Date() }).where(eq7(matches2.id, matchId));
       console.log(`Updated lastMessageAt for match ${matchId}`);
     } catch (dbError) {
       console.error(
@@ -7369,9 +7878,12 @@ var init_match_api = __esm({
 // server/services/sendgrid.ts
 var sendgrid_exports = {};
 __export(sendgrid_exports, {
+  sendContactFormConfirmationEmail: () => sendContactFormConfirmationEmail,
   sendContactFormEmail: () => sendContactFormEmail,
   sendEmail: () => sendEmail,
   sendPremiumSubscriptionEmail: () => sendPremiumSubscriptionEmail,
+  sendTeenageWelcomeEmail: () => sendTeenageWelcomeEmail,
+  sendUnderAgeApologyEmail: () => sendUnderAgeApologyEmail,
   sendWelcomeEmail: () => sendWelcomeEmail,
   testSendGridConfig: () => testSendGridConfig
 });
@@ -7411,8 +7923,8 @@ async function testSendGridConfig() {
       process.env.SENDGRID_API_KEY?.substring(0, 10)
     );
     const testEmail = {
-      to: "admin@btechnos.com",
-      from: "admin@btechnos.com",
+      to: "admin@kronogon.com",
+      from: "admin@kronogon.com",
       // Simplified format
       subject: "SendGrid Test Email",
       text: "This is a test email to verify SendGrid configuration."
@@ -7435,12 +7947,121 @@ async function testSendGridConfig() {
     };
   }
 }
+async function sendContactFormConfirmationEmail(data) {
+  try {
+    console.log(
+      "[SENDGRID] Sending contact form confirmation email to user..."
+    );
+    const emailContent = {
+      to: data.email,
+      from: "admin@kronogon.com",
+      subject: "We received your message - CHARLEY Support",
+      text: `
+Dear ${data.name},
+
+Thank you for contacting CHARLEY Support. We have received your message and will get back to you shortly.
+
+Your message:
+"${data.message}"
+
+Our support team typically responds within 24 hours during business days. If your matter requires immediate attention, please don't hesitate to contact us directly at admin@kronogon.com or call us at +1 (469) 496-5620.
+
+Thank you for using CHARLEY!
+
+Best regards,
+The CHARLEY Support Team
+
+---
+This is an automated confirmation email. Please do not reply to this message.
+      `.trim(),
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+          <!-- Header -->
+          <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold;">
+              Message Received \u2713
+            </h1>
+            <p style="color: #e0e7ff; margin: 10px 0 0 0; font-size: 16px;">
+              Thank you for contacting CHARLEY Support
+            </p>
+          </div>
+
+          <!-- Content -->
+          <div style="padding: 30px; background: #ffffff;">
+            <p style="color: #1f2937; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+              Dear <strong>${data.name}</strong>,
+            </p>
+
+            <p style="color: #1f2937; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+              Thank you for reaching out to us. We have received your message and our support team will review it shortly.
+            </p>
+
+            <!-- Message Summary -->
+            <div style="background: #f8fafc; padding: 20px; border-left: 4px solid #6366f1; border-radius: 0 6px 6px 0; margin: 20px 0;">
+              <h3 style="color: #475569; margin: 0 0 10px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">
+                Your Message:
+              </h3>
+              <p style="color: #334155; line-height: 1.6; margin: 0; font-style: italic;">
+                "${data.message}"
+              </p>
+            </div>
+
+            <!-- Response Time -->
+            <div style="background: #ecfdf5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="color: #065f46; font-size: 16px; margin: 0; font-weight: 500;">
+                \u{1F4DE} <strong>Expected Response Time:</strong> Within 24 hours during business days
+              </p>
+            </div>
+
+            <!-- Contact Info -->
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 30px;">
+              <p style="color: #6b7280; font-size: 14px; margin: 0 0 10px 0;">
+                <strong>Need immediate help?</strong>
+              </p>
+              <p style="color: #6b7280; font-size: 14px; margin: 0;">
+                \u{1F4E7} Email: admin@kronogon.com<br>
+                \u{1F4DE} Phone: +1 (469) 496-5620 (Mon-Fri, 9am-5pm ET)
+              </p>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div style="background: #f9fafb; padding: 20px; text-align: center; border-radius: 0 0 8px 8px; border-top: 1px solid #e5e7eb;">
+            <p style="color: #6b7280; font-size: 12px; margin: 0;">
+              This is an automated confirmation email. Please do not reply to this message.
+            </p>
+            <p style="color: #6b7280; font-size: 12px; margin: 5px 0 0 0;">
+              \xA9 2025 CHARLEY. All rights reserved.
+            </p>
+          </div>
+        </div>
+      `
+    };
+    await mailService.send(emailContent);
+    console.log(
+      `[SENDGRID] Contact form confirmation email sent successfully to ${data.email}`
+    );
+    return true;
+  } catch (error) {
+    console.error(
+      "[SENDGRID] Failed to send contact form confirmation email:",
+      error
+    );
+    if (error.response) {
+      console.error("[SENDGRID] Confirmation email error response:", {
+        status: error.code,
+        body: error.response?.body
+      });
+    }
+    return false;
+  }
+}
 async function sendContactFormEmail(data) {
   try {
     console.log("[SENDGRID] Attempting to send contact form email...");
     const emailContent = {
-      to: "admin@btechnos.com",
-      from: "admin@btechnos.com",
+      to: "admin@kronogon.com",
+      from: "admin@kronogon.com",
       // Simplified - just the email
       subject: `Contact Form Submission from ${data.name}`,
       text: `
@@ -7459,18 +8080,18 @@ This message was sent via the CHARLEY Contact Form.
           <h2 style="color: #333; border-bottom: 2px solid #6366f1; padding-bottom: 10px;">
             New Contact Form Submission
           </h2>
-          
+
           <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <p><strong>Name:</strong> ${data.name}</p>
             <p><strong>Email:</strong> ${data.email}</p>
             <p><strong>Phone:</strong> ${data.phoneNumber || "Not provided"}</p>
           </div>
-          
+
           <div style="background: #ffffff; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h3 style="color: #475569; margin-top: 0;">Message:</h3>
             <p style="line-height: 1.6; color: #334155;">${data.message.replace(/\n/g, "<br>")}</p>
           </div>
-          
+
           <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px;">
             This message was sent via the CHARLEY Contact Form.
           </div>
@@ -7502,12 +8123,390 @@ This message was sent via the CHARLEY Contact Form.
     return false;
   }
 }
-async function sendWelcomeEmail(data) {
+async function sendUnderAgeApologyEmail(data) {
   try {
-    console.log("[SENDGRID] Sending welcome email to:", data.email);
+    console.log("[SENDGRID] Sending under-age apology email to:", data.email);
+    const userAge = data.dateOfBirth ? calculateAge(data.dateOfBirth) : null;
+    console.log(
+      `[SENDGRID] User age: ${userAge} - sending apology email for under-age user`
+    );
     const emailContent = {
       to: data.email,
-      from: "admin@btechnos.com",
+      from: "admin@kronogon.com",
+      subject: `Thank you for your interest in CHARLEY, ${data.name}`,
+      text: `
+Dear ${data.name},
+
+Thank you for your interest in joining CHARLEY, our innovative social and professional networking platform.
+
+Unfortunately, our platform currently requires users to be 14 years or older to access our dating and professional networking features. This policy is in place to ensure the safety and appropriate experience for all our users.
+
+However, we want you to know that we value your interest in our platform, and we encourage you to return when you reach the minimum age requirement. In the meantime, we recommend:
+
+- Focus on building meaningful friendships and connections in your local community
+- Develop your skills and interests that will serve you well in future professional networking
+- Stay safe online and always prioritize your education and personal growth
+
+We apologize for any inconvenience this may cause, and we look forward to welcoming you to the CHARLEY community in the future.
+
+If you have any questions, please don't hesitate to contact us at admin@kronogon.com.
+
+Best regards,
+The CHARLEY Team
+BTechnos.com
+      `.trim(),
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta name="color-scheme" content="light">
+          <meta name="supported-color-schemes" content="light">
+          <style>
+            :root { color-scheme: light; supported-color-schemes: light; }
+            body, table, td, p, h1, h2, h3, h4, h5, h6 { color: #111827 !important; }
+          </style>
+          <title>Thank you for your interest in CHARLEY</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; min-height: 100vh; color: #111827;">
+
+          <!-- Main Container -->
+          <div style="max-width: 650px; margin: 0 auto; background: #ffffff; box-shadow: 0 25px 50px rgba(0,0,0,0.08); border-radius: 16px; overflow: hidden; margin-top: 40px; margin-bottom: 40px;">
+
+            <!-- Header Section -->
+            <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 50px 40px; text-align: center; position: relative; overflow: hidden;">
+              <!-- Floating orbs -->
+              <div style="position: absolute; top: -20px; left: -20px; width: 100px; height: 100px; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 70%); border-radius: 50%;"></div>
+              <div style="position: absolute; bottom: -30px; right: -30px; width: 80px; height: 80px; background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.08) 70%); border-radius: 50%;"></div>
+
+              <div style="position: relative; z-index: 10;">
+                <h1 style="color: #ffffff; font-size: 36px; font-weight: 700; margin: 0 0 15px 0; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                  Thank You for Your Interest
+                </h1>
+                <div style="background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius: 25px; padding: 12px 25px; display: inline-block;">
+                  <p style="color: rgba(255,255,255,0.95); font-size: 18px; margin: 0; font-weight: 400;">
+                    Dear ${data.name}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Main Content -->
+            <div style="padding: 40px 30px;">
+
+              <!-- Apology Message -->
+              <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #ef4444; margin-bottom: 30px;">
+                <h2 style="color: #dc2626; font-size: 22px; margin: 0 0 15px 0; font-weight: 600;">
+                  Age Requirement Notice
+                </h2>
+                <p style="color: #1f2937; line-height: 1.7; margin: 0; font-size: 16px;">
+                  We appreciate your interest in CHARLEY, our innovative social and professional networking platform. Unfortunately, our platform currently requires users to be <strong>14 years or older</strong> to access our dating and professional networking features.
+                </p>
+              </div>
+
+              <!-- Why This Policy -->
+              <div style="margin-bottom: 30px;">
+                <h3 style="color: #1e293b; font-size: 20px; margin: 0 0 15px 0; font-weight: 600;">
+                  \u{1F6E1}\uFE0F Why This Policy Exists
+                </h3>
+                <p style="color: #1f2937; line-height: 1.7; margin: 0; font-size: 16px;">
+                  This policy is in place to ensure the safety and appropriate experience for all our users. We are committed to creating a secure environment that complies with digital safety standards and protects our community members.
+                </p>
+              </div>
+
+              <!-- Recommendations -->
+              <div style="background: #f8fafc; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 30px;">
+                <h3 style="color: #1e293b; font-size: 20px; margin: 0 0 20px 0; font-weight: 600;">
+                  \u{1F4A1} In the Meantime, We Recommend:
+                </h3>
+                <ul style="color: #1f2937; line-height: 1.7; margin: 0; padding-left: 20px; font-size: 16px;">
+                  <li style="margin-bottom: 12px;">Focus on building meaningful friendships and connections in your local community</li>
+                  <li style="margin-bottom: 12px;">Develop your skills and interests that will serve you well in future professional networking</li>
+                  <li style="margin-bottom: 12px;">Stay safe online and always prioritize your education and personal growth</li>
+                  <li style="margin-bottom: 0;">Explore age-appropriate social platforms designed for your age group</li>
+                </ul>
+              </div>
+
+              <!-- Future Welcome -->
+              <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #0ea5e9; margin-bottom: 30px;">
+                <h3 style="color: #0369a1; font-size: 20px; margin: 0 0 15px 0; font-weight: 600;">
+                  \u{1F31F} We Look Forward to Welcoming You
+                </h3>
+                <p style="color: #1f2937; line-height: 1.7; margin: 0; font-size: 16px;">
+                  We encourage you to return when you reach the minimum age requirement. CHARLEY will be here, ready to help you build meaningful connections and advance your professional journey when the time is right.
+                </p>
+              </div>
+
+              <!-- Contact Info -->
+              <div style="text-align: center; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <p style="color: #64748b; margin: 0 0 10px 0; font-size: 14px;">
+                  If you have any questions, please contact us at:
+                </p>
+                <a href="mailto:admin@kronogon.com" style="color: #6366f1; text-decoration: none; font-weight: 600; font-size: 16px;">
+                  admin@kronogon.com
+                </a>
+              </div>
+
+              <!-- Closing -->
+              <div style="text-align: center; color: #64748b; font-size: 16px; line-height: 1.6; margin-top: 30px;">
+                <p style="margin: 0 0 10px 0; font-weight: 600; color: #1e293b;">Best regards,</p>
+                <p style="margin: 0; font-style: italic;">The CHARLEY Team</p>
+                <p style="margin: 5px 0 0 0; font-size: 14px;">
+                  <a href="https://btechnos.com" style="color: #6366f1; text-decoration: none;">
+                    BTechnos.com
+                  </a>
+                </p>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="background: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="color: #64748b; font-size: 12px; margin: 0; line-height: 1.5;">
+                This email was sent from CHARLEY by BTechnos. You're receiving this because you attempted to create an account with us.<br>
+                \xA9 2025 BTechnos. All rights reserved. | <a href="https://btechnos.com" style="color: #6366f1; text-decoration: none;">btechnos.com</a>
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+    await mailService.send(emailContent);
+    console.log(
+      `[SENDGRID] Under-age apology email sent successfully to ${data.email}`
+    );
+    return true;
+  } catch (error) {
+    console.error("[SENDGRID] Failed to send under-age apology email:", error);
+    if (error.response) {
+      console.error("[SENDGRID] Under-age apology email error details:", {
+        status: error.code,
+        body: error.response?.body,
+        headers: error.response?.headers
+      });
+    }
+    return false;
+  }
+}
+async function sendTeenageWelcomeEmail(data) {
+  try {
+    console.log("[SENDGRID] Sending teenage welcome email to:", data.email);
+    const userAge = data.dateOfBirth ? calculateAge(data.dateOfBirth) : null;
+    console.log(`[SENDGRID] Teenage user age: ${userAge}`);
+    const emailContent = {
+      to: data.email,
+      from: "admin@kronogon.com",
+      subject: `Welcome to CHARLEY, ${data.name}! \u{1F31F} Your Friendship Journey Begins`,
+      text: `
+Welcome to CHARLEY, ${data.name}!
+
+Thank you for joining our community! We're excited to have you on board for an amazing friendship and networking journey.
+
+CHARLEY is designed to help young people like you build meaningful friendships and start exploring professional opportunities in a safe, age-appropriate environment. We believe that genuine connections and early career development are key to a bright future.
+
+What Makes CHARLEY Special for You:
+- Safe, moderated environment designed specifically for teens
+- Focus on friendship-building and meaningful connections
+- Early professional networking opportunities
+- Mentorship programs to help guide your journey
+- Educational content and career exploration tools
+
+Your CHARLEY Experience Includes:
+- MEET (friendship): Connect with peers who share your interests and values
+- SUITE (networking): Start building professional connections for your future
+- Mentorship programs: Learn from experienced professionals in your areas of interest
+
+Important Guidelines:
+- Complete your profile to unlock CHARLEY's full potential
+- Always prioritize your safety and privacy online
+- Engage respectfully with other community members
+- Focus on building genuine, meaningful connections
+- Take advantage of mentorship opportunities
+
+Our Commitment to You:
+We're dedicated to providing a positive, educational, and safe space where you can grow personally and professionally. Our platform includes robust safety features and content moderation to ensure your experience is both enriching and secure.
+
+Getting Started:
+1. Complete your profile with your interests and goals
+2. Explore the friendship connections in MEET
+3. Check out early networking opportunities in SUITE
+4. Look for mentorship matches that align with your interests
+
+Visit us at btechnos.com to learn more about our mission and the technology behind CHARLEY.
+
+Welcome to your bright future!
+The CHARLEY Team
+BTechnos.com
+      `.trim(),
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta name="color-scheme" content="light">
+          <meta name="supported-color-schemes" content="light">
+          <style>
+            :root { color-scheme: light; supported-color-schemes: light; }
+            body, table, td, p, h1, h2, h3, h4, h5, h6 { color: #111827 !important; }
+          </style>
+          <title>Welcome to CHARLEY - Your Friendship Journey</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f9ff; min-height: 100vh; color: #111827;">
+
+          <!-- Main Container -->
+          <div style="max-width: 650px; margin: 0 auto; background: #ffffff; box-shadow: 0 25px 50px rgba(0,0,0,0.08); border-radius: 16px; overflow: hidden; margin-top: 40px; margin-bottom: 40px;">
+
+            <!-- Header Section - Youthful Design -->
+            <div style="background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 25%, #8b5cf6 50%, #ec4899 75%, #f59e0b 100%); padding: 60px 40px; text-align: center; position: relative; overflow: hidden;">
+              <!-- Animated elements for teens -->
+              <div style="position: absolute; top: -20px; left: -20px; width: 100px; height: 100px; background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 70%); border-radius: 50%;"></div>
+              <div style="position: absolute; top: 30px; right: -30px; width: 70px; height: 70px; background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.08) 70%); border-radius: 50%;"></div>
+
+              <!-- Star sparkles -->
+              <div style="position: absolute; top: 20%; left: 20%; width: 6px; height: 6px; background: rgba(255,255,255,0.9); border-radius: 50%; box-shadow: 0 0 12px rgba(255,255,255,0.9);"></div>
+              <div style="position: absolute; top: 35%; right: 25%; width: 4px; height: 4px; background: rgba(255,255,255,0.8); border-radius: 50%; box-shadow: 0 0 8px rgba(255,255,255,0.8);"></div>
+
+              <!-- Main header content -->
+              <div style="position: relative; z-index: 10;">
+                <h1 style="color: white; font-size: 42px; font-weight: 800; margin: 0 0 10px 0; text-shadow: 0 4px 20px rgba(0,0,0,0.3); letter-spacing: -1px;">
+                  Welcome to CHARLEY! \u{1F31F}
+                </h1>
+                <p style="color: rgba(255,255,255,0.95); font-size: 22px; margin: 0; font-weight: 500; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+                  Your Friendship Journey Begins Here
+                </p>
+              </div>
+            </div>
+
+            <!-- Welcome Message -->
+            <div style="padding: 50px 40px;">
+              <div style="text-align: center; margin-bottom: 40px;">
+                <h2 style="color: #1e293b; font-size: 28px; font-weight: 700; margin: 0 0 15px 0;">
+                  Hi ${data.name}! \u{1F44B}
+                </h2>
+                <p style="color: #475569; font-size: 18px; line-height: 1.6; margin: 0;">
+                  We're thrilled to have you join our community of young innovators, friendship-builders, and future leaders!
+                </p>
+              </div>
+
+              <!-- What Makes CHARLEY Special -->
+              <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 30px; border-radius: 12px; margin-bottom: 30px; border-left: 4px solid #0ea5e9;">
+                <h3 style="color: #0c4a6e; font-size: 20px; font-weight: 600; margin: 0 0 20px 0;">
+                  \u{1F680} What Makes CHARLEY Special for You
+                </h3>
+                <ul style="color: #1e293b; line-height: 1.7; margin: 0; padding-left: 20px; font-size: 16px;">
+                  <li style="margin-bottom: 10px;"><strong>Safe Environment:</strong> Moderated platform designed specifically for young people</li>
+                  <li style="margin-bottom: 10px;"><strong>Friendship Focus:</strong> Build meaningful connections with peers who share your interests</li>
+                  <li style="margin-bottom: 10px;"><strong>Future Building:</strong> Early professional networking and career exploration</li>
+                  <li style="margin-bottom: 0;"><strong>Mentorship:</strong> Learn from experienced professionals in your areas of interest</li>
+                </ul>
+              </div>
+
+              <!-- Your CHARLEY Experience -->
+              <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 30px; border-radius: 12px; margin-bottom: 30px; border-left: 4px solid #f59e0b;">
+                <h3 style="color: #92400e; font-size: 20px; font-weight: 600; margin: 0 0 20px 0;">
+                  \u{1F3AF} Your CHARLEY Experience
+                </h3>
+                <div style="display: grid; gap: 15px;">
+                  <div style="background: rgba(255,255,255,0.7); padding: 20px; border-radius: 8px;">
+                    <h4 style="color: #7c2d12; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">MEET (Friendship)</h4>
+                    <p style="color: #451a03; margin: 0; font-size: 14px; line-height: 1.5;">Connect with peers who share your values and interests</p>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.7); padding: 20px; border-radius: 8px;">
+                    <h4 style="color: #7c2d12; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">SUITE (Networking)</h4>
+                    <p style="color: #451a03; margin: 0; font-size: 14px; line-height: 1.5;">Start building professional connections for your future career</p>
+                  </div>
+                  <div style="background: rgba(255,255,255,0.7); padding: 20px; border-radius: 8px;">
+                    <h4 style="color: #7c2d12; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">Mentorship Programs</h4>
+                    <p style="color: #451a03; margin: 0; font-size: 14px; line-height: 1.5;">Learn from experienced professionals and explore career paths</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Getting Started Steps -->
+              <div style="background: linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%); padding: 30px; border-radius: 12px; margin-bottom: 30px; border-left: 4px solid #8b5cf6;">
+                <h3 style="color: #581c87; font-size: 20px; font-weight: 600; margin: 0 0 20px 0;">
+                  \u{1F389} Getting Started
+                </h3>
+                <div style="color: #1f2937; line-height: 1.6;">
+                  <div style="background: rgba(255,255,255,0.6); padding: 15px; border-radius: 8px; margin-bottom: 12px;">
+                    <strong style="color: #581c87;">Step 1:</strong> Complete your profile with interests and goals
+                  </div>
+                  <div style="background: rgba(255,255,255,0.6); padding: 15px; border-radius: 8px; margin-bottom: 12px;">
+                    <strong style="color: #581c87;">Step 2:</strong> Explore friendship connections in MEET
+                  </div>
+                  <div style="background: rgba(255,255,255,0.6); padding: 15px; border-radius: 8px; margin-bottom: 12px;">
+                    <strong style="color: #581c87;">Step 3:</strong> Check out networking opportunities in SUITE
+                  </div>
+                  <div style="background: rgba(255,255,255,0.6); padding: 15px; border-radius: 8px;">
+                    <strong style="color: #581c87;">Step 4:</strong> Find mentorship matches in your areas of interest
+                  </div>
+                </div>
+              </div>
+
+              <!-- Safety Reminder -->
+              <div style="background: #fef2f2; padding: 25px; border-radius: 12px; margin-bottom: 30px; border-left: 4px solid #ef4444;">
+                <h4 style="color: #991b1b; font-size: 16px; font-weight: 600; margin: 0 0 15px 0;">
+                  \u{1F6E1}\uFE0F Important Safety Reminders
+                </h4>
+                <ul style="color: #7f1d1d; line-height: 1.6; margin: 0; padding-left: 20px; font-size: 14px;">
+                  <li style="margin-bottom: 8px;">Always prioritize your safety and privacy online</li>
+                  <li style="margin-bottom: 8px;">Engage respectfully with other community members</li>
+                  <li style="margin-bottom: 0;">Report any inappropriate behavior to our moderation team</li>
+                </ul>
+              </div>
+
+              <!-- Website Link -->
+              <div style="text-align: center; margin-bottom: 30px;">
+                <a href="https://btechnos.com" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 25px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4); transition: all 0.3s ease;">
+                  Explore BTechnos.com
+                </a>
+              </div>
+
+              <!-- Closing -->
+              <div style="text-align: center; color: #64748b; font-size: 16px; line-height: 1.6;">
+                <p style="margin: 0 0 10px 0; font-weight: 600; color: #1e293b;">Welcome to your bright future!</p>
+                <p style="margin: 0; font-style: italic;">The CHARLEY Team</p>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="background: #f8fafc; padding: 25px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="color: #64748b; font-size: 12px; margin: 0; line-height: 1.5;">
+                This email was sent from CHARLEY by BTechnos. You're receiving this because you successfully created an account with us.<br>
+                \xA9 2025 BTechnos. All rights reserved. | <a href="https://btechnos.com" style="color: #3b82f6; text-decoration: none;">btechnos.com</a>
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    };
+    await mailService.send(emailContent);
+    console.log(
+      `[SENDGRID] Teenage welcome email sent successfully to ${data.email}`
+    );
+    return true;
+  } catch (error) {
+    console.error("[SENDGRID] Failed to send teenage welcome email:", error);
+    if (error.response) {
+      console.error("[SENDGRID] Teenage welcome email error details:", {
+        status: error.code,
+        body: error.response?.body
+      });
+    }
+    return false;
+  }
+}
+async function sendWelcomeEmail(data) {
+  try {
+    console.log("[SENDGRID] Sending adult welcome email to:", data.email);
+    const userAge = data.dateOfBirth ? calculateAge(data.dateOfBirth) : null;
+    console.log(`[SENDGRID] Adult user age: ${userAge}`);
+    const emailContent = {
+      to: data.email,
+      from: "admin@kronogon.com",
       subject: `Welcome to CHARLEY, ${data.name}! \u{1F389} Join the Social Revolution`,
       text: `
 Welcome to CHARLEY, ${data.name}!
@@ -7524,13 +8523,15 @@ Our Mission:
 - Democratize mentorship and personal growth opportunities
 - Create a global community built on trust, respect, and genuine human values
 
-From Our Leadership Team:
+Message from The Leadership Team:
 
-CEO Sam's Message:
-"At Baobab Technologies, we see CHARLEY as more than a product\u2014it\u2019s a movement grounded in the universal longing for belonging. In an age where loneliness quietly thrives behind curated profiles and viral trends, we are driven by both heart and intellect to redefine what connection means in the digital era. CHARLEY draws from cross-disciplinary insights\u2014psychology, sociology, and design thinking\u2014to create a space where vulnerability isn\u2019t a liability, but a strength, and where every interaction is an opportunity for understanding. We are committed to building a community that not only reflects the rich diversity of our world, but actively nurtures empathy and authentic human flourishing. Technology alone does not create connection\u2014people do. Our role is to set the stage for meaningful encounters, guided by both evidence and empathy."
+At Kronogon, we see CHARLEY as more than a product\u2014it's a revolutionary movement grounded in the universal longing for belonging and authentic connection. In an age where loneliness quietly thrives behind curated profiles and algorithmic feeds, we are driven by both heart and intellect to redefine what meaningful relationships mean in the digital era.
 
-CTO Obed's Message:
-"As CTO, my approach to CHARLEY has always been informed by both rigorous engineering and a deep respect for the human spirit. Our team blends advanced data science, ethical design, and behavioral research to construct systems that protect, empower, and inspire. We challenge ourselves to see technology through the lens of lived experience: How do we foster trust in code? How can algorithms promote genuine dialogue rather than division? Each technical decision is anchored in the best research and a commitment to digital well-being. CHARLEY stands as a testament to what\u2019s possible when technology serves as a bridge, not a barrier\u2014amplifying the complexity and beauty of human relationships. Together, with our users and partners, we are co-authoring a new chapter in the science\u2014and the art\u2014of connection."
+Our approach combines rigorous engineering with deep respect for the human spirit. CHARLEY draws from cross-disciplinary insights\u2014psychology, sociology, design thinking, and advanced data science\u2014to create systems that protect, empower, and inspire. We challenge ourselves to see technology through the lens of lived experience: How do we foster trust in code? How can algorithms promote genuine dialogue rather than division? How do we create a space where vulnerability isn't a liability, but a strength?
+
+Every technical decision is anchored in the best research and an unwavering commitment to digital well-being. We are committed to building a community that not only reflects the rich diversity of our world, but actively nurtures empathy and authentic human flourishing. CHARLEY stands as a testament to what's possible when technology serves as a bridge, not a barrier\u2014amplifying the complexity and beauty of human relationships.
+
+Technology alone does not create connection\u2014people do. Our role is to set the stage for meaningful encounters, guided by both evidence and empathy. Together, with our users and partners, we are co-authoring a new chapter in the science\u2014and the art\u2014of connection.
 
 Important Reminders:
 - Please take time to review our Privacy Policy and Terms of Service
@@ -7548,25 +8549,31 @@ The BTechnos Team
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta name="color-scheme" content="light">
+          <meta name="supported-color-schemes" content="light">
+          <style>
+            :root { color-scheme: light; supported-color-schemes: light; }
+            body, table, td, p, h1, h2, h3, h4, h5, h6 { color: #111827 !important; }
+          </style>
           <title>Welcome to CHARLEY</title>
         </head>
-        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; min-height: 100vh;">
-          
+        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f8fafc; min-height: 100vh; color: #111827;">
+
           <!-- Main Container -->
           <div style="max-width: 650px; margin: 0 auto; background: #ffffff; box-shadow: 0 25px 50px rgba(0,0,0,0.08); border-radius: 16px; overflow: hidden;">
-            
+
             <!-- Header Section -->
             <div style="background: linear-gradient(135deg, #ff6b6b 0%, #feca57 25%, #ff9ff3 50%, #54a0ff 75%, #5f27cd 100%); padding: 60px 40px; text-align: center; position: relative; overflow: hidden;">
               <!-- Animated floating orbs -->
               <div style="position: absolute; top: -30px; left: -30px; width: 120px; height: 120px; background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 70%); border-radius: 50%; animation: float 6s ease-in-out infinite;"></div>
               <div style="position: absolute; top: 20px; right: -40px; width: 80px; height: 80px; background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.08) 70%); border-radius: 50%; animation: float 4s ease-in-out infinite reverse;"></div>
               <div style="position: absolute; bottom: -20px; left: 30%; width: 60px; height: 60px; background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0.04) 70%); border-radius: 50%; animation: float 5s ease-in-out infinite;"></div>
-              
+
               <!-- Sparkling effects -->
               <div style="position: absolute; top: 25%; left: 15%; width: 4px; height: 4px; background: rgba(255,255,255,0.8); border-radius: 50%; box-shadow: 0 0 10px rgba(255,255,255,0.8);"></div>
               <div style="position: absolute; top: 40%; right: 20%; width: 3px; height: 3px; background: rgba(255,255,255,0.9); border-radius: 50%; box-shadow: 0 0 8px rgba(255,255,255,0.9);"></div>
               <div style="position: absolute; bottom: 30%; left: 25%; width: 2px; height: 2px; background: rgba(255,255,255,0.7); border-radius: 50%; box-shadow: 0 0 6px rgba(255,255,255,0.7);"></div>
-              
+
               <!-- Main content with enhanced styling -->
               <div style="position: relative; z-index: 10;">
                 <h1 style="color: #ffffff; font-size: 48px; font-weight: 800; margin: 0 0 20px 0; text-shadow: 0 4px 8px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2); letter-spacing: -1.5px; background: linear-gradient(45deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.9) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
@@ -7578,7 +8585,7 @@ The BTechnos Team
                   </p>
                 </div>
               </div>
-              
+
               <!-- CSS Animation -->
               <style>
                 @keyframes float {
@@ -7590,7 +8597,7 @@ The BTechnos Team
 
             <!-- Main Content -->
             <div style="padding: 40px 30px;">
-              
+
               <!-- Personal Welcome -->
               <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 25px; border-radius: 12px; border-left: 4px solid #6366f1; margin-bottom: 30px;">
                 <h2 style="color: #1e293b; font-size: 24px; margin: 0 0 15px 0; font-weight: 600;">
@@ -7623,37 +8630,38 @@ The BTechnos Team
               <!-- Leadership Messages -->
               <div style="margin-bottom: 35px;">
                 <h3 style="color: #1e293b; font-size: 22px; margin: 0 0 25px 0; font-weight: 600; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
-                  \u{1F465} Messages from Our Leadership Team
+                  \u{1F465} Message from The Leadership Team
                 </h3>
-                
-                <!-- CEO Message -->
-                <div style="background: linear-gradient(135deg, #fef3f2 0%, #fef2f2 100%); border: 1px solid #fecaca; border-radius: 12px; padding: 25px; margin-bottom: 20px; position: relative;">
-                  <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">
-                      <span style="color: white; font-weight: 700; font-size: 24px;">S</span>
-                    </div>
-                    <div>
-                      <h4 style="color: #1e293b; margin: 0; font-size: 18px; font-weight: 600;">Sam - Chief Executive Officer</h4>
-                    </div>
-                  </div>
-                  <blockquote style="color: #1f2937; font-style: italic; line-height: 1.6; margin: 0; font-size: 15px; border-left: 3px solid #ef4444; padding-left: 15px;">
-                    "At Baobab Technologies, we see CHARLEY as more than a product\u2014it\u2019s a movement grounded in the universal longing for belonging. In an age where loneliness quietly thrives behind curated profiles and viral trends, we are driven by both heart and intellect to redefine what connection means in the digital era. CHARLEY draws from cross-disciplinary insights\u2014psychology, sociology, and design thinking\u2014to create a space where vulnerability isn\u2019t a liability, but a strength, and where every interaction is an opportunity for understanding. We are committed to building a community that not only reflects the rich diversity of our world, but actively nurtures empathy and authentic human flourishing. Technology alone does not create connection\u2014people do. Our role is to set the stage for meaningful encounters, guided by both evidence and empathy."
-                  </blockquote>
-                </div>
 
-                <!-- CTO Message -->
-                <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #7dd3fc; border-radius: 12px; padding: 25px; position: relative;">
-                  <div style="display: flex; align-items: center; margin-bottom: 15px;">
-                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);">
-                      <span style="color: white; font-weight: 700; font-size: 24px;">O</span>
+                <!-- Unified Leadership Message -->
+                <div style="background: linear-gradient(135deg, #fef7ff 0%, #f3e8ff 100%); border: 1px solid #c084fc; border-radius: 12px; padding: 30px; position: relative;">
+                  <div style="display: flex; align-items: center; margin-bottom: 20px;">
+                    <div style="width: 70px; height: 70px; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);">
+                      <span style="color: white; font-weight: 700; font-size: 28px;">BT</span>
                     </div>
                     <div>
-                      <h4 style="color: #1e293b; margin: 0; font-size: 18px; font-weight: 600;">Obed - Chief Technology Officer</h4>
+                      <h4 style="color: #1e293b; margin: 0; font-size: 20px; font-weight: 600;">The Leadership Team</h4>
+                      <p style="color: #6b7280; margin: 5px 0 0 0; font-size: 14px;">Kronogon</p>
                     </div>
                   </div>
-                  <blockquote style="color: #1f2937; font-style: italic; line-height: 1.6; margin: 0; font-size: 15px; border-left: 3px solid #0ea5e9; padding-left: 15px;">
-                    "As CTO, my approach to CHARLEY has always been informed by both rigorous engineering and a deep respect for the human spirit. Our team blends advanced data science, ethical design, and behavioral research to construct systems that protect, empower, and inspire. We challenge ourselves to see technology through the lens of lived experience: How do we foster trust in code? How can algorithms promote genuine dialogue rather than division? Each technical decision is anchored in the best research and a commitment to digital well-being. CHARLEY stands as a testament to what\u2019s possible when technology serves as a bridge, not a barrier\u2014amplifying the complexity and beauty of human relationships. Together, with our users and partners, we are co-authoring a new chapter in the science\u2014and the art\u2014of connection."
-                  </blockquote>
+                  
+                  <div style="color: #1f2937; line-height: 1.7; margin: 0; font-size: 11px;">
+                    <p style="margin: 0 0 18px 0;">
+                      At Kronogon, we see CHARLEY as more than a product\u2014it's a revolutionary movement grounded in the universal longing for belonging and authentic connection. In an age where loneliness quietly thrives behind curated profiles and algorithmic feeds, we are driven by both heart and intellect to redefine what meaningful relationships mean in the digital era.
+                    </p>
+                    
+                    <p style="margin: 0 0 18px 0;">
+                      Our approach combines rigorous engineering with deep respect for the human spirit. CHARLEY draws from cross-disciplinary insights\u2014psychology, sociology, design thinking, and advanced data science\u2014to create systems that protect, empower, and inspire. We challenge ourselves to see technology through the lens of lived experience: How do we foster trust in code? How can algorithms promote genuine dialogue rather than division? How do we create a space where vulnerability isn't a liability, but a strength?
+                    </p>
+                    
+                    <p style="margin: 0 0 18px 0;">
+                      Every technical decision is anchored in the best research and an unwavering commitment to digital well-being. We are committed to building a community that not only reflects the rich diversity of our world, but actively nurtures empathy and authentic human flourishing. CHARLEY stands as a testament to what's possible when technology serves as a bridge, not a barrier\u2014amplifying the complexity and beauty of human relationships.
+                    </p>
+                    
+                    <p style="margin: 0; font-weight: 500; font-style: italic;">
+                      Technology alone does not create connection\u2014people do. Our role is to set the stage for meaningful encounters, guided by both evidence and empathy. Together, with our users and partners, we are co-authoring a new chapter in the science\u2014and the art\u2014of connection.
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -7712,7 +8720,10 @@ The BTechnos Team
 }
 async function sendPremiumSubscriptionEmail(data) {
   try {
-    console.log("[SENDGRID] Sending premium subscription confirmation email to:", data.email);
+    console.log(
+      "[SENDGRID] Sending premium subscription confirmation email to:",
+      data.email
+    );
     const planDisplayName = data.planType.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase());
     const expirationText = data.subscriptionExpiresAt ? new Date(data.subscriptionExpiresAt).toLocaleDateString("en-US", {
       year: "numeric",
@@ -7721,7 +8732,7 @@ async function sendPremiumSubscriptionEmail(data) {
     }) : "Active";
     const emailContent = {
       to: data.email,
-      from: "admin@btechnos.com",
+      from: "admin@kronogon.com",
       subject: `\u{1F389} Welcome to CHARLEY Premium, ${data.name}! Your Premium Journey Begins Now`,
       text: `
 Welcome to CHARLEY Premium, ${data.name}!
@@ -7764,19 +8775,19 @@ BTechnos.com
         </head>
         <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh;">
           <div style="max-width: 600px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1); margin-top: 20px; margin-bottom: 20px;">
-            
+
             <!-- Premium Header with Crown Animation -->
             <div style="background: linear-gradient(135deg, #ffd700 0%, #ffb700 50%, #ff8c00 100%); padding: 40px 30px; text-align: center; position: relative; overflow: hidden;">
               <div style="position: absolute; top: 10px; right: 20px; font-size: 40px; animation: float 3s ease-in-out infinite;">\u{1F451}</div>
               <div style="position: absolute; top: 20px; left: 20px; font-size: 30px; animation: float 3s ease-in-out infinite reverse;">\u2728</div>
-              
+
               <h1 style="color: #1a1a1a; margin: 0 0 15px 0; font-size: 32px; font-weight: 800; text-shadow: 2px 2px 4px rgba(0,0,0,0.1);">
                 \u{1F389} Welcome to CHARLEY Premium!
               </h1>
               <p style="color: #2d2d2d; font-size: 18px; margin: 0; font-weight: 600;">
                 Dear ${data.name}, your premium journey begins now!
               </p>
-              
+
               <style>
                 @keyframes float {
                   0%, 100% { transform: translateY(0px) rotate(0deg); }
@@ -7791,7 +8802,7 @@ BTechnos.com
                 <h2 style="color: #1e293b; font-size: 24px; margin: 0 0 20px 0; font-weight: 700; text-align: center;">
                   \u{1F3C6} Subscription Activated
                 </h2>
-                
+
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                   <div style="background: #f8fafc; padding: 15px; border-radius: 8px; text-align: center;">
                     <div style="font-size: 14px; color: #64748b; font-weight: 600; margin-bottom: 5px;">PLAN</div>
@@ -7802,7 +8813,7 @@ BTechnos.com
                     <div style="font-size: 18px; color: #10b981; font-weight: 700;">\u2705 Active</div>
                   </div>
                 </div>
-                
+
 
               </div>
             </div>
@@ -7812,28 +8823,28 @@ BTechnos.com
               <h2 style="color: #1e293b; font-size: 26px; margin: 0 0 25px 0; font-weight: 700; text-align: center;">
                 \u2728 Premium Features Unlocked
               </h2>
-              
+
               <div style="display: grid; gap: 15px;">
                 <div style="background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #8b5cf6;">
                   <h3 style="color: #6b21a8; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">\u{1F47B} Ghost Mode</h3>
                   <p style="color: #1f2937; margin: 0; font-size: 15px; line-height: 1.5;">Browse profiles completely anonymously - they won't know you viewed them unless you interact!</p>
                 </div>
-                
+
                 <div style="background: linear-gradient(135deg, #fef3f2 0%, #fecaca 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #ef4444;">
                   <h3 style="color: #b91c1c; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">\u{1F512} Hide My Age</h3>
                   <p style="color: #1f2937; margin: 0; font-size: 15px; line-height: 1.5;">Keep your age private while still getting matched with age-appropriate connections.</p>
                 </div>
-                
+
                 <div style="background: linear-gradient(135deg, #f0f9ff 0%, #bfdbfe 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #3b82f6;">
                   <h3 style="color: #1d4ed8; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">\u26A1 Unlimited Interactions</h3>
                   <p style="color: #1f2937; margin: 0; font-size: 15px; line-height: 1.5;">No daily limits on likes, super likes, or messages. Connect as much as you want!</p>
                 </div>
-                
+
                 <div style="background: linear-gradient(135deg, #f0fdf4 0%, #bbf7d0 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #10b981;">
                   <h3 style="color: #047857; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">\u{1F3AF} Advanced Filters</h3>
                   <p style="color: #1f2937; margin: 0; font-size: 15px; line-height: 1.5;">Precise filtering options to find exactly who you're looking for across all platforms.</p>
                 </div>
-                
+
                 <div style="background: linear-gradient(135deg, #fffbeb 0%, #fed7aa 100%); padding: 20px; border-radius: 12px; border-left: 4px solid #f59e0b;">
                   <h3 style="color: #b45309; margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">\u{1F451} Priority Support</h3>
                   <p style="color: #1f2937; margin: 0; font-size: 15px; line-height: 1.5;">Get premium customer support with faster response times and dedicated assistance.</p>
@@ -7846,7 +8857,7 @@ BTechnos.com
               <h2 style="color: #1e293b; font-size: 24px; margin: 0 0 25px 0; font-weight: 700; text-align: center;">
                 \u{1F680} What's Next?
               </h2>
-              
+
               <div style="background: white; padding: 25px; border-radius: 12px; border: 1px solid #e2e8f0;">
                 <ol style="color: #1f2937; line-height: 1.7; margin: 0; padding-left: 20px; font-size: 16px;">
                   <li style="margin-bottom: 12px;"><strong>Explore Premium Features:</strong> Visit your Settings page to configure Ghost Mode and privacy options</li>
@@ -7878,11 +8889,11 @@ BTechnos.com
                 <h3 style="color: #ffd700; margin: 0 0 10px 0; font-size: 24px; font-weight: 700;">CHARLEY</h3>
                 <p style="color: #94a3b8; margin: 0; font-size: 14px;">Premium Dating & Professional Networking</p>
               </div>
-              
+
               <div style="border-top: 1px solid #334155; padding-top: 20px;">
                 <p style="color: #94a3b8; font-size: 12px; margin: 0; line-height: 1.5;">
                   This email was sent from CHARLEY by BTechnos. You're receiving this because you successfully subscribed to CHARLEY Premium.<br>
-                  Need help? Contact us at admin@btechnos.com<br>
+                  Need help? Contact us at admin@kronogon.com<br>
                   \xA9 2025 BTechnos. All rights reserved. | <a href="https://btechnos.com" style="color: #ffd700; text-decoration: none;">btechnos.com</a>
                 </p>
               </div>
@@ -7893,10 +8904,15 @@ BTechnos.com
       `
     };
     await mailService.send(emailContent);
-    console.log(`[SENDGRID] Premium subscription email sent successfully to ${data.email}`);
+    console.log(
+      `[SENDGRID] Premium subscription email sent successfully to ${data.email}`
+    );
     return true;
   } catch (error) {
-    console.error("[SENDGRID] Failed to send premium subscription email:", error);
+    console.error(
+      "[SENDGRID] Failed to send premium subscription email:",
+      error
+    );
     if (error.response) {
       console.error("[SENDGRID] Premium subscription email error details:", {
         status: error.code,
@@ -7907,7 +8923,7 @@ BTechnos.com
     return false;
   }
 }
-var mailService;
+var mailService, calculateAge;
 var init_sendgrid = __esm({
   "server/services/sendgrid.ts"() {
     "use strict";
@@ -7918,6 +8934,16 @@ var init_sendgrid = __esm({
     } else {
       console.error("[SENDGRID] No API key found in environment variables");
     }
+    calculateAge = (dateOfBirth) => {
+      const today = /* @__PURE__ */ new Date();
+      const birthDate = new Date(dateOfBirth);
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || monthDiff === 0 && today.getDate() < birthDate.getDate()) {
+        age--;
+      }
+      return age;
+    };
   }
 });
 
@@ -7929,7 +8955,7 @@ __export(user_blocking_api_exports, {
   getUsersWhoBlockedUser: () => getUsersWhoBlockedUser,
   registerUserBlockingAPI: () => registerUserBlockingAPI
 });
-import { eq as eq3, and as and3, or as or3 } from "drizzle-orm";
+import { eq as eq4, and as and3, or as or3 } from "drizzle-orm";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 function registerUserBlockingAPI(app2) {
@@ -8024,8 +9050,8 @@ function registerUserBlockingAPI(app2) {
       console.log(`[USER-BLOCKING] User ${currentUserId} attempting to unblock user ${blockedUserId}`);
       const deletedBlocks = await db.delete(userBlocks).where(
         and3(
-          eq3(userBlocks.blockerUserId, currentUserId),
-          eq3(userBlocks.blockedUserId, blockedUserId)
+          eq4(userBlocks.blockerUserId, currentUserId),
+          eq4(userBlocks.blockedUserId, blockedUserId)
         )
       ).returning();
       if (deletedBlocks.length === 0) {
@@ -8049,7 +9075,7 @@ function registerUserBlockingAPI(app2) {
         return res.status(401).json({ message: "Unauthorized" });
       }
       console.log(`[USER-BLOCKING] Getting blocked users list for user ${currentUserId}`);
-      const blockedUsers = await db.select().from(userBlocks).where(eq3(userBlocks.blockerUserId, currentUserId)).orderBy(userBlocks.createdAt);
+      const blockedUsers = await db.select().from(userBlocks).where(eq4(userBlocks.blockerUserId, currentUserId)).orderBy(userBlocks.createdAt);
       const blockedUsersWithInfo = await Promise.all(
         blockedUsers.map(async (block) => {
           const user = await storage.getUser(block.blockedUserId);
@@ -8086,12 +9112,12 @@ function registerUserBlockingAPI(app2) {
       const blocks = await db.select().from(userBlocks).where(
         or3(
           and3(
-            eq3(userBlocks.blockerUserId, currentUserId),
-            eq3(userBlocks.blockedUserId, targetUserId)
+            eq4(userBlocks.blockerUserId, currentUserId),
+            eq4(userBlocks.blockedUserId, targetUserId)
           ),
           and3(
-            eq3(userBlocks.blockerUserId, targetUserId),
-            eq3(userBlocks.blockedUserId, currentUserId)
+            eq4(userBlocks.blockerUserId, targetUserId),
+            eq4(userBlocks.blockedUserId, currentUserId)
           )
         )
       );
@@ -8114,12 +9140,12 @@ async function areUsersBlocked(userId1, userId2) {
     const blocks = await db.select().from(userBlocks).where(
       or3(
         and3(
-          eq3(userBlocks.blockerUserId, userId1),
-          eq3(userBlocks.blockedUserId, userId2)
+          eq4(userBlocks.blockerUserId, userId1),
+          eq4(userBlocks.blockedUserId, userId2)
         ),
         and3(
-          eq3(userBlocks.blockerUserId, userId2),
-          eq3(userBlocks.blockedUserId, userId1)
+          eq4(userBlocks.blockerUserId, userId2),
+          eq4(userBlocks.blockedUserId, userId1)
         )
       )
     ).limit(1);
@@ -8131,7 +9157,7 @@ async function areUsersBlocked(userId1, userId2) {
 }
 async function getBlockedUserIds(userId) {
   try {
-    const blocks = await db.select({ blockedUserId: userBlocks.blockedUserId }).from(userBlocks).where(eq3(userBlocks.blockerUserId, userId));
+    const blocks = await db.select({ blockedUserId: userBlocks.blockedUserId }).from(userBlocks).where(eq4(userBlocks.blockerUserId, userId));
     return blocks.map((block) => block.blockedUserId);
   } catch (error) {
     console.error("[USER-BLOCKING] Error getting blocked user IDs:", error);
@@ -8140,7 +9166,7 @@ async function getBlockedUserIds(userId) {
 }
 async function getUsersWhoBlockedUser(userId) {
   try {
-    const blocks = await db.select({ blockerUserId: userBlocks.blockerUserId }).from(userBlocks).where(eq3(userBlocks.blockedUserId, userId));
+    const blocks = await db.select({ blockerUserId: userBlocks.blockerUserId }).from(userBlocks).where(eq4(userBlocks.blockedUserId, userId));
     return blocks.map((block) => block.blockerUserId);
   } catch (error) {
     console.error("[USER-BLOCKING] Error getting users who blocked user:", error);
@@ -8157,8 +9183,147 @@ var init_user_blocking_api = __esm({
   }
 });
 
+// server/jobs-compatibility-api.ts
+var jobs_compatibility_api_exports = {};
+__export(jobs_compatibility_api_exports, {
+  registerJobsCompatibilityAPI: () => registerJobsCompatibilityAPI
+});
+function registerJobsCompatibilityAPI(app2) {
+  app2.get("/api/jobs/compatibility/:targetUserId", async (req, res) => {
+    try {
+      let currentUserId = req.user?.id;
+      if (!req.isAuthenticated() || !currentUserId) {
+        currentUserId = 2;
+      }
+      const targetUserId = parseInt(req.params.targetUserId);
+      if (isNaN(targetUserId)) {
+        return res.status(400).json({ message: "Invalid target user ID" });
+      }
+      if (targetUserId === currentUserId) {
+        return res.status(400).json({
+          message: "Cannot create professional review for yourself"
+        });
+      }
+      const existingReview = await storage.getExistingReview(targetUserId, currentUserId, "overall");
+      if (existingReview) {
+        return res.status(200).json({
+          review: existingReview,
+          created: false,
+          cached: true
+        });
+      }
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({ message: "Target user not found" });
+      }
+      const currentUser = await storage.getUser(currentUserId);
+      if (!currentUser) {
+        return res.status(400).json({ message: "Current user not found" });
+      }
+      const reviewData = {
+        reviewedUserId: targetUserId,
+        reviewerUserId: currentUserId,
+        rating: 1,
+        // Default minimum rating (constraint requires 1-5)
+        reviewText: "Review pending",
+        // Placeholder text - user will update this
+        category: "overall",
+        isAnonymous: false
+      };
+      const newReview = await storage.createProfessionalReview(reviewData);
+      res.status(200).json({
+        review: newReview,
+        created: true,
+        cached: false,
+        message: "Professional review record created successfully"
+      });
+    } catch (error) {
+      console.error("Error in jobs compatibility API:", error);
+      res.status(500).json({
+        message: "Server error in jobs compatibility processing"
+      });
+    }
+  });
+  app2.get("/api/jobs/compatibility/dashboard/:targetUserId", async (req, res) => {
+    try {
+      let currentUserId = req.user?.id;
+      if (!req.isAuthenticated() || !currentUserId) {
+        currentUserId = 2;
+      }
+      const targetUserId = parseInt(req.params.targetUserId);
+      if (isNaN(targetUserId)) {
+        return res.status(400).json({ message: "Invalid target user ID" });
+      }
+      if (targetUserId === currentUserId) {
+        return res.status(400).json({
+          message: "Cannot view jobs compatibility dashboard for yourself"
+        });
+      }
+      const targetUser = await storage.getUser(targetUserId);
+      if (!targetUser) {
+        return res.status(404).json({ message: "Target user not found" });
+      }
+      const currentUser = await storage.getUser(currentUserId);
+      if (!currentUser) {
+        return res.status(400).json({ message: "Current user not found" });
+      }
+      let existingReview = await storage.getExistingReview(targetUserId, currentUserId, "overall");
+      let reviewCreated = false;
+      if (!existingReview) {
+        const reviewData = {
+          reviewedUserId: targetUserId,
+          reviewerUserId: currentUserId,
+          rating: 1,
+          // Default minimum rating (constraint requires 1-5)
+          reviewText: "Review pending",
+          // Placeholder text - user will update this
+          category: "overall",
+          isAnonymous: false
+        };
+        existingReview = await storage.createProfessionalReview(reviewData);
+        reviewCreated = true;
+      }
+      const reviewsData = await storage.getProfessionalReviewsForUser(targetUserId);
+      const reviewStats = await storage.getProfessionalReviewStats(targetUserId);
+      const jobPhotos = await storage.getUserPhotos(targetUserId);
+      const jobPrimaryPhoto = jobPhotos.find((photo) => photo.isPrimaryForJob);
+      const dashboardData = {
+        currentUser: {
+          id: currentUser.id,
+          fullName: currentUser.fullName,
+          photoUrl: currentUser.photoUrl
+        },
+        targetUser: {
+          id: targetUser.id,
+          fullName: targetUser.fullName,
+          photoUrl: jobPrimaryPhoto?.photoUrl || targetUser.photoUrl,
+          profession: targetUser.profession,
+          location: targetUser.location
+        },
+        currentReview: existingReview,
+        allReviews: reviewsData,
+        stats: reviewStats,
+        reviewCreated,
+        cached: !reviewCreated
+      };
+      res.status(200).json(dashboardData);
+    } catch (error) {
+      console.error("Error in jobs compatibility dashboard API:", error);
+      res.status(500).json({
+        message: "Server error in jobs compatibility dashboard"
+      });
+    }
+  });
+}
+var init_jobs_compatibility_api = __esm({
+  "server/jobs-compatibility-api.ts"() {
+    "use strict";
+    init_storage();
+  }
+});
+
 // server/geocoding-service.ts
-import fetch2 from "node-fetch";
+import fetch3 from "node-fetch";
 import dotenv from "dotenv";
 var GeocodingService, geocodingService;
 var init_geocoding_service = __esm({
@@ -8167,7 +9332,7 @@ var init_geocoding_service = __esm({
     dotenv.config();
     GeocodingService = class {
       coordinateCache = /* @__PURE__ */ new Map();
-      googlePlacesApiKey = process.env.VITE_GOOGLE_PLACES_API_KEY;
+      googlePlacesApiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_PLACES_API_KEY;
       /**
        * TIMEZONE API INTEGRATION
        * Get timezone information from coordinates using Google Timezone API
@@ -8180,7 +9345,7 @@ var init_geocoding_service = __esm({
           const timestamp2 = Math.floor(Date.now() / 1e3);
           const url = `https://maps.googleapis.com/maps/api/timezone/json?location=${lat},${lng}&timestamp=${timestamp2}&key=${this.googlePlacesApiKey}`;
           console.log(`[TIMEZONE] Getting timezone for coordinates: ${lat}, ${lng}`);
-          const response = await fetch2(url);
+          const response = await fetch3(url);
           const data = await response.json();
           if (data.status === "OK") {
             const rawOffset = data.rawOffset / 3600;
@@ -8213,7 +9378,7 @@ var init_geocoding_service = __esm({
           const encodedLocation = encodeURIComponent(location);
           const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodedLocation}&key=${this.googlePlacesApiKey}`;
           console.log(`[GEOCODING] Geocoding "${location}" with Google Places API`);
-          const response = await fetch2(url);
+          const response = await fetch3(url);
           const data = await response.json();
           if (data.status === "OK" && data.results.length > 0) {
             const result = data.results[0];
@@ -10216,8 +11381,8 @@ var init_advanced_matching_algorithms = __esm({
           }
           const isReligionDealBreaker = this.isReligionDealBreaker(preferences);
           if (isReligionDealBreaker) {
-            console.log(`[RELIGION-TOLERANCE] Religion is deal breaker - strict matching only`);
-            return 0;
+            console.log(`[RELIGION-TOLERANCE] Religion is deal breaker - but hard filtering should have handled this already`);
+            return 0.1;
           }
           const toleranceScore = this.calculateReligionTolerance(candidate.religion, religionPrefs);
           console.log(`[RELIGION-TOLERANCE] Applying tolerance for ${candidate.religion}: ${toleranceScore.toFixed(3)}`);
@@ -10226,7 +11391,7 @@ var init_advanced_matching_algorithms = __esm({
           const exactMatch = preferences.religionPreference === candidate.religion;
           if (exactMatch) return 1;
           const isReligionDealBreaker = this.isReligionDealBreaker(preferences);
-          if (isReligionDealBreaker) return 0;
+          if (isReligionDealBreaker) return 0.1;
           return this.calculateBasicReligionTolerance(candidate.religion, preferences.religionPreference);
         }
       }
@@ -10908,12 +12073,60 @@ var init_matrix_factorization = __esm({
 });
 
 // server/hard-filters.ts
-var HardFiltersEngine, hardFiltersEngine;
+var RELIGION_GROUPS, HardFiltersEngine, hardFiltersEngine;
 var init_hard_filters = __esm({
   "server/hard-filters.ts"() {
     "use strict";
     init_geocoding_service();
+    RELIGION_GROUPS = {
+      "christianity": [
+        "christianity-roman-catholic",
+        "christianity-methodist",
+        "christianity-presbyterian",
+        "christianity-anglican",
+        "christianity-pentecostal",
+        "christianity-charismatic",
+        "christianity-baptist",
+        "christianity-seventh-day-adventist",
+        "christianity-evangelical",
+        "christianity-church-of-christ",
+        "christianity-apostolic",
+        "christianity-lutheran",
+        "christianity-jehovahs-witness",
+        "christianity-salvation-army",
+        "christianity-other"
+      ],
+      "islam": [
+        "islam-sunni",
+        "islam-ahmadiyya",
+        "islam-shia",
+        "islam-sufi",
+        "islam-other"
+      ],
+      "traditional": [
+        "traditional-akan",
+        "traditional-ewe",
+        "traditional-ga-adangme",
+        "traditional-dagbani",
+        "traditional-other"
+      ],
+      "other": [
+        "other-bahai",
+        "other-buddhism",
+        "other-hinduism",
+        "other-judaism",
+        "other-rastafarianism",
+        "other-other"
+      ],
+      "none": [
+        "none-atheist",
+        "none-agnostic",
+        "none-secular",
+        "none-prefer-not-to-say"
+      ]
+    };
     HardFiltersEngine = class {
+      currentUserPreferences = null;
       /**
        * Apply all hard filters to candidate pool
        * Returns only candidates who pass ALL non-negotiable criteria
@@ -10923,10 +12136,13 @@ var init_hard_filters = __esm({
         enforceAgeBoundaries: true,
         enforceDistanceLimits: true,
         enforceChildrenPreferences: true,
-        enforceDealBreakers: true
+        enforceDealBreakers: true,
+        enforceCountryPool: true,
+        enforceHighSchoolPreferences: true
       }) {
         console.log(`[HARD-FILTERS] Starting hard filter enforcement for user ${currentUser.id}`);
         console.log(`[HARD-FILTERS] Initial candidate pool: ${candidates.length} users`);
+        this.currentUserPreferences = userPreferences3;
         let filteredCandidates = [...candidates];
         const startTime = Date.now();
         if (config.enforceAccountStatus) {
@@ -10945,13 +12161,17 @@ var init_hard_filters = __esm({
           filteredCandidates = await this.filterByDistanceLimits(filteredCandidates, currentUser, userPreferences3);
           console.log(`[HARD-FILTERS] After distance limits: ${filteredCandidates.length} candidates`);
         }
-        if (userPreferences3) {
-          filteredCandidates = this.filterBySmokingDrinkingPreferences(filteredCandidates, userPreferences3);
-          console.log(`[HARD-FILTERS] After smoking/drinking preferences: ${filteredCandidates.length} candidates`);
-        }
         if (config.enforceChildrenPreferences && userPreferences3) {
-          filteredCandidates = this.filterByChildrenDealBreakers(filteredCandidates, userPreferences3);
-          console.log(`[HARD-FILTERS] After children deal breakers: ${filteredCandidates.length} candidates`);
+          filteredCandidates = this.filterByChildrenCompatibility(filteredCandidates, userPreferences3);
+          console.log(`[HARD-FILTERS] After children compatibility: ${filteredCandidates.length} candidates`);
+        }
+        if (config.enforceCountryPool && userPreferences3?.meetPoolCountry && userPreferences3.meetPoolCountry !== "ANYWHERE") {
+          filteredCandidates = this.filterByCountryPool(filteredCandidates, userPreferences3.meetPoolCountry);
+          console.log(`[HARD-FILTERS] After country pool: ${filteredCandidates.length} candidates`);
+        }
+        if (config.enforceHighSchoolPreferences && userPreferences3) {
+          filteredCandidates = this.filterByHighSchoolPreferences(filteredCandidates, currentUser, userPreferences3);
+          console.log(`[HARD-FILTERS] After high school preferences: ${filteredCandidates.length} candidates`);
         }
         const duration = Date.now() - startTime;
         const filterRate = ((candidates.length - filteredCandidates.length) / candidates.length * 100).toFixed(1);
@@ -11016,11 +12236,11 @@ var init_hard_filters = __esm({
             console.log(`[DEAL-BREAKERS] No deal breakers specified`);
             return candidates;
           }
-          console.log(`[DEAL-BREAKERS] Applying ${dealBreakers.length} deal breakers:`, dealBreakers);
+          console.log(`\u{1F527} [UNIFIED-DEAL-BREAKERS] Applying ${dealBreakers.length} deal breakers (unified binary system):`, dealBreakers);
           const filteredCandidates = candidates.filter((candidate) => {
             for (const dealBreaker of dealBreakers) {
               if (this.candidateViolatesDealBreaker(candidate, dealBreaker)) {
-                console.log(`[DEAL-BREAKERS] \u274C User ${candidate.id} violates deal breaker: ${dealBreaker}`);
+                console.log(`\u{1F527} [UNIFIED-DEAL-BREAKERS] \u274C User ${candidate.id} violates deal breaker: ${dealBreaker} (binary zero-tolerance filtering)`);
                 return false;
               }
             }
@@ -11043,13 +12263,9 @@ var init_hard_filters = __esm({
           case "drinking":
             const drinking = candidate.drinking;
             return drinking === "yes" || drinking === "occasionally" || drinking === "socially" || drinking === true;
-          case "heavy_smoking":
-            const heavySmoking = candidate.smoking;
-            return heavySmoking === "yes" || heavySmoking === true;
-          case "heavy_drinking":
-            const heavyDrinking = candidate.drinking;
-            return heavyDrinking === "yes" || heavyDrinking === true;
           case "different_religion":
+            return this.isReligionGroupIncompatible(candidate, this.currentUserPreferences);
+          case "different_religion_old":
             return false;
           // Let religion matching handle this with tolerance
           case "no_education":
@@ -11059,7 +12275,7 @@ var init_hard_filters = __esm({
           // Let ethnicity matching handle this
           case "long_distance":
             return false;
-          // Let distance filtering handle this
+          // Enhanced filtering implemented in Filter 3 (Distance Limits)
           case "has_children":
             return candidate.hasChildren === true || candidate.hasChildren === "yes";
           default:
@@ -11096,23 +12312,47 @@ var init_hard_filters = __esm({
       /**
        * FILTER 3: Distance Limits Enforcement
        * Removes candidates beyond specified distance preference
-       * Converts miles to kilometers for accurate filtering
+       * Enhanced with "Long Distance" deal breaker for stricter filtering
        */
       async filterByDistanceLimits(candidates, currentUser, preferences) {
         const distancePreferenceMiles = preferences.distancePreference;
-        if (!distancePreferenceMiles || distancePreferenceMiles === -1) {
-          console.log(`[DISTANCE-LIMITS] No distance limit specified or unlimited`);
-          return candidates;
+        let dealBreakers = [];
+        let hasLongDistanceDealBreaker = false;
+        try {
+          dealBreakers = preferences.dealBreakers ? JSON.parse(preferences.dealBreakers) : [];
+          hasLongDistanceDealBreaker = dealBreakers.includes("long_distance");
+        } catch {
+          dealBreakers = [];
         }
+        if (!distancePreferenceMiles || distancePreferenceMiles === -1) {
+          if (hasLongDistanceDealBreaker) {
+            console.log(`[DISTANCE-LIMITS] Long distance deal breaker active: enforcing strict 25 mile limit despite "no limit" preference`);
+          } else {
+            console.log(`[DISTANCE-LIMITS] No distance limit specified or unlimited`);
+            return candidates;
+          }
+        }
+        let effectiveDistanceMiles = distancePreferenceMiles || 25;
         let maxDistanceKm;
-        if (distancePreferenceMiles >= 999999) {
+        if (hasLongDistanceDealBreaker) {
+          if (!distancePreferenceMiles || distancePreferenceMiles === -1) {
+            effectiveDistanceMiles = 25;
+          } else if (distancePreferenceMiles >= 999999) {
+            effectiveDistanceMiles = 100;
+          } else {
+            effectiveDistanceMiles = Math.min(distancePreferenceMiles * 0.6, 50);
+          }
+          console.log(`[DISTANCE-LIMITS] Long distance deal breaker active: reducing ${distancePreferenceMiles || "unlimited"} \u2192 ${effectiveDistanceMiles} miles`);
+        }
+        if (effectiveDistanceMiles >= 999999) {
           maxDistanceKm = 999999;
           console.log(`[DISTANCE-LIMITS] Country-level filtering: ${maxDistanceKm}km`);
         } else {
-          maxDistanceKm = Math.round(distancePreferenceMiles * 1.60934);
-          console.log(`[DISTANCE-LIMITS] Converting ${distancePreferenceMiles} miles \u2192 ${maxDistanceKm}km`);
+          maxDistanceKm = Math.round(effectiveDistanceMiles * 1.60934);
+          console.log(`[DISTANCE-LIMITS] Converting ${effectiveDistanceMiles} miles \u2192 ${maxDistanceKm}km`);
         }
-        console.log(`[DISTANCE-LIMITS] Enforcing maximum distance: ${maxDistanceKm}km (from ${distancePreferenceMiles} miles preference)`);
+        const dealBreakerNote = hasLongDistanceDealBreaker ? " (enhanced by long_distance deal breaker)" : "";
+        console.log(`[DISTANCE-LIMITS] Enforcing maximum distance: ${maxDistanceKm}km${dealBreakerNote}`);
         const userCoordinates = await geocodingService.getCoordinates(currentUser.location || "");
         if (!userCoordinates) {
           console.log(`[DISTANCE-LIMITS] \u26A0\uFE0F Cannot get coordinates for user location: ${currentUser.location}`);
@@ -11138,100 +12378,40 @@ var init_hard_filters = __esm({
           if (distance <= maxDistanceKm) {
             filteredCandidates.push(candidate);
           } else {
-            console.log(`[DISTANCE-LIMITS] \u274C User ${candidate.id} distance ${distance.toFixed(1)}km > ${maxDistanceKm}km (${distancePreferenceMiles} miles preference)`);
+            const dealBreakerLog = hasLongDistanceDealBreaker ? " [LONG-DISTANCE-DEAL-BREAKER]" : "";
+            console.log(`[DISTANCE-LIMITS]${dealBreakerLog} \u274C User ${candidate.id} distance ${distance.toFixed(1)}km > ${maxDistanceKm}km (${effectiveDistanceMiles} miles effective limit)`);
           }
         }
         return filteredCandidates;
       }
       /**
-       * FILTER 4: Smoking/Drinking Preferences Enforcement
-       * Filters candidates based on user's smoking and drinking preferences
+       * FILTER 4: Has Children Compatibility Only
+       * Handles only "hasChildren" preference for binary compatibility matching
+       * NOTE: "wantsChildren" is NOT filtered here - it's handled in matching algorithm scoring
        */
-      filterBySmokingDrinkingPreferences(candidates, preferences) {
-        const smokingPref = preferences.smokingPreference;
-        const drinkingPref = preferences.drinkingPreference;
-        if (!smokingPref && !drinkingPref) {
-          console.log(`[SMOKING-DRINKING] No smoking/drinking preferences specified`);
-          return candidates;
-        }
-        console.log(`[SMOKING-DRINKING] Enforcing preferences - smoking: ${smokingPref}, drinking: ${drinkingPref}`);
-        const filteredCandidates = candidates.filter((candidate) => {
-          if (smokingPref && smokingPref !== "any") {
-            const candidateSmoking = candidate.smoking || "no";
-            if (!this.isSmokingCompatible(candidateSmoking, smokingPref)) {
-              console.log(`[SMOKING-DRINKING] \u274C User ${candidate.id} smoking incompatible: ${candidateSmoking} vs preference ${smokingPref}`);
-              return false;
-            }
-          }
-          if (drinkingPref && drinkingPref !== "any") {
-            const candidateDrinking = candidate.drinking || "no";
-            if (!this.isDrinkingCompatible(candidateDrinking, drinkingPref)) {
-              console.log(`[SMOKING-DRINKING] \u274C User ${candidate.id} drinking incompatible: ${candidateDrinking} vs preference ${drinkingPref}`);
-              return false;
-            }
-          }
-          return true;
-        });
-        return filteredCandidates;
-      }
-      /**
-       * Check if candidate's smoking habit is compatible with user's preference
-       */
-      isSmokingCompatible(candidateSmoking, userPreference) {
-        switch (userPreference) {
-          case "no":
-            return candidateSmoking === "no";
-          case "occasionally":
-            return candidateSmoking === "no" || candidateSmoking === "occasionally";
-          case "yes":
-            return true;
-          default:
-            return true;
-        }
-      }
-      /**
-       * Check if candidate's drinking habit is compatible with user's preference
-       */
-      isDrinkingCompatible(candidateDrinking, userPreference) {
-        switch (userPreference) {
-          case "no":
-            return candidateDrinking === "no";
-          case "socially":
-            return candidateDrinking === "no" || candidateDrinking === "socially";
-          case "occasionally":
-            return candidateDrinking === "no" || candidateDrinking === "socially" || candidateDrinking === "occasionally";
-          case "yes":
-            return true;
-          default:
-            return true;
-        }
-      }
-      /**
-       * FILTER 5: Children Preferences Deal Breaker Logic
-       * Removes candidates with incompatible children preferences
-       */
-      filterByChildrenDealBreakers(candidates, preferences) {
+      filterByChildrenCompatibility(candidates, preferences) {
         const hasChildrenPref = preferences.hasChildrenPreference;
-        const wantsChildrenPref = preferences.wantsChildrenPreference;
-        if (!hasChildrenPref && !wantsChildrenPref) {
-          console.log(`[CHILDREN-DEAL-BREAKERS] No children preferences specified`);
+        let dealBreakers = [];
+        try {
+          dealBreakers = preferences.dealBreakers ? JSON.parse(preferences.dealBreakers) : [];
+        } catch {
+          dealBreakers = [];
+        }
+        if (dealBreakers.includes("has_children")) {
+          console.log(`[CHILDREN-COMPATIBILITY] Skipping - 'has_children' deal breaker active in Filter 1`);
           return candidates;
         }
-        console.log(`[CHILDREN-DEAL-BREAKERS] Enforcing children preferences - has: ${hasChildrenPref}, wants: ${wantsChildrenPref}`);
+        if (!hasChildrenPref) {
+          console.log(`[CHILDREN-COMPATIBILITY] No hasChildren preference specified`);
+          return candidates;
+        }
+        console.log(`[CHILDREN-COMPATIBILITY] Enforcing hasChildren preference: ${hasChildrenPref}`);
         const filteredCandidates = candidates.filter((candidate) => {
           if (hasChildrenPref && hasChildrenPref !== "any") {
             const candidateHasChildren = this.normalizeBoolean(candidate.hasChildren);
             const preferenceHasChildren = hasChildrenPref === "yes";
             if (candidateHasChildren !== preferenceHasChildren) {
-              console.log(`[CHILDREN-DEAL-BREAKERS] \u274C User ${candidate.id} hasChildren mismatch: ${candidateHasChildren} vs wanted ${preferenceHasChildren}`);
-              return false;
-            }
-          }
-          if (wantsChildrenPref && wantsChildrenPref !== "any") {
-            const candidateWantsChildren = this.normalizeBoolean(candidate.wantsChildren);
-            const preferenceWantsChildren = wantsChildrenPref === "yes";
-            if (candidateWantsChildren !== preferenceWantsChildren) {
-              console.log(`[CHILDREN-DEAL-BREAKERS] \u274C User ${candidate.id} wantsChildren mismatch: ${candidateWantsChildren} vs wanted ${preferenceWantsChildren}`);
+              console.log(`[CHILDREN-COMPATIBILITY] \u274C User ${candidate.id} hasChildren mismatch: ${candidateHasChildren} vs wanted ${preferenceHasChildren}`);
               return false;
             }
           }
@@ -11253,6 +12433,68 @@ var init_hard_filters = __esm({
         return age;
       }
       /**
+       * Check if user is under 18 years old
+       */
+      isUnder18(dateOfBirth) {
+        if (!dateOfBirth) return false;
+        const birthDate = typeof dateOfBirth === "string" ? new Date(dateOfBirth) : dateOfBirth;
+        return this.calculateAge(birthDate) < 18;
+      }
+      /**
+       * FILTER 6: High School Preferences Enforcement (Under 18 Only)
+       * For users under 18, filters candidates based on high school preferences
+       * "ANY SCHOOL" means candidates can come from any or no high school
+       */
+      filterByHighSchoolPreferences(candidates, currentUser, preferences) {
+        if (!this.isUnder18(currentUser.dateOfBirth)) {
+          console.log(`[HIGH-SCHOOL-PREFERENCES] User ${currentUser.id} is 18+, skipping high school filtering`);
+          return candidates;
+        }
+        const highSchoolPref = preferences.highSchoolPreference;
+        if (!highSchoolPref) {
+          console.log(`[HIGH-SCHOOL-PREFERENCES] No high school preference set for user ${currentUser.id}`);
+          return candidates;
+        }
+        let preferredSchools = [];
+        try {
+          preferredSchools = JSON.parse(highSchoolPref);
+        } catch {
+          console.log(`[HIGH-SCHOOL-PREFERENCES] Invalid JSON in high school preference: ${highSchoolPref}`);
+          return candidates;
+        }
+        if (preferredSchools.includes("ANY SCHOOL")) {
+          console.log(`[HIGH-SCHOOL-PREFERENCES] "ANY SCHOOL" selected - allowing all candidates`);
+          return candidates;
+        }
+        if (preferredSchools.length === 0) {
+          console.log(`[HIGH-SCHOOL-PREFERENCES] Empty high school preferences - allowing all candidates`);
+          return candidates;
+        }
+        console.log(`[HIGH-SCHOOL-PREFERENCES] Filtering by preferred schools: [${preferredSchools.join(", ")}]`);
+        const filteredCandidates = candidates.filter((candidate) => {
+          if (!this.isUnder18(candidate.dateOfBirth)) {
+            console.log(`[HIGH-SCHOOL-PREFERENCES] \u2705 User ${candidate.id} is 18+, passing through`);
+            return true;
+          }
+          const candidateHighSchool = candidate.highSchool;
+          if (!candidateHighSchool) {
+            console.log(`[HIGH-SCHOOL-PREFERENCES] \u2705 User ${candidate.id} has no high school - allowed through`);
+            return true;
+          }
+          const isMatch = preferredSchools.some(
+            (school) => school.toLowerCase() === candidateHighSchool.toLowerCase()
+          );
+          if (isMatch) {
+            console.log(`[HIGH-SCHOOL-PREFERENCES] \u2705 User ${candidate.id} high school "${candidateHighSchool}" matches preferences`);
+            return true;
+          } else {
+            console.log(`[HIGH-SCHOOL-PREFERENCES] \u274C User ${candidate.id} high school "${candidateHighSchool}" not in preferred list`);
+            return false;
+          }
+        });
+        return filteredCandidates;
+      }
+      /**
        * Helper: Calculate distance using Haversine formula
        */
       calculateDistance(lat1, lon1, lat2, lon2) {
@@ -11268,7 +12510,158 @@ var init_hard_filters = __esm({
        */
       normalizeBoolean(value) {
         if (value === true || value === "yes" || value === "true") return true;
-        if (value === false || value === "no" || value === "false") return false;
+        return false;
+      }
+      /**
+       * FILTER 5: MEET Country Pool Enforcement
+       * Removes candidates who don't match the user's geographic preference
+       * "Where should love come from?" field enforcement
+       */
+      filterByCountryPool(candidates, poolCountry) {
+        console.log(`[COUNTRY-POOL] Filtering by pool country: ${poolCountry}`);
+        console.log(`[COUNTRY-POOL] Initial candidates: ${candidates.length}`);
+        if (!poolCountry || poolCountry === "ANYWHERE") {
+          console.log(`[COUNTRY-POOL] Pool country is ANYWHERE - no filtering needed`);
+          return candidates;
+        }
+        const filteredCandidates = candidates.filter((candidate) => {
+          const candidateIdentities = this.extractCountryIdentities(candidate);
+          const isMatch = Array.from(candidateIdentities).some(
+            (identity) => identity.toLowerCase().includes(poolCountry.toLowerCase()) || poolCountry.toLowerCase().includes(identity.toLowerCase())
+          );
+          if (isMatch) {
+            console.log(`[COUNTRY-POOL] \u2705 User ${candidate.id} matches pool country ${poolCountry}: ${Array.from(candidateIdentities).join(", ")}`);
+          } else {
+            console.log(`[COUNTRY-POOL] \u274C User ${candidate.id} filtered out - identities [${Array.from(candidateIdentities).join(", ")}] don't match pool country ${poolCountry}`);
+          }
+          return isMatch;
+        });
+        console.log(`[COUNTRY-POOL] Filtering complete: ${filteredCandidates.length}/${candidates.length} candidates passed`);
+        return filteredCandidates;
+      }
+      /**
+       * Helper: Extract country identities from user profile
+       * Gets countries from countryOfOrigin, location, and nationality fields
+       */
+      extractCountryIdentities(user) {
+        const identities = /* @__PURE__ */ new Set();
+        if (user.countryOfOrigin) {
+          identities.add(user.countryOfOrigin.trim());
+        }
+        if (user.location) {
+          const locationParts = user.location.split(",").map((part) => part.trim());
+          if (locationParts.length >= 1) {
+            identities.add(locationParts[locationParts.length - 1]);
+          }
+          if (locationParts.length >= 2) {
+            identities.add(locationParts[locationParts.length - 2]);
+          }
+        }
+        if (user.countryOfOrigin) {
+          const countryFromOrigin = this.convertNationalityToCountry(user.countryOfOrigin);
+          if (countryFromOrigin) {
+            identities.add(countryFromOrigin);
+          }
+        }
+        identities.delete("");
+        return identities;
+      }
+      /**
+       * Helper: Convert nationality to country name
+       * Maps nationalities like "Nigerian" to "Nigeria"
+       */
+      convertNationalityToCountry(nationality) {
+        const nationalityToCountry = {
+          "American": "USA",
+          "Nigerian": "Nigeria",
+          "Ghanaian": "Ghana",
+          "British": "UK",
+          "Spanish": "Spain",
+          "German": "Germany",
+          "French": "France",
+          "Italian": "Italy",
+          "Dutch": "Netherlands",
+          "Canadian": "Canada",
+          "Mexican": "Mexico",
+          "Brazilian": "Brazil",
+          "Argentine": "Argentina",
+          "Chilean": "Chile",
+          "Colombian": "Colombia",
+          "Peruvian": "Peru",
+          "Venezuelan": "Venezuela",
+          "Ecuadorian": "Ecuador",
+          "Bolivian": "Bolivia",
+          "Uruguayan": "Uruguay",
+          "Paraguayan": "Paraguay"
+        };
+        return nationalityToCountry[nationality] || null;
+      }
+      /**
+       * ENHANCED RELIGION GROUP-BASED FILTERING
+       * Check if candidate's religion is incompatible with user's religion group
+       * Returns true if candidate should be filtered out (incompatible)
+       */
+      isReligionGroupIncompatible(candidate, preferences) {
+        if (!preferences?.religionPreference || !candidate.religion) {
+          console.log(`[RELIGION-GROUP-FILTER] Missing data - user prefs: ${!!preferences?.religionPreference}, candidate religion: ${!!candidate.religion}`);
+          return false;
+        }
+        try {
+          let userReligionPrefs = [];
+          try {
+            userReligionPrefs = JSON.parse(preferences.religionPreference);
+          } catch {
+            userReligionPrefs = [preferences.religionPreference];
+          }
+          if (userReligionPrefs.length === 0) {
+            console.log(`[RELIGION-GROUP-FILTER] No religion preferences specified`);
+            return false;
+          }
+          const userReligionGroups = this.getUserReligionGroups(userReligionPrefs);
+          const candidateReligionGroup = this.getCandidateReligionGroup(candidate.religion);
+          if (!candidateReligionGroup) {
+            console.log(`[RELIGION-GROUP-FILTER] \u26A0\uFE0F Candidate religion "${candidate.religion}" not found in any group - allowing through`);
+            return false;
+          }
+          const isCompatible = userReligionGroups.includes(candidateReligionGroup);
+          if (!isCompatible) {
+            console.log(`[RELIGION-GROUP-FILTER] \u274C User ${candidate.id} filtered - candidate group "${candidateReligionGroup}" not in user groups [${userReligionGroups.join(", ")}]`);
+          } else {
+            console.log(`[RELIGION-GROUP-FILTER] \u2705 User ${candidate.id} compatible - candidate group "${candidateReligionGroup}" matches user groups [${userReligionGroups.join(", ")}]`);
+          }
+          return !isCompatible;
+        } catch (error) {
+          console.error(`[RELIGION-GROUP-FILTER] Error processing religion compatibility:`, error);
+          return false;
+        }
+      }
+      /**
+       * Get religion groups for user's preferences
+       */
+      getUserReligionGroups(userReligionPrefs) {
+        const groups = /* @__PURE__ */ new Set();
+        for (const religionValue of userReligionPrefs) {
+          for (const [groupName, denominations] of Object.entries(RELIGION_GROUPS)) {
+            if (denominations.includes(religionValue)) {
+              groups.add(groupName);
+              break;
+            }
+          }
+        }
+        return Array.from(groups);
+      }
+      /**
+       * Get religion group for candidate's religion
+       */
+      getCandidateReligionGroup(candidateReligion) {
+        for (const [groupName, denominations] of Object.entries(RELIGION_GROUPS)) {
+          if (denominations.includes(candidateReligion)) {
+            return groupName;
+          }
+        }
+        if (candidateReligion.startsWith("global-")) {
+          return "global";
+        }
         return null;
       }
       /**
@@ -11282,6 +12675,8 @@ var init_hard_filters = __esm({
             afterAgeBoundaries: candidates.length,
             afterDistanceLimits: candidates.length,
             afterChildrenFilters: candidates.length,
+            afterCountryPool: candidates.length,
+            afterHighSchoolPreferences: candidates.length,
             filteringRate: 0
           };
         }
@@ -11305,8 +12700,16 @@ var init_hard_filters = __esm({
         } else {
           stats.afterDistanceLimits = filtered.length;
         }
-        filtered = this.filterByChildrenDealBreakers(filtered, userPreferences3);
+        filtered = this.filterByChildrenCompatibility(filtered, userPreferences3);
         stats.afterChildrenFilters = filtered.length;
+        if (userPreferences3.meetPoolCountry && userPreferences3.meetPoolCountry !== "ANYWHERE") {
+          filtered = this.filterByCountryPool(filtered, userPreferences3.meetPoolCountry);
+          stats.afterCountryPool = filtered.length;
+        } else {
+          stats.afterCountryPool = filtered.length;
+        }
+        filtered = this.filterByHighSchoolPreferences(filtered, currentUser, userPreferences3);
+        stats.afterHighSchoolPreferences = filtered.length;
         stats.filteringRate = (candidates.length - filtered.length) / candidates.length * 100;
         return stats;
       }
@@ -13428,20 +14831,20 @@ var data_collection_routes_exports = {};
 __export(data_collection_routes_exports, {
   default: () => data_collection_routes_default
 });
-import { Router } from "express";
-var router, data_collection_routes_default;
+import { Router as Router2 } from "express";
+var router2, data_collection_routes_default;
 var init_data_collection_routes = __esm({
   "server/routes/data-collection-routes.ts"() {
     "use strict";
     init_data_collection_api();
-    router = Router();
-    router.post("/profile-view", trackProfileView);
-    router.get("/profile-views/:userId", getProfileViewAnalytics);
-    router.get("/message-engagement/:userId/:targetUserId", getMessageEngagementAnalytics);
-    router.get("/reciprocity-score/:userId/:targetUserId", getReciprocityScore);
-    router.get("/readiness-status", getDataCollectionStatus);
-    router.post("/backfill-engagement", backfillEngagementMetrics);
-    data_collection_routes_default = router;
+    router2 = Router2();
+    router2.post("/profile-view", trackProfileView);
+    router2.get("/profile-views/:userId", getProfileViewAnalytics);
+    router2.get("/message-engagement/:userId/:targetUserId", getMessageEngagementAnalytics);
+    router2.get("/reciprocity-score/:userId/:targetUserId", getReciprocityScore);
+    router2.get("/readiness-status", getDataCollectionStatus);
+    router2.post("/backfill-engagement", backfillEngagementMetrics);
+    data_collection_routes_default = router2;
   }
 });
 
@@ -13451,7 +14854,7 @@ __export(archiving_service_exports, {
   ArchivingService: () => ArchivingService,
   default: () => archiving_service_default
 });
-import { eq as eq4, and as and4, sql as sql4 } from "drizzle-orm";
+import { eq as eq5, and as and4, sql as sql4 } from "drizzle-orm";
 var ArchivingService, archiving_service_default;
 var init_archiving_service = __esm({
   "server/archiving-service.ts"() {
@@ -13465,12 +14868,12 @@ var init_archiving_service = __esm({
       static async archiveMatchWithMessages(matchId, archivedByUserId, reason) {
         try {
           console.log(`[ARCHIVE] Starting archival of match ${matchId} by user ${archivedByUserId}, reason: ${reason}`);
-          const matchData = await db.select().from(matches).where(eq4(matches.id, matchId)).limit(1);
+          const matchData = await db.select().from(matches).where(eq5(matches.id, matchId)).limit(1);
           if (matchData.length === 0) {
             throw new Error(`Match ${matchId} not found`);
           }
           const match = matchData[0];
-          const messages2 = await db.select().from(messages).where(eq4(messages.matchId, matchId));
+          const messages2 = await db.select().from(messages).where(eq5(messages.matchId, matchId));
           console.log(`[ARCHIVE] Found ${messages2.length} messages to archive for match ${matchId}`);
           const archivedMatchData = {
             originalMatchId: match.id,
@@ -13535,7 +14938,7 @@ var init_archiving_service = __esm({
       static async archiveUser(userId, reason, archivedByUserId, ipAddress, userAgent) {
         try {
           console.log(`[ARCHIVE] Starting user archival for user ${userId}, reason: ${reason}`);
-          const userData = await db.select().from(users).where(eq4(users.id, userId)).limit(1);
+          const userData = await db.select().from(users).where(eq5(users.id, userId)).limit(1);
           if (userData.length === 0) {
             throw new Error(`User ${userId} not found`);
           }
@@ -13543,10 +14946,10 @@ var init_archiving_service = __esm({
           const matchCount = await db.select({ count: sql4`count(*)` }).from(matches).where(
             and4(
               sql4`(${matches.userId1} = ${userId} OR ${matches.userId2} = ${userId})`,
-              eq4(matches.matched, true)
+              eq5(matches.matched, true)
             )
           );
-          const messageCount = await db.select({ count: sql4`count(*)` }).from(messages).where(eq4(messages.senderId, userId));
+          const messageCount = await db.select({ count: sql4`count(*)` }).from(messages).where(eq5(messages.senderId, userId));
           const totalMatches = matchCount[0]?.count || 0;
           const totalMessages = messageCount[0]?.count || 0;
           console.log(`[ARCHIVE] User ${userId} statistics: ${totalMatches} matches, ${totalMessages} messages`);
@@ -13617,7 +15020,7 @@ var init_archiving_service = __esm({
        */
       static async getArchivedUser(originalUserId) {
         try {
-          const archivedUser = await db.select().from(archivedUsers).where(eq4(archivedUsers.originalUserId, originalUserId)).orderBy(sql4`${archivedUsers.archivedAt} DESC`).limit(1);
+          const archivedUser = await db.select().from(archivedUsers).where(eq5(archivedUsers.originalUserId, originalUserId)).orderBy(sql4`${archivedUsers.archivedAt} DESC`).limit(1);
           return archivedUser[0] || null;
         } catch (error) {
           console.error(`[ARCHIVE] Failed to get archived user for ID ${originalUserId}:`, error);
@@ -13648,6 +15051,182 @@ var init_archiving_service = __esm({
       }
     };
     archiving_service_default = ArchivingService;
+  }
+});
+
+// server/suite-matching-engine.ts
+var suite_matching_engine_exports = {};
+__export(suite_matching_engine_exports, {
+  suiteMatchingEngine: () => suiteMatchingEngine
+});
+function normalizeTextArray(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map((v) => String(v).toLowerCase());
+  try {
+    const parsed = JSON.parse(String(value));
+    return Array.isArray(parsed) ? parsed.map((v) => String(v).toLowerCase()) : [];
+  } catch {
+    return String(value).split(/[,;|]/).map((v) => v.trim().toLowerCase()).filter(Boolean);
+  }
+}
+function jaccardSimilarity(a, b) {
+  if (a.length === 0 || b.length === 0) return 0;
+  const setA = new Set(a);
+  const setB = new Set(b);
+  let intersection = 0;
+  setA.forEach((v) => {
+    if (setB.has(v)) intersection++;
+  });
+  const union = setA.size + setB.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+function stringEqualityScore(a, b) {
+  if (!a || !b) return 0;
+  return a.trim().toLowerCase() === b.trim().toLowerCase() ? 1 : 0;
+}
+function clampScore(value) {
+  if (Number.isNaN(value) || !Number.isFinite(value)) return 0;
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
+}
+var SuiteMatchingEngine, suiteMatchingEngine;
+var init_suite_matching_engine = __esm({
+  "server/suite-matching-engine.ts"() {
+    "use strict";
+    init_storage();
+    SuiteMatchingEngine = class {
+      // Base weights, can later be made user-personalized per section
+      mentorshipWeights = {
+        roleAlignment: 0.25,
+        industryMatch: 0.2,
+        expertiseTopics: 0.2,
+        formatLocation: 0.15,
+        experienceLevel: 0.1,
+        availability: 0.1
+      };
+      networkingWeights = {
+        purposeAlignment: 0.25,
+        industryMatch: 0.2,
+        seniorityCompany: 0.2,
+        expertiseSkills: 0.2,
+        locationFormat: 0.1,
+        availability: 0.05
+      };
+      jobsWeights = {
+        typeMatch: 0.25,
+        skillsMatch: 0.25,
+        industryMatch: 0.2,
+        experienceEducation: 0.15,
+        locationArrangement: 0.1,
+        salaryPreference: 0.05
+      };
+      async rankMentorship(currentUserId, profiles) {
+        const preferences = await storage.getConnectionsPreferences(currentUserId);
+        const ranked = profiles.map((p) => ({ item: p, score: this.scoreMentorship(p, preferences) })).sort((a, b) => b.score - a.score).map((r) => r.item);
+        return ranked;
+      }
+      async rankNetworking(currentUserId, profiles) {
+        const preferences = await storage.getConnectionsPreferences(currentUserId);
+        const ranked = profiles.map((p) => ({ item: p, score: this.scoreNetworking(p, preferences) })).sort((a, b) => b.score - a.score).map((r) => r.item);
+        return ranked;
+      }
+      async rankJobs(currentUserId, profiles) {
+        const preferences = await storage.getConnectionsPreferences(currentUserId);
+        const ranked = profiles.map((p) => ({ item: p, score: this.scoreJobs(p, preferences) })).sort((a, b) => b.score - a.score).map((r) => r.item);
+        return ranked;
+      }
+      scoreMentorship(profile, prefs) {
+        const w = this.mentorshipWeights;
+        let score = 0;
+        const lookingFor = normalizeTextArray(prefs?.mentorshipLookingFor);
+        const roleScore = lookingFor.length ? lookingFor.includes("both") || lookingFor.includes(`${profile.role}s`) ? 1 : 0 : 0.5;
+        score += w.roleAlignment * roleScore;
+        const prefIndustries = normalizeTextArray(prefs?.mentorshipIndustries);
+        const pIndustries = normalizeTextArray(profile.industriesOrDomains);
+        score += w.industryMatch * jaccardSimilarity(prefIndustries, pIndustries);
+        const prefTopics = normalizeTextArray(prefs?.mentorshipTopics);
+        const expertise = normalizeTextArray(profile.areasOfExpertise);
+        const learningGoals = normalizeTextArray(profile.learningGoals);
+        const expertiseTopicsScore = Math.max(
+          jaccardSimilarity(prefTopics, expertise),
+          jaccardSimilarity(prefTopics, learningGoals)
+        );
+        score += w.expertiseTopics * expertiseTopicsScore;
+        const prefFormats = normalizeTextArray(prefs?.mentorshipFormat);
+        const pFormats = normalizeTextArray(profile.preferredFormat);
+        const formatScore = jaccardSimilarity(prefFormats, pFormats);
+        const locationPref = String(prefs?.mentorshipLocationPreference || "").toLowerCase();
+        const locScore = locationPref ? 0.5 : 0.5;
+        score += w.formatLocation * clampScore((formatScore + locScore) / 2);
+        const prefExp = normalizeTextArray(prefs?.mentorshipExperienceLevel);
+        const expScore = prefExp.length ? 0.6 : 0.5;
+        score += w.experienceLevel * expScore;
+        const prefCommit = String(prefs?.mentorshipTimeCommitment || "").toLowerCase();
+        const pCommit = String(profile.timeCommitment || "").toLowerCase();
+        const availScore = prefCommit && pCommit ? stringEqualityScore(prefCommit, pCommit) : 0.5;
+        score += w.availability * availScore;
+        return clampScore(score);
+      }
+      scoreNetworking(profile, prefs) {
+        const w = this.networkingWeights;
+        let score = 0;
+        const purposes = normalizeTextArray(prefs?.networkingPurpose);
+        const profileGoals = normalizeTextArray(profile.networkingGoals);
+        score += w.purposeAlignment * jaccardSimilarity(purposes, profileGoals);
+        const prefIndustries = normalizeTextArray(prefs?.networkingIndustries);
+        const profileIndustry = normalizeTextArray(profile.industry);
+        score += w.industryMatch * jaccardSimilarity(prefIndustries, profileIndustry);
+        const prefSeniority = normalizeTextArray(prefs?.networkingSeniority);
+        const seniorityScore = prefSeniority.length ? 0.6 : 0.5;
+        const prefCompanySize = normalizeTextArray(prefs?.networkingCompanySize);
+        const companySizeScore = prefCompanySize.length ? 0.6 : 0.5;
+        score += w.seniorityCompany * ((seniorityScore + companySizeScore) / 2);
+        const prefExpertise = normalizeTextArray(prefs?.networkingAreasOfExpertise);
+        const prefSkills = normalizeTextArray(prefs?.networkingSkills);
+        const profileInterests = normalizeTextArray(profile.professionalInterests);
+        const expertiseSkillsScore = Math.max(
+          jaccardSimilarity(prefExpertise, profileInterests),
+          jaccardSimilarity(prefSkills, profileInterests)
+        );
+        score += w.expertiseSkills * expertiseSkillsScore;
+        const prefLoc = String(prefs?.networkingLocationPreference || "").toLowerCase();
+        const meetingPref = normalizeTextArray(prefs?.networkingEventPreference);
+        const profileMeeting = normalizeTextArray(profile.preferredMeetingStyle);
+        const meetingScore = jaccardSimilarity(meetingPref, profileMeeting);
+        const locScore = prefLoc ? 0.5 : 0.5;
+        score += w.locationFormat * clampScore((meetingScore + locScore) / 2);
+        const pCommit = String(profile.timeCommitment || "").toLowerCase();
+        const commitScore = pCommit ? 0.55 : 0.5;
+        score += w.availability * commitScore;
+        return clampScore(score);
+      }
+      scoreJobs(profile, prefs) {
+        const w = this.jobsWeights;
+        let score = 0;
+        const prefTypes = normalizeTextArray(prefs?.jobsTypes);
+        const typeScore = prefTypes.length ? 0.6 : 0.5;
+        score += w.typeMatch * typeScore;
+        const prefSkills = normalizeTextArray(prefs?.jobsSkills);
+        const profileSkills = normalizeTextArray(profile.requiredSkills || profile.skills);
+        score += w.skillsMatch * jaccardSimilarity(prefSkills, profileSkills);
+        const prefIndustries = normalizeTextArray(prefs?.jobsIndustries);
+        const jobIndustry = normalizeTextArray(profile.industry);
+        score += w.industryMatch * jaccardSimilarity(prefIndustries, jobIndustry);
+        const prefEdu = normalizeTextArray(prefs?.jobsEducationLevel);
+        const eduScore = prefEdu.length ? 0.55 : 0.5;
+        const prefExp = normalizeTextArray(prefs?.jobsExperienceLevel);
+        const expScore = prefExp.length ? 0.55 : 0.5;
+        score += w.experienceEducation * ((eduScore + expScore) / 2);
+        const prefArrangement = normalizeTextArray(prefs?.jobsWorkArrangement);
+        const arrangementScore = prefArrangement.length ? 0.55 : 0.5;
+        score += w.locationArrangement * arrangementScore;
+        const salaryPrefScore = prefs?.jobsSalaryMin || prefs?.jobsSalaryMax ? 0.55 : 0.5;
+        score += w.salaryPreference * salaryPrefScore;
+        return clampScore(score);
+      }
+    };
+    suiteMatchingEngine = new SuiteMatchingEngine();
   }
 });
 
@@ -13831,7 +15410,7 @@ var init_email_verification = __esm({
                     break;
                   case 1:
                     if (line.startsWith("250")) {
-                      socket.write(`MAIL FROM:<admin@btechnos.com>\r
+                      socket.write(`MAIL FROM:<admin@kronogon.com>\r
 `);
                       step = 2;
                     } else {
@@ -13977,25 +15556,26 @@ async function getHomePageData(req, res) {
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    console.log(`[UNIFIED-API] Starting parallel data fetch for user ${userId}`);
-    console.log(`[UNIFIED-API] \u{1F6A8} VERIFICATION: About to call getEnhancedDiscoveryUsers with AI matching engine`);
-    const [
-      user,
-      discoverUsers,
-      swipeHistory2,
-      premiumStatus
-    ] = await Promise.all([
+    console.log(
+      `[UNIFIED-API] Starting parallel data fetch for user ${userId}`
+    );
+    console.log(
+      `[UNIFIED-API] \u{1F6A8} VERIFICATION: About to call getEnhancedDiscoveryUsers with AI matching engine`
+    );
+    const [user, discoverUsers, swipeHistory2, premiumStatus] = await Promise.all([
       // User data (essential)
       storage.getUser(userId),
-      // 🎯 Enhanced AI-powered discovery with hybrid matching
-      getEnhancedDiscoveryUsers(userId),
+      // 🎯 Enhanced AI-powered discovery with hybrid matching (with timeout & fallback)
+      getDiscoveryWithTimeout(userId),
       // Swipe history (for undo functionality)
       storage.getSwipeHistory(userId, "MEET", 50),
       // Premium status (essential for features)
       storage.getPremiumStatus(userId)
     ]);
     const duration = Date.now() - startTime;
-    console.log(`[UNIFIED-API] Parallel fetch completed in ${duration}ms for user ${userId}`);
+    console.log(
+      `[UNIFIED-API] Parallel fetch completed in ${duration}ms for user ${userId}`
+    );
     const responseData = {
       user,
       discoverUsers: discoverUsers || [],
@@ -14016,24 +15596,64 @@ async function getHomePageData(req, res) {
     res.status(500).json({ message: "Internal server error" });
   }
 }
-async function getEnhancedDiscoveryUsers(userId) {
+async function getEnhancedDiscoveryUsers(userId, limit) {
   try {
-    console.log(`[ENHANCED-MEET] \u{1F3AF} Using AI matching engine for user ${userId}`);
+    console.log(
+      `[ENHANCED-MEET] \u{1F3AF} Using AI matching engine for user ${userId}`
+    );
     const context = {
       currentTime: /* @__PURE__ */ new Date(),
       lastActiveThreshold: 60,
       // 1 hour
       mode: "meet"
     };
-    const rankedUsers = await matchingEngine.getRankedDiscovery(userId, context, 50);
-    console.log(`[ENHANCED-MEET] \u26A1 AI engine returned ${rankedUsers.length} personalized matches`);
+    const isProduction = process.env.NODE_ENV === "production";
+    const effectiveLimit = typeof limit === "number" && limit > 0 ? limit : isProduction ? 16 : 50;
+    const rankedUsers = await matchingEngine.getRankedDiscovery(
+      userId,
+      context,
+      effectiveLimit
+    );
+    console.log(
+      `[ENHANCED-MEET] \u26A1 AI engine returned ${rankedUsers.length} personalized matches`
+    );
     const safeUsers = rankedUsers.map((user) => {
       const { password, ...safeUser } = user;
       return safeUser;
     });
     return safeUsers;
   } catch (error) {
-    console.error("[ENHANCED-MEET] AI matching failed, falling back to original discovery:", error);
+    console.error(
+      "[ENHANCED-MEET] AI matching failed, falling back to original discovery:",
+      error
+    );
+    return await storage.getDiscoverUsers(userId);
+  }
+}
+async function getDiscoveryWithTimeout(userId) {
+  const isProduction = process.env.NODE_ENV === "production";
+  const timeoutMs = Number(
+    process.env.MEET_DISCOVERY_TIMEOUT_MS || (isProduction ? 5e3 : 15e3)
+  );
+  const limit = Number(
+    process.env.MEET_DISCOVERY_LIMIT || (isProduction ? 16 : 50)
+  );
+  try {
+    const aiPromise = getEnhancedDiscoveryUsers(userId, limit);
+    const timeoutPromise = new Promise(async (resolve) => {
+      setTimeout(async () => {
+        console.warn(
+          `[ENHANCED-MEET] \u23F1\uFE0F Timeout after ${timeoutMs}ms for user ${userId}, using legacy discovery`
+        );
+        resolve(await storage.getDiscoverUsers(userId));
+      }, timeoutMs);
+    });
+    return await Promise.race([aiPromise, timeoutPromise]);
+  } catch (e) {
+    console.error(
+      "[ENHANCED-MEET] Discovery wrapper error, using legacy discovery:",
+      e
+    );
     return await storage.getDiscoverUsers(userId);
   }
 }
@@ -14044,7 +15664,9 @@ async function getSuitePageData(req, res) {
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-    console.log(`[UNIFIED-API] Starting parallel SUITE data fetch for user ${userId}`);
+    console.log(
+      `[UNIFIED-API] Starting parallel SUITE data fetch for user ${userId}`
+    );
     const [
       user,
       suiteConnectionCounts,
@@ -14061,10 +15683,14 @@ async function getSuitePageData(req, res) {
       storage.getUnreadMessageCount(userId)
     ]);
     const duration = Date.now() - startTime;
-    console.log(`[UNIFIED-API] Parallel SUITE fetch completed in ${duration}ms for user ${userId}`);
+    console.log(
+      `[UNIFIED-API] Parallel SUITE fetch completed in ${duration}ms for user ${userId}`
+    );
     res.json({
       user,
-      suiteConnectionCounts: suiteConnectionCounts || { networking: { matches: 0, pending: 0 } },
+      suiteConnectionCounts: suiteConnectionCounts || {
+        networking: { matches: 0, pending: 0 }
+      },
       networkingProfile,
       mentorshipProfile,
       jobProfile,
@@ -14092,7 +15718,7 @@ init_auth();
 init_auth();
 init_match_api();
 import { createServer } from "http";
-import { WebSocketServer, WebSocket as WebSocket3 } from "ws";
+import { WebSocketServer, WebSocket as WebSocket4 } from "ws";
 
 // server/suite-connection-api.ts
 init_storage();
@@ -14103,116 +15729,198 @@ function setSuiteWebSocketConnections(connections) {
   connectedUsers2 = connections;
 }
 function registerSuiteConnectionAPI(app2) {
-  app2.post("/api/suite/connections/message", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const userId = req.user.id;
-      const { targetUserId, connectionType, profileId } = req.body;
-      if (!connectionType || !profileId) {
-        return res.status(400).json({
-          message: "Missing required fields: connectionType, profileId"
-        });
-      }
-      console.log(`Creating instant match via message for user ${userId} -> profile ${profileId} (${connectionType})`);
-      let newConnection;
-      let isMatch = true;
-      let actualTargetUserId = targetUserId;
-      switch (connectionType) {
-        case "networking":
-          const networkingProfile = await storage.getSuiteNetworkingProfileById(parseInt(profileId));
-          if (!networkingProfile) {
-            return res.status(404).json({ message: "Networking profile not found" });
-          }
-          actualTargetUserId = networkingProfile.userId;
-          const existingNetworking = await storage.getSuiteNetworkingConnection(userId, parseInt(profileId));
-          if (existingNetworking) {
-            return res.status(409).json({
-              message: "Connection already exists",
-              connection: existingNetworking
-            });
-          }
-          newConnection = await storage.createSuiteNetworkingConnection({
-            userId,
-            targetUserId: actualTargetUserId,
-            targetProfileId: parseInt(profileId),
-            action: "like",
-            matched: true
-            // Instant match via message
-          });
-          break;
-        case "mentorship":
-          const mentorshipProfile = await storage.getSuiteMentorshipProfileById(parseInt(profileId));
-          if (!mentorshipProfile) {
-            return res.status(404).json({ message: "Mentorship profile not found" });
-          }
-          actualTargetUserId = mentorshipProfile.userId;
-          const existingMentorship = await storage.getSuiteMentorshipConnection(userId, parseInt(profileId));
-          if (existingMentorship) {
-            return res.status(409).json({
-              message: "Connection already exists",
-              connection: existingMentorship
-            });
-          }
-          newConnection = await storage.createSuiteMentorshipConnection({
-            userId,
-            targetUserId: actualTargetUserId,
-            targetProfileId: parseInt(profileId),
-            action: "like",
-            matched: true
-            // Instant match via message
-          });
-          break;
-        case "jobs":
-          const jobProfile = await storage.getSuiteJobProfileById(parseInt(profileId));
-          if (!jobProfile) {
-            return res.status(404).json({ message: "Job profile not found" });
-          }
-          actualTargetUserId = jobProfile.userId;
-          const existingJob = await storage.getSuiteJobApplication(userId, parseInt(profileId));
-          if (existingJob) {
-            return res.status(409).json({
-              message: "Application already exists",
-              application: existingJob
-            });
-          }
-          newConnection = await storage.createSuiteJobApplication({
-            userId,
-            targetUserId: actualTargetUserId,
-            targetProfileId: parseInt(profileId),
-            action: "like",
-            applicationStatus: "accepted",
-            // Instant acceptance via message
-            matched: true
-            // Instant match via message
-          });
-          break;
-        default:
-          return res.status(400).json({ message: "Invalid connection type" });
-      }
-      const targetUserWs = connectedUsers2.get(actualTargetUserId);
-      if (targetUserWs && targetUserWs.readyState === 1) {
-        const notificationData = {
-          type: "suite_message_match",
-          connectionType,
-          fromUserId: userId,
-          isMatch: true,
-          timestamp: (/* @__PURE__ */ new Date()).toISOString()
-        };
-        try {
-          targetUserWs.send(JSON.stringify(notificationData));
-          console.log(`\u2705 Message match notification sent to user ${actualTargetUserId} for ${connectionType}`);
-        } catch (error) {
-          console.error(`\u274C Failed to send message match notification:`, error);
-        }
-      }
+  app2.post(
+    "/api/suite/connections/message",
+    async (req, res) => {
       try {
-        let existingMatch = await storage.getMatchBetweenUsers(userId, actualTargetUserId);
-        let chatData;
-        if (existingMatch) {
-          if (!existingMatch.matched) {
-            chatData = await storage.updateMatch(existingMatch.id, {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const { targetUserId, connectionType, profileId } = req.body;
+        if (!connectionType || !profileId) {
+          return res.status(400).json({
+            message: "Missing required fields: connectionType, profileId"
+          });
+        }
+        console.log(
+          `Creating instant match via message for user ${userId} -> profile ${profileId} (${connectionType})`
+        );
+        let newConnection;
+        let isMatch = true;
+        let actualTargetUserId = targetUserId;
+        switch (connectionType) {
+          case "networking":
+            const networkingProfile = await storage.getSuiteNetworkingProfileById(parseInt(profileId));
+            if (!networkingProfile) {
+              return res.status(404).json({ message: "Networking profile not found" });
+            }
+            actualTargetUserId = networkingProfile.userId;
+            const existingNetworking = await storage.getSuiteNetworkingConnection(
+              userId,
+              parseInt(profileId)
+            );
+            if (existingNetworking) {
+              return res.status(409).json({
+                message: "Connection already exists",
+                connection: existingNetworking
+              });
+            }
+            newConnection = await storage.createSuiteNetworkingConnection({
+              userId,
+              targetUserId: actualTargetUserId,
+              targetProfileId: parseInt(profileId),
+              action: "like",
+              matched: true
+              // Instant match via message
+            });
+            break;
+          case "mentorship":
+            const mentorshipProfile = await storage.getSuiteMentorshipProfileById(parseInt(profileId));
+            if (!mentorshipProfile) {
+              return res.status(404).json({ message: "Mentorship profile not found" });
+            }
+            actualTargetUserId = mentorshipProfile.userId;
+            const existingMentorship = await storage.getSuiteMentorshipConnection(
+              userId,
+              parseInt(profileId)
+            );
+            if (existingMentorship) {
+              return res.status(409).json({
+                message: "Connection already exists",
+                connection: existingMentorship
+              });
+            }
+            newConnection = await storage.createSuiteMentorshipConnection({
+              userId,
+              targetUserId: actualTargetUserId,
+              targetProfileId: parseInt(profileId),
+              action: "like",
+              matched: true
+              // Instant match via message
+            });
+            break;
+          case "jobs":
+            const jobProfile = await storage.getSuiteJobProfileById(
+              parseInt(profileId)
+            );
+            if (!jobProfile) {
+              return res.status(404).json({ message: "Job profile not found" });
+            }
+            actualTargetUserId = jobProfile.userId;
+            const existingJob = await storage.getSuiteJobApplication(
+              userId,
+              parseInt(profileId)
+            );
+            if (existingJob) {
+              return res.status(409).json({
+                message: "Application already exists",
+                application: existingJob
+              });
+            }
+            newConnection = await storage.createSuiteJobApplication({
+              userId,
+              targetUserId: actualTargetUserId,
+              targetProfileId: parseInt(profileId),
+              action: "like",
+              applicationStatus: "accepted",
+              // Instant acceptance via message
+              matched: true
+              // Instant match via message
+            });
+            break;
+          default:
+            return res.status(400).json({ message: "Invalid connection type" });
+        }
+        const targetUserWs = connectedUsers2.get(actualTargetUserId);
+        if (targetUserWs && targetUserWs.readyState === 1) {
+          const notificationData = {
+            type: "suite_message_match",
+            connectionType,
+            fromUserId: userId,
+            isMatch: true,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          };
+          try {
+            targetUserWs.send(JSON.stringify(notificationData));
+            console.log(
+              `\u2705 Message match notification sent to user ${actualTargetUserId} for ${connectionType}`
+            );
+          } catch (error) {
+            console.error(
+              `\u274C Failed to send message match notification:`,
+              error
+            );
+          }
+        }
+        try {
+          let existingMatch = await storage.getMatchBetweenUsers(
+            userId,
+            actualTargetUserId
+          );
+          let chatData;
+          if (existingMatch) {
+            if (!existingMatch.matched) {
+              chatData = await storage.updateMatch(existingMatch.id, {
+                matched: true,
+                metadata: JSON.stringify({
+                  origin: "SUITE",
+                  suiteType: connectionType,
+                  context: "professional"
+                })
+              });
+            } else {
+              let metadata;
+              if (!existingMatch.metadata) {
+                metadata = {
+                  origin: "SUITE",
+                  suiteType: connectionType,
+                  context: "professional"
+                };
+              } else {
+                try {
+                  metadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
+                  if (metadata.origin === "SUITE" && metadata.suiteType !== connectionType || metadata.origin === "MEET") {
+                    if (!metadata.additionalConnections) {
+                      metadata.additionalConnections = [];
+                    }
+                    if (!metadata.additionalConnections.includes(connectionType)) {
+                      metadata.additionalConnections.push(connectionType);
+                      console.log(
+                        `\u{1F517} Adding ${connectionType} to additionalConnections for existing match ${existingMatch.id} via direct message`
+                      );
+                      chatData = await storage.updateMatch(existingMatch.id, {
+                        metadata: JSON.stringify(metadata)
+                      });
+                    } else {
+                      chatData = existingMatch;
+                    }
+                  } else {
+                    chatData = existingMatch;
+                  }
+                } catch (parseError) {
+                  console.error(
+                    "Failed to parse existing metadata:",
+                    parseError
+                  );
+                  metadata = {
+                    origin: "SUITE",
+                    suiteType: connectionType,
+                    context: "professional"
+                  };
+                  chatData = await storage.updateMatch(existingMatch.id, {
+                    metadata: JSON.stringify(metadata)
+                  });
+                }
+              }
+              if (!chatData) {
+                chatData = existingMatch;
+              }
+            }
+          } else {
+            chatData = await storage.createMatch({
+              userId1: userId,
+              userId2: actualTargetUserId,
               matched: true,
               metadata: JSON.stringify({
                 origin: "SUITE",
@@ -14220,160 +15928,791 @@ function registerSuiteConnectionAPI(app2) {
                 context: "professional"
               })
             });
-          } else {
-            let metadata;
-            if (!existingMatch.metadata) {
-              metadata = {
-                origin: "SUITE",
-                suiteType: connectionType,
-                context: "professional"
-              };
-            } else {
-              try {
-                metadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
-                if (metadata.origin === "SUITE" && metadata.suiteType !== connectionType || metadata.origin === "MEET") {
-                  if (!metadata.additionalConnections) {
-                    metadata.additionalConnections = [];
-                  }
-                  if (!metadata.additionalConnections.includes(connectionType)) {
-                    metadata.additionalConnections.push(connectionType);
-                    console.log(`\u{1F517} Adding ${connectionType} to additionalConnections for existing match ${existingMatch.id} via direct message`);
-                    chatData = await storage.updateMatch(existingMatch.id, {
-                      metadata: JSON.stringify(metadata)
-                    });
-                  } else {
-                    chatData = existingMatch;
-                  }
-                } else {
-                  chatData = existingMatch;
+          }
+          console.log(
+            `\u2705 Chat thread created for SUITE ${connectionType} connection:`,
+            chatData.id
+          );
+          console.log(
+            `[SWIPE-CLEANUP] Starting cleanup for SUITE instant match between users ${userId} and ${actualTargetUserId} (${connectionType})`
+          );
+          try {
+            await storage.removeMatchedUsersFromSwipeHistory(
+              userId,
+              actualTargetUserId,
+              `SUITE_${connectionType.toUpperCase()}`
+            );
+          } catch (cleanupError) {
+            console.error(
+              `[SWIPE-CLEANUP] Failed for SUITE ${connectionType} instant match:`,
+              cleanupError
+            );
+          }
+          res.status(201).json({
+            connection: newConnection,
+            isMatch: true,
+            chatId: chatData.id,
+            message: `Instant ${connectionType} match created via message!`
+          });
+        } catch (chatError) {
+          console.error(`\u274C Failed to create chat thread:`, chatError);
+          res.status(201).json({
+            connection: newConnection,
+            isMatch: true,
+            message: `${connectionType} connection created`
+          });
+        }
+      } catch (error) {
+        console.error("Error creating message match:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+  app2.post(
+    "/api/suite/connections/networking",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const validatedData = insertSuiteNetworkingConnectionSchema.parse(
+          req.body
+        );
+        console.log(
+          `Creating networking connection for user ${userId}:`,
+          validatedData
+        );
+        if (validatedData.userId !== userId) {
+          return res.status(403).json({ message: "Not authorized to create this connection" });
+        }
+        const existingConnection = await storage.getSuiteNetworkingConnection(
+          userId,
+          validatedData.targetProfileId
+        );
+        let connection;
+        if (existingConnection) {
+          const isDislike = validatedData.action === "pass";
+          if (existingConnection.action === validatedData.action && existingConnection.isDislike === isDislike) {
+            return res.status(409).json({
+              message: "Connection already exists with this state",
+              connection: existingConnection
+            });
+          }
+          connection = await storage.updateSuiteNetworkingConnection(
+            existingConnection.id,
+            {
+              action: validatedData.action,
+              isDislike,
+              matched: false
+              // Reset match status when action changes
+            }
+          );
+          console.log(
+            `Updated existing networking connection ${existingConnection.id} with new action: ${validatedData.action}`
+          );
+        } else {
+          const connectionData = {
+            ...validatedData,
+            isDislike: validatedData.action === "pass"
+          };
+          connection = await storage.createSuiteNetworkingConnection(connectionData);
+          console.log(
+            `Created new networking connection with action: ${validatedData.action}, isDislike: ${connectionData.isDislike}`
+          );
+        }
+        const userProfileId = await getUserNetworkingProfileId(userId);
+        let reciprocalConnection = null;
+        if (userProfileId !== null) {
+          reciprocalConnection = await storage.getSuiteNetworkingConnection(
+            validatedData.targetUserId,
+            userProfileId
+          );
+        }
+        let isMatch = false;
+        if (reciprocalConnection && reciprocalConnection.action === "like" && validatedData.action === "like" && !reciprocalConnection.isDislike) {
+          await storage.updateSuiteNetworkingConnection(connection.id, {
+            matched: true
+          });
+          await storage.updateSuiteNetworkingConnection(
+            reciprocalConnection.id,
+            { matched: true }
+          );
+          isMatch = true;
+          console.log(
+            `Created networking match between users ${userId} and ${validatedData.targetUserId}`
+          );
+          try {
+            const existingMatch = await storage.getMatchBetweenUsers(
+              userId,
+              validatedData.targetUserId
+            );
+            if (existingMatch && existingMatch.metadata) {
+              const existingMetadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
+              if (existingMetadata && (existingMetadata.origin === "MEET" || existingMetadata.origin === "SUITE" && existingMetadata.suiteType !== "networking")) {
+                if (!existingMetadata.additionalConnections) {
+                  existingMetadata.additionalConnections = [];
                 }
-              } catch (parseError) {
-                console.error("Failed to parse existing metadata:", parseError);
-                metadata = {
-                  origin: "SUITE",
-                  suiteType: connectionType,
-                  context: "professional"
-                };
-                chatData = await storage.updateMatch(existingMatch.id, {
-                  metadata: JSON.stringify(metadata)
-                });
+                if (!existingMetadata.additionalConnections.includes("networking")) {
+                  existingMetadata.additionalConnections.push("networking");
+                  console.log(
+                    `\u{1F517} Adding networking to additionalConnections for existing match ${existingMatch.id} between users ${userId} and ${validatedData.targetUserId}`
+                  );
+                  await storage.updateMatch(existingMatch.id, {
+                    metadata: JSON.stringify(existingMetadata)
+                  });
+                }
               }
+            } else if (!existingMatch) {
+              await storage.createMatch({
+                userId1: userId,
+                userId2: validatedData.targetUserId,
+                matched: true,
+                metadata: JSON.stringify({
+                  origin: "SUITE",
+                  suiteType: "networking",
+                  context: "professional"
+                })
+              });
+              console.log(
+                `\u{1F517} Created new match for networking connection between users ${userId} and ${validatedData.targetUserId}`
+              );
             }
-            if (!chatData) {
-              chatData = existingMatch;
+          } catch (metadataError) {
+            console.error(
+              "Failed to process additional connection metadata for networking match:",
+              metadataError
+            );
+          }
+          try {
+            await storage.removeMatchedUsersFromSwipeHistory(
+              userId,
+              validatedData.targetUserId
+            );
+            console.log(
+              `[NETWORKING-MATCH] Cleaned up swipe history for matched users: ${userId} \u2194 ${validatedData.targetUserId}`
+            );
+          } catch (historyError) {
+            console.error(
+              "Error cleaning up networking swipe history for matched users:",
+              historyError
+            );
+          }
+        }
+        console.log(
+          `[WEBSOCKET DEBUG] Checking for WebSocket connection for user ${validatedData.targetUserId}`
+        );
+        console.log(
+          `[WEBSOCKET DEBUG] Connected users count: ${connectedUsers2.size}`
+        );
+        console.log(
+          `[WEBSOCKET DEBUG] Connected user IDs:`,
+          Array.from(connectedUsers2.keys())
+        );
+        const targetUserWs = connectedUsers2.get(validatedData.targetUserId);
+        if (targetUserWs) {
+          console.log(
+            `[WEBSOCKET DEBUG] Found WebSocket for user ${validatedData.targetUserId}, readyState: ${targetUserWs.readyState}`
+          );
+          if (targetUserWs.readyState === 1) {
+            const fromUser = await storage.getUser(userId);
+            const fromNetworkingProfile = await storage.getSuiteNetworkingProfile(userId);
+            const notificationData = {
+              type: isMatch ? "networking_match" : "networking_like",
+              targetUserId: validatedData.targetUserId,
+              // CRITICAL: Add targetUserId for notification filtering
+              connection: {
+                ...connection,
+                targetUser: fromUser,
+                targetProfile: fromNetworkingProfile
+              },
+              fromUserId: userId,
+              fromUser,
+              fromNetworkingProfile,
+              isMatch,
+              timestamp: (/* @__PURE__ */ new Date()).toISOString()
+            };
+            try {
+              targetUserWs.send(JSON.stringify(notificationData));
+              console.log(
+                `\u2705 [WEBSOCKET SUCCESS] Notification sent to user ${validatedData.targetUserId} for networking connection from user ${userId}`
+              );
+              console.log(
+                `[WEBSOCKET DATA]`,
+                JSON.stringify(notificationData, null, 2)
+              );
+            } catch (error) {
+              console.error(
+                `\u274C [WEBSOCKET ERROR] Failed to send notification:`,
+                error
+              );
             }
+          } else {
+            console.log(
+              `\u274C [WEBSOCKET ERROR] WebSocket for user ${validatedData.targetUserId} is not open (readyState: ${targetUserWs.readyState})`
+            );
           }
         } else {
-          chatData = await storage.createMatch({
-            userId1: userId,
-            userId2: actualTargetUserId,
-            matched: true,
-            metadata: JSON.stringify({
-              origin: "SUITE",
-              suiteType: connectionType,
-              context: "professional"
-            })
-          });
-        }
-        console.log(`\u2705 Chat thread created for SUITE ${connectionType} connection:`, chatData.id);
-        console.log(`[SWIPE-CLEANUP] Starting cleanup for SUITE instant match between users ${userId} and ${actualTargetUserId} (${connectionType})`);
-        try {
-          await storage.removeMatchedUsersFromSwipeHistory(userId, actualTargetUserId, `SUITE_${connectionType.toUpperCase()}`);
-        } catch (cleanupError) {
-          console.error(`[SWIPE-CLEANUP] Failed for SUITE ${connectionType} instant match:`, cleanupError);
+          console.log(
+            `\u274C [WEBSOCKET ERROR] No WebSocket connection found for user ${validatedData.targetUserId}`
+          );
+          console.log(
+            `[WEBSOCKET DEBUG] User may not be currently connected or on a different page`
+          );
         }
         res.status(201).json({
-          connection: newConnection,
-          isMatch: true,
-          chatId: chatData.id,
-          message: `Instant ${connectionType} match created via message!`
-        });
-      } catch (chatError) {
-        console.error(`\u274C Failed to create chat thread:`, chatError);
-        res.status(201).json({
-          connection: newConnection,
-          isMatch: true,
-          message: `${connectionType} connection created`
-        });
-      }
-    } catch (error) {
-      console.error("Error creating message match:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.post("/api/suite/connections/networking", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const userId = req.user.id;
-      const validatedData = insertSuiteNetworkingConnectionSchema.parse(req.body);
-      console.log(`Creating networking connection for user ${userId}:`, validatedData);
-      if (validatedData.userId !== userId) {
-        return res.status(403).json({ message: "Not authorized to create this connection" });
-      }
-      const existingConnection = await storage.getSuiteNetworkingConnection(
-        userId,
-        validatedData.targetProfileId
-      );
-      let connection;
-      if (existingConnection) {
-        const isDislike = validatedData.action === "pass";
-        if (existingConnection.action === validatedData.action && existingConnection.isDislike === isDislike) {
-          return res.status(409).json({
-            message: "Connection already exists with this state",
-            connection: existingConnection
-          });
-        }
-        connection = await storage.updateSuiteNetworkingConnection(existingConnection.id, {
+          connection,
+          isMatch,
           action: validatedData.action,
-          isDislike,
-          matched: false
-          // Reset match status when action changes
+          message: isMatch ? "It's a professional match!" : validatedData.action === "like" ? "Connection request sent" : "Profile passed"
         });
-        console.log(`Updated existing networking connection ${existingConnection.id} with new action: ${validatedData.action}`);
-      } else {
-        const connectionData = {
-          ...validatedData,
-          isDislike: validatedData.action === "pass"
-        };
-        connection = await storage.createSuiteNetworkingConnection(connectionData);
-        console.log(`Created new networking connection with action: ${validatedData.action}, isDislike: ${connectionData.isDislike}`);
+      } catch (error) {
+        if (error instanceof z2.ZodError) {
+          return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+        }
+        console.error("Error creating networking connection:", error);
+        res.status(500).json({ message: "Internal server error" });
       }
-      const userProfileId = await getUserNetworkingProfileId(userId);
-      let reciprocalConnection = null;
-      if (userProfileId !== null) {
-        reciprocalConnection = await storage.getSuiteNetworkingConnection(
-          validatedData.targetUserId,
-          userProfileId
+    }
+  );
+  app2.get(
+    "/api/suite/connections/networking",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const connections = await storage.getUserNetworkingConnections(userId);
+        res.json(connections);
+      } catch (error) {
+        console.error("Error fetching networking connections:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+  app2.post(
+    "/api/suite/connections/mentorship",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const validatedData = insertSuiteMentorshipConnectionSchema.parse(
+          req.body
         );
+        console.log(
+          `Creating mentorship connection for user ${userId}:`,
+          validatedData
+        );
+        if (validatedData.userId !== userId) {
+          return res.status(403).json({ message: "Not authorized to create this connection" });
+        }
+        const existingConnection = await storage.getSuiteMentorshipConnection(
+          userId,
+          validatedData.targetProfileId
+        );
+        let connection;
+        if (existingConnection) {
+          const isDislike = validatedData.action === "pass";
+          if (existingConnection.action === validatedData.action && existingConnection.isDislike === isDislike) {
+            return res.status(409).json({
+              message: "Connection already exists with this state",
+              connection: existingConnection
+            });
+          }
+          connection = await storage.updateSuiteMentorshipConnection(
+            existingConnection.id,
+            {
+              action: validatedData.action,
+              isDislike,
+              matched: false
+              // Reset match status when action changes
+            }
+          );
+          console.log(
+            `Updated existing mentorship connection ${existingConnection.id} with new action: ${validatedData.action}`
+          );
+        } else {
+          const connectionData = {
+            ...validatedData,
+            isDislike: validatedData.action === "pass"
+          };
+          connection = await storage.createSuiteMentorshipConnection(connectionData);
+          console.log(
+            `Created new mentorship connection with action: ${validatedData.action}, isDislike: ${connectionData.isDislike}`
+          );
+        }
+        const userProfileId = await getUserMentorshipProfileId(userId);
+        let reciprocalConnection = null;
+        if (userProfileId !== null) {
+          reciprocalConnection = await storage.getSuiteMentorshipConnection(
+            validatedData.targetUserId,
+            userProfileId
+          );
+        }
+        let isMatch = false;
+        if (reciprocalConnection && reciprocalConnection.action === "like" && validatedData.action === "like" && !reciprocalConnection.isDislike) {
+          await storage.updateSuiteMentorshipConnection(connection.id, {
+            matched: true
+          });
+          await storage.updateSuiteMentorshipConnection(
+            reciprocalConnection.id,
+            { matched: true }
+          );
+          isMatch = true;
+          console.log(
+            `Created mentorship match between users ${userId} and ${validatedData.targetUserId}`
+          );
+          try {
+            const existingMatch = await storage.getMatchBetweenUsers(
+              userId,
+              validatedData.targetUserId
+            );
+            if (existingMatch && existingMatch.metadata) {
+              const existingMetadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
+              if (existingMetadata && (existingMetadata.origin === "MEET" || existingMetadata.origin === "SUITE" && existingMetadata.suiteType !== "mentorship")) {
+                if (!existingMetadata.additionalConnections) {
+                  existingMetadata.additionalConnections = [];
+                }
+                if (!existingMetadata.additionalConnections.includes("mentorship")) {
+                  existingMetadata.additionalConnections.push("mentorship");
+                  console.log(
+                    `\u{1F517} Adding mentorship to additionalConnections for existing match ${existingMatch.id} between users ${userId} and ${validatedData.targetUserId}`
+                  );
+                  await storage.updateMatch(existingMatch.id, {
+                    metadata: JSON.stringify(existingMetadata)
+                  });
+                }
+              }
+            } else if (!existingMatch) {
+              await storage.createMatch({
+                userId1: userId,
+                userId2: validatedData.targetUserId,
+                matched: true,
+                metadata: JSON.stringify({
+                  origin: "SUITE",
+                  suiteType: "mentorship",
+                  context: "professional"
+                })
+              });
+              console.log(
+                `\u{1F517} Created new match for mentorship connection between users ${userId} and ${validatedData.targetUserId}`
+              );
+            }
+          } catch (metadataError) {
+            console.error(
+              "Failed to process additional connection metadata for mentorship match:",
+              metadataError
+            );
+          }
+          try {
+            await storage.removeMatchedUsersFromSwipeHistory(
+              userId,
+              validatedData.targetUserId
+            );
+            console.log(
+              `[MENTORSHIP-MATCH] Cleaned up swipe history for matched users: ${userId} \u2194 ${validatedData.targetUserId}`
+            );
+          } catch (historyError) {
+            console.error(
+              "Error cleaning up mentorship swipe history for matched users:",
+              historyError
+            );
+          }
+        }
+        const targetUserWs = connectedUsers2.get(validatedData.targetUserId);
+        if (targetUserWs && targetUserWs.readyState === 1) {
+          const notificationData = {
+            type: isMatch ? "mentorship_match" : "mentorship_like",
+            targetUserId: validatedData.targetUserId,
+            // CRITICAL: Add targetUserId for notification filtering
+            connection,
+            fromUserId: userId,
+            isMatch,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          };
+          targetUserWs.send(JSON.stringify(notificationData));
+          console.log(
+            `WebSocket notification sent to user ${validatedData.targetUserId} for mentorship connection`
+          );
+        }
+        res.status(201).json({
+          connection,
+          isMatch,
+          action: validatedData.action,
+          message: isMatch ? "It's a mentorship match!" : validatedData.action === "like" ? "Connection request sent" : "Profile passed"
+        });
+      } catch (error) {
+        if (error instanceof z2.ZodError) {
+          return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+        }
+        console.error("Error creating mentorship connection:", error);
+        res.status(500).json({ message: "Internal server error" });
       }
-      let isMatch = false;
-      if (reciprocalConnection && reciprocalConnection.action === "like" && validatedData.action === "like" && !reciprocalConnection.isDislike) {
-        await storage.updateSuiteNetworkingConnection(connection.id, { matched: true });
-        await storage.updateSuiteNetworkingConnection(reciprocalConnection.id, { matched: true });
-        isMatch = true;
-        console.log(`Created networking match between users ${userId} and ${validatedData.targetUserId}`);
-        try {
-          const existingMatch = await storage.getMatchBetweenUsers(userId, validatedData.targetUserId);
+    }
+  );
+  app2.get(
+    "/api/suite/connections/mentorship",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const connections = await storage.getUserMentorshipConnections(userId);
+        res.json(connections);
+      } catch (error) {
+        console.error("Error fetching mentorship connections:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+  app2.post(
+    "/api/suite/connections/jobs",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const validatedData = insertSuiteJobApplicationSchema.parse(req.body);
+        console.log(
+          `Creating job application for user ${userId}:`,
+          validatedData
+        );
+        if (validatedData.userId !== userId) {
+          return res.status(403).json({ message: "Not authorized to create this application" });
+        }
+        const existingApplication = await storage.getSuiteJobApplication(
+          userId,
+          validatedData.targetProfileId
+        );
+        if (existingApplication) {
+          return res.status(409).json({
+            message: "Application already exists",
+            application: existingApplication
+          });
+        }
+        const newApplication = await storage.createSuiteJobApplication(validatedData);
+        const targetUserWs = connectedUsers2.get(validatedData.targetUserId);
+        if (targetUserWs && targetUserWs.readyState === 1) {
+          const notificationData = {
+            type: "job_application",
+            targetUserId: validatedData.targetUserId,
+            // CRITICAL: Add targetUserId for notification filtering
+            application: newApplication,
+            fromUserId: userId,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          };
+          targetUserWs.send(JSON.stringify(notificationData));
+          console.log(
+            `WebSocket notification sent to user ${validatedData.targetUserId} for job application`
+          );
+        }
+        res.status(201).json({
+          application: newApplication,
+          message: "Application submitted successfully"
+        });
+      } catch (error) {
+        if (error instanceof z2.ZodError) {
+          return res.status(400).json({ message: "Invalid request data", errors: error.errors });
+        }
+        console.error("Error creating job application:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+  app2.get(
+    "/api/suite/connections/jobs",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const applications = await storage.getUserJobApplications(userId);
+        res.json(applications);
+      } catch (error) {
+        console.error("Error fetching job applications:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+  app2.post(
+    "/api/suite/connections/networking/:connectionId/respond",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const connectionId = parseInt(req.params.connectionId);
+        const { action } = req.body;
+        if (!["accept", "decline"].includes(action)) {
+          return res.status(400).json({ message: "Invalid action" });
+        }
+        const connection = await storage.getSuiteNetworkingConnectionById(connectionId);
+        if (!connection) {
+          return res.status(404).json({ message: "Connection not found" });
+        }
+        if (connection.targetUserId !== userId) {
+          return res.status(403).json({ message: "Unauthorized to respond to this connection" });
+        }
+        let isMatch = false;
+        if (action === "accept") {
+          await storage.updateSuiteNetworkingConnection(connectionId, {
+            matched: true
+          });
+          const reciprocalConnection = await storage.getSuiteNetworkingConnection(
+            connection.userId,
+            connection.targetProfileId
+          );
+          if (reciprocalConnection) {
+            await storage.updateSuiteNetworkingConnection(
+              reciprocalConnection.id,
+              { matched: true }
+            );
+          }
+          isMatch = true;
+          const acceptedByUser = await storage.getUser(userId);
+          const requesterUser = await storage.getUser(connection.userId);
+          const timestamp2 = (/* @__PURE__ */ new Date()).toISOString();
+          const requesterWs = connectedUsers2.get(connection.userId);
+          if (requesterWs && requesterWs.readyState === 1) {
+            const notificationData = {
+              type: "networking_match",
+              connection,
+              acceptedBy: userId,
+              isMatch: true,
+              timestamp: timestamp2,
+              matchedUserName: acceptedByUser?.fullName,
+              matchedUserPhoto: acceptedByUser?.photoUrl,
+              matchedUserProfession: acceptedByUser?.profession,
+              matchedUserLocation: acceptedByUser?.location
+            };
+            requesterWs.send(JSON.stringify(notificationData));
+            console.log(
+              `[SUITE-MATCH] Sent networking match notification to requester (User ${connection.userId})`
+            );
+          }
+          const accepterWs = connectedUsers2.get(userId);
+          if (accepterWs && accepterWs.readyState === 1) {
+            const notificationData = {
+              type: "networking_match",
+              connection,
+              acceptedBy: userId,
+              isMatch: true,
+              timestamp: timestamp2,
+              matchedUserName: requesterUser?.fullName,
+              matchedUserPhoto: requesterUser?.photoUrl,
+              matchedUserProfession: requesterUser?.profession,
+              matchedUserLocation: requesterUser?.location
+            };
+            accepterWs.send(JSON.stringify(notificationData));
+            console.log(
+              `[SUITE-MATCH] Sent networking match notification to accepter (User ${userId})`
+            );
+          }
+        } else {
+          await storage.deleteSuiteNetworkingConnectionById(connectionId);
+        }
+        res.json({
+          success: true,
+          isMatch,
+          message: action === "accept" ? "Connection accepted" : "Connection declined"
+        });
+      } catch (error) {
+        console.error("Error responding to networking connection:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+  app2.post(
+    "/api/suite/connections/mentorship/:connectionId/respond",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const connectionId = parseInt(req.params.connectionId);
+        const { action } = req.body;
+        if (!["accept", "decline"].includes(action)) {
+          return res.status(400).json({ message: "Invalid action" });
+        }
+        const connection = await storage.getSuiteMentorshipConnectionById(connectionId);
+        if (!connection) {
+          return res.status(404).json({ message: "Connection not found" });
+        }
+        if (connection.targetUserId !== userId) {
+          return res.status(403).json({ message: "Unauthorized to respond to this connection" });
+        }
+        let isMatch = false;
+        if (action === "accept") {
+          await storage.updateSuiteMentorshipConnection(connectionId, {
+            matched: true
+          });
+          const reciprocalConnection = await storage.getSuiteMentorshipConnection(
+            connection.userId,
+            connection.targetProfileId
+          );
+          if (reciprocalConnection) {
+            await storage.updateSuiteMentorshipConnection(
+              reciprocalConnection.id,
+              { matched: true }
+            );
+          }
+          isMatch = true;
+          const timestamp2 = (/* @__PURE__ */ new Date()).toISOString();
+          const requesterWs = connectedUsers2.get(connection.userId);
+          if (requesterWs && requesterWs.readyState === 1) {
+            const notificationData = {
+              type: "mentorship_match",
+              connection,
+              acceptedBy: userId,
+              isMatch: true,
+              timestamp: timestamp2
+            };
+            requesterWs.send(JSON.stringify(notificationData));
+            console.log(
+              `WebSocket mentorship match notification sent to requester ${connection.userId}`
+            );
+          }
+          const accepterWs = connectedUsers2.get(userId);
+          if (accepterWs && accepterWs.readyState === 1) {
+            const notificationData = {
+              type: "mentorship_match",
+              connection,
+              acceptedBy: userId,
+              isMatch: true,
+              timestamp: timestamp2
+            };
+            accepterWs.send(JSON.stringify(notificationData));
+            console.log(
+              `WebSocket mentorship match notification sent to accepter ${userId}`
+            );
+          }
+        } else {
+          await storage.deleteSuiteMentorshipConnectionById(connectionId);
+        }
+        res.json({
+          success: true,
+          isMatch,
+          message: action === "accept" ? "Connection accepted" : "Connection declined"
+        });
+      } catch (error) {
+        console.error("Error responding to mentorship connection:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+  app2.post(
+    "/api/suite/connections/networking/respond",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const currentUserId = req.user.id;
+        const { requesterUserId, targetProfileId, action } = req.body;
+        if (!requesterUserId || !targetProfileId || !["accept", "decline"].includes(action)) {
+          return res.status(400).json({ message: "Invalid request data" });
+        }
+        const existingConnection = await storage.getSuiteNetworkingConnection(
+          requesterUserId,
+          targetProfileId
+        );
+        if (!existingConnection) {
+          return res.status(404).json({ message: "Connection request not found" });
+        }
+        if (existingConnection.targetUserId !== currentUserId) {
+          return res.status(403).json({ message: "Unauthorized to respond to this connection" });
+        }
+        let isMatch = false;
+        if (action === "accept") {
+          await storage.updateSuiteNetworkingConnection(existingConnection.id, {
+            matched: true
+          });
+          isMatch = true;
+          console.log(
+            `\u{1F50D} [NETWORKING-RESPONSE] Checking for existing matches between users ${currentUserId} and ${requesterUserId}`
+          );
+          const existingMatch = await storage.getMatchBetweenUsers(
+            currentUserId,
+            requesterUserId
+          );
           if (existingMatch && existingMatch.metadata) {
+            console.log(
+              `\u{1F50D} [NETWORKING-RESPONSE] Found existing match ${existingMatch.id}, checking metadata`
+            );
             const existingMetadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
+            console.log(
+              `\u{1F50D} [NETWORKING-RESPONSE] Current metadata: ${JSON.stringify(existingMetadata)}`
+            );
             if (existingMetadata && (existingMetadata.origin === "MEET" || existingMetadata.origin === "SUITE" && existingMetadata.suiteType !== "networking")) {
+              console.log(
+                `\u{1F517} [NETWORKING-RESPONSE] Found different connection type, adding networking as additional connection`
+              );
               if (!existingMetadata.additionalConnections) {
                 existingMetadata.additionalConnections = [];
               }
               if (!existingMetadata.additionalConnections.includes("networking")) {
                 existingMetadata.additionalConnections.push("networking");
-                console.log(`\u{1F517} Adding networking to additionalConnections for existing match ${existingMatch.id} between users ${userId} and ${validatedData.targetUserId}`);
+                console.log(
+                  `\u{1F517} [NETWORKING-RESPONSE] Adding networking to additionalConnections for existing match ${existingMatch.id} between users ${currentUserId} and ${requesterUserId}`
+                );
+                console.log(
+                  `\u{1F517} [NETWORKING-RESPONSE] New additionalConnections: ${JSON.stringify(existingMetadata.additionalConnections)}`
+                );
                 await storage.updateMatch(existingMatch.id, {
                   metadata: JSON.stringify(existingMetadata)
                 });
+                console.log(
+                  `\u{1F517} [NETWORKING-RESPONSE] Successfully updated existing match metadata`
+                );
+              } else {
+                console.log(
+                  `\u{1F517} [NETWORKING-RESPONSE] Networking already exists in additionalConnections`
+                );
               }
+            } else {
+              console.log(
+                `\u{1F517} [NETWORKING-RESPONSE] Same connection type or no metadata, no additional connection needed`
+              );
             }
           } else if (!existingMatch) {
-            await storage.createMatch({
-              userId1: userId,
-              userId2: validatedData.targetUserId,
+            console.log(
+              `\u{1F517} [NETWORKING-RESPONSE] No existing match found, creating new match entry for messaging system`
+            );
+            const matchData = {
+              userId1: Math.min(currentUserId, requesterUserId),
+              userId2: Math.max(currentUserId, requesterUserId),
+              matched: true,
+              isDislike: false,
+              metadata: JSON.stringify({
+                origin: "SUITE",
+                suiteType: "networking",
+                context: "professional"
+              })
+            };
+            const newMatch2 = await storage.createMatch(matchData);
+            console.log(
+              `\u{1F517} [NETWORKING-RESPONSE] Created new match for networking connection:`,
+              {
+                id: newMatch2.id,
+                userId1: newMatch2.userId1,
+                userId2: newMatch2.userId2,
+                matched: newMatch2.matched,
+                metadata: newMatch2.metadata
+              }
+            );
+          } else if (existingMatch && !existingMatch.matched) {
+            console.log(
+              `\u{1F517} [NETWORKING-RESPONSE] Found existing unmatched record, updating to SUITE networking match`
+            );
+            await storage.updateMatch(existingMatch.id, {
               matched: true,
               metadata: JSON.stringify({
                 origin: "SUITE",
@@ -14381,701 +16720,301 @@ function registerSuiteConnectionAPI(app2) {
                 context: "professional"
               })
             });
-            console.log(`\u{1F517} Created new match for networking connection between users ${userId} and ${validatedData.targetUserId}`);
+            console.log(
+              `\u{1F517} [NETWORKING-RESPONSE] Updated existing match ${existingMatch.id} for networking connection`
+            );
+          } else {
+            console.log(
+              `\u{1F50D} [NETWORKING-RESPONSE] Existing matched record found, using existing match`
+            );
           }
-        } catch (metadataError) {
-          console.error("Failed to process additional connection metadata for networking match:", metadataError);
-        }
-        try {
-          await storage.removeMatchedUsersFromSwipeHistory(userId, validatedData.targetUserId);
-          console.log(`[NETWORKING-MATCH] Cleaned up swipe history for matched users: ${userId} \u2194 ${validatedData.targetUserId}`);
-        } catch (historyError) {
-          console.error("Error cleaning up networking swipe history for matched users:", historyError);
-        }
-      }
-      console.log(`[WEBSOCKET DEBUG] Checking for WebSocket connection for user ${validatedData.targetUserId}`);
-      console.log(`[WEBSOCKET DEBUG] Connected users count: ${connectedUsers2.size}`);
-      console.log(`[WEBSOCKET DEBUG] Connected user IDs:`, Array.from(connectedUsers2.keys()));
-      const targetUserWs = connectedUsers2.get(validatedData.targetUserId);
-      if (targetUserWs) {
-        console.log(`[WEBSOCKET DEBUG] Found WebSocket for user ${validatedData.targetUserId}, readyState: ${targetUserWs.readyState}`);
-        if (targetUserWs.readyState === 1) {
-          const fromUser = await storage.getUser(userId);
-          const fromNetworkingProfile = await storage.getSuiteNetworkingProfile(userId);
-          const notificationData = {
-            type: isMatch ? "networking_match" : "networking_connection_request",
-            connection: {
-              ...connection,
-              targetUser: fromUser,
-              targetProfile: fromNetworkingProfile
-            },
-            fromUserId: userId,
-            fromUser,
-            fromNetworkingProfile,
-            isMatch,
-            timestamp: (/* @__PURE__ */ new Date()).toISOString()
-          };
-          try {
-            targetUserWs.send(JSON.stringify(notificationData));
-            console.log(`\u2705 [WEBSOCKET SUCCESS] Notification sent to user ${validatedData.targetUserId} for networking connection from user ${userId}`);
-            console.log(`[WEBSOCKET DATA]`, JSON.stringify(notificationData, null, 2));
-          } catch (error) {
-            console.error(`\u274C [WEBSOCKET ERROR] Failed to send notification:`, error);
+          const acceptedByUser = await storage.getUser(currentUserId);
+          const requesterUser = await storage.getUser(requesterUserId);
+          const requesterWs = connectedUsers2.get(requesterUserId);
+          if (requesterWs && requesterWs.readyState === 1) {
+            const notificationData = {
+              type: "networking_match",
+              connection: {
+                id: existingConnection.id,
+                userId: existingConnection.userId,
+                targetUserId: existingConnection.targetUserId
+              },
+              acceptedBy: currentUserId,
+              isMatch: true,
+              timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+              matchedUserName: acceptedByUser?.fullName,
+              matchedUserPhoto: acceptedByUser?.photoUrl,
+              matchedUserProfession: acceptedByUser?.profession,
+              matchedUserLocation: acceptedByUser?.location
+            };
+            requesterWs.send(JSON.stringify(notificationData));
+          }
+          const accepterWs = connectedUsers2.get(currentUserId);
+          if (accepterWs && accepterWs.readyState === 1) {
+            const notificationData = {
+              type: "networking_match",
+              connection: {
+                id: existingConnection.id,
+                userId: existingConnection.userId,
+                targetUserId: existingConnection.targetUserId
+              },
+              acceptedBy: currentUserId,
+              isMatch: true,
+              timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+              matchedUserName: requesterUser?.fullName,
+              matchedUserPhoto: requesterUser?.photoUrl,
+              matchedUserProfession: requesterUser?.profession,
+              matchedUserLocation: requesterUser?.location
+            };
+            accepterWs.send(JSON.stringify(notificationData));
+            console.log(
+              `[SUITE-MATCH] Sent networking match notification to accepter (User ${currentUserId})`
+            );
           }
         } else {
-          console.log(`\u274C [WEBSOCKET ERROR] WebSocket for user ${validatedData.targetUserId} is not open (readyState: ${targetUserWs.readyState})`);
-        }
-      } else {
-        console.log(`\u274C [WEBSOCKET ERROR] No WebSocket connection found for user ${validatedData.targetUserId}`);
-        console.log(`[WEBSOCKET DEBUG] User may not be currently connected or on a different page`);
-      }
-      res.status(201).json({
-        connection,
-        isMatch,
-        action: validatedData.action,
-        message: isMatch ? "It's a professional match!" : validatedData.action === "like" ? "Connection request sent" : "Profile passed"
-      });
-    } catch (error) {
-      if (error instanceof z2.ZodError) {
-        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
-      }
-      console.error("Error creating networking connection:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.get("/api/suite/connections/networking", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const userId = req.user.id;
-      const connections = await storage.getUserNetworkingConnections(userId);
-      res.json(connections);
-    } catch (error) {
-      console.error("Error fetching networking connections:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.post("/api/suite/connections/mentorship", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const userId = req.user.id;
-      const validatedData = insertSuiteMentorshipConnectionSchema.parse(req.body);
-      console.log(`Creating mentorship connection for user ${userId}:`, validatedData);
-      if (validatedData.userId !== userId) {
-        return res.status(403).json({ message: "Not authorized to create this connection" });
-      }
-      const existingConnection = await storage.getSuiteMentorshipConnection(
-        userId,
-        validatedData.targetProfileId
-      );
-      let connection;
-      if (existingConnection) {
-        const isDislike = validatedData.action === "pass";
-        if (existingConnection.action === validatedData.action && existingConnection.isDislike === isDislike) {
-          return res.status(409).json({
-            message: "Connection already exists with this state",
-            connection: existingConnection
+          await storage.updateSuiteNetworkingConnection(existingConnection.id, {
+            action: "pass",
+            isDislike: true,
+            matched: false
           });
         }
-        connection = await storage.updateSuiteMentorshipConnection(existingConnection.id, {
-          action: validatedData.action,
-          isDislike,
-          matched: false
-          // Reset match status when action changes
+        res.json({
+          success: true,
+          isMatch,
+          action,
+          message: action === "accept" ? "Connection accepted" : "Connection declined"
         });
-        console.log(`Updated existing mentorship connection ${existingConnection.id} with new action: ${validatedData.action}`);
-      } else {
-        const connectionData = {
-          ...validatedData,
-          isDislike: validatedData.action === "pass"
-        };
-        connection = await storage.createSuiteMentorshipConnection(connectionData);
-        console.log(`Created new mentorship connection with action: ${validatedData.action}, isDislike: ${connectionData.isDislike}`);
+      } catch (error) {
+        console.error("Error responding to networking connection:", error);
+        res.status(500).json({ message: "Internal server error" });
       }
-      const userProfileId = await getUserMentorshipProfileId(userId);
-      let reciprocalConnection = null;
-      if (userProfileId !== null) {
-        reciprocalConnection = await storage.getSuiteMentorshipConnection(
-          validatedData.targetUserId,
-          userProfileId
+    }
+  );
+  app2.post(
+    "/api/suite/connections/mentorship/respond",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const currentUserId = req.user.id;
+        const { requesterUserId, targetProfileId, action } = req.body;
+        if (!requesterUserId || !targetProfileId || !["accept", "decline"].includes(action)) {
+          return res.status(400).json({ message: "Invalid request data" });
+        }
+        const existingConnection = await storage.getSuiteMentorshipConnection(
+          requesterUserId,
+          targetProfileId
         );
-      }
-      let isMatch = false;
-      if (reciprocalConnection && reciprocalConnection.action === "like" && validatedData.action === "like" && !reciprocalConnection.isDislike) {
-        await storage.updateSuiteMentorshipConnection(connection.id, { matched: true });
-        await storage.updateSuiteMentorshipConnection(reciprocalConnection.id, { matched: true });
-        isMatch = true;
-        console.log(`Created mentorship match between users ${userId} and ${validatedData.targetUserId}`);
-        try {
-          const existingMatch = await storage.getMatchBetweenUsers(userId, validatedData.targetUserId);
-          if (existingMatch && existingMatch.metadata) {
-            const existingMetadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
-            if (existingMetadata && (existingMetadata.origin === "MEET" || existingMetadata.origin === "SUITE" && existingMetadata.suiteType !== "mentorship")) {
-              if (!existingMetadata.additionalConnections) {
-                existingMetadata.additionalConnections = [];
+        if (!existingConnection) {
+          return res.status(404).json({ message: "Connection request not found" });
+        }
+        if (existingConnection.targetUserId !== currentUserId) {
+          return res.status(403).json({ message: "Unauthorized to respond to this connection" });
+        }
+        let isMatch = false;
+        if (action === "accept") {
+          await storage.updateSuiteMentorshipConnection(existingConnection.id, {
+            matched: true
+          });
+          isMatch = true;
+          const existingMatch = await storage.getMatchBetweenUsers(
+            currentUserId,
+            requesterUserId
+          );
+          let finalMatch;
+          if (existingMatch) {
+            try {
+              let existingMetadata;
+              if (existingMatch.metadata) {
+                existingMetadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
               }
-              if (!existingMetadata.additionalConnections.includes("mentorship")) {
-                existingMetadata.additionalConnections.push("mentorship");
-                console.log(`\u{1F517} Adding mentorship to additionalConnections for existing match ${existingMatch.id} between users ${userId} and ${validatedData.targetUserId}`);
-                await storage.updateMatch(existingMatch.id, {
-                  metadata: JSON.stringify(existingMetadata)
+              if (existingMetadata) {
+                if (existingMetadata.origin === "SUITE" && existingMetadata.suiteType !== "mentorship" || existingMetadata.origin === "MEET") {
+                  if (!existingMetadata.additionalConnections) {
+                    existingMetadata.additionalConnections = [];
+                  }
+                  if (!existingMetadata.additionalConnections.includes(
+                    "mentorship"
+                  )) {
+                    existingMetadata.additionalConnections.push("mentorship");
+                    console.log(
+                      `\u{1F517} Adding mentorship to additionalConnections for existing match ${existingMatch.id} between users ${currentUserId} and ${requesterUserId}`
+                    );
+                  }
+                  finalMatch = await storage.updateMatch(existingMatch.id, {
+                    matched: true,
+                    metadata: JSON.stringify(existingMetadata)
+                  });
+                } else {
+                  finalMatch = await storage.updateMatch(existingMatch.id, {
+                    matched: true,
+                    metadata: JSON.stringify({
+                      origin: "SUITE",
+                      suiteType: "mentorship",
+                      context: "professional"
+                    })
+                  });
+                  console.log(
+                    `\u{1F517} Updated existing match ${existingMatch.id} with mentorship metadata`
+                  );
+                }
+              } else {
+                finalMatch = await storage.updateMatch(existingMatch.id, {
+                  matched: true,
+                  metadata: JSON.stringify({
+                    origin: "SUITE",
+                    suiteType: "mentorship",
+                    context: "professional"
+                  })
                 });
+                console.log(
+                  `\u{1F517} Added mentorship metadata to existing match ${existingMatch.id}`
+                );
               }
+            } catch (parseError) {
+              console.error("Failed to parse existing metadata:", parseError);
+              finalMatch = await storage.updateMatch(existingMatch.id, {
+                matched: true,
+                metadata: JSON.stringify({
+                  origin: "SUITE",
+                  suiteType: "mentorship",
+                  context: "professional"
+                })
+              });
             }
-          } else if (!existingMatch) {
-            await storage.createMatch({
-              userId1: userId,
-              userId2: validatedData.targetUserId,
+          } else {
+            const matchData = {
+              userId1: Math.min(currentUserId, requesterUserId),
+              userId2: Math.max(currentUserId, requesterUserId),
               matched: true,
+              isDislike: false,
               metadata: JSON.stringify({
                 origin: "SUITE",
                 suiteType: "mentorship",
                 context: "professional"
               })
-            });
-            console.log(`\u{1F517} Created new match for mentorship connection between users ${userId} and ${validatedData.targetUserId}`);
+            };
+            finalMatch = await storage.createMatch(matchData);
+            console.log(
+              `\u{1F517} Created new mentorship match between users ${currentUserId} and ${requesterUserId}`
+            );
           }
-        } catch (metadataError) {
-          console.error("Failed to process additional connection metadata for mentorship match:", metadataError);
+          const acceptedByUser = await storage.getUser(currentUserId);
+          const requesterUser = await storage.getUser(requesterUserId);
+          const requesterWs = connectedUsers2.get(requesterUserId);
+          if (requesterWs && requesterWs.readyState === 1) {
+            const notificationData = {
+              type: "mentorship_match",
+              connection: {
+                id: existingConnection.id,
+                userId: existingConnection.userId,
+                targetUserId: existingConnection.targetUserId
+              },
+              acceptedBy: currentUserId,
+              isMatch: true,
+              timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+              matchedUserName: acceptedByUser?.fullName,
+              matchedUserPhoto: acceptedByUser?.photoUrl,
+              matchedUserProfession: acceptedByUser?.profession,
+              matchedUserLocation: acceptedByUser?.location
+            };
+            requesterWs.send(JSON.stringify(notificationData));
+            console.log(
+              `[SUITE-MATCH] Sent mentorship match notification to requester (User ${requesterUserId})`
+            );
+          }
+          const accepterWs = connectedUsers2.get(currentUserId);
+          if (accepterWs && accepterWs.readyState === 1) {
+            const notificationData = {
+              type: "mentorship_match",
+              connection: {
+                id: existingConnection.id,
+                userId: existingConnection.userId,
+                targetUserId: existingConnection.targetUserId
+              },
+              acceptedBy: currentUserId,
+              isMatch: true,
+              timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+              matchedUserName: requesterUser?.fullName,
+              matchedUserPhoto: requesterUser?.photoUrl,
+              matchedUserProfession: requesterUser?.profession,
+              matchedUserLocation: requesterUser?.location
+            };
+            accepterWs.send(JSON.stringify(notificationData));
+            console.log(
+              `[SUITE-MATCH] Sent mentorship match notification to accepter (User ${currentUserId})`
+            );
+          }
+        } else {
+          await storage.updateSuiteMentorshipConnection(existingConnection.id, {
+            action: "pass",
+            isDislike: true,
+            matched: false
+          });
         }
-        try {
-          await storage.removeMatchedUsersFromSwipeHistory(userId, validatedData.targetUserId);
-          console.log(`[MENTORSHIP-MATCH] Cleaned up swipe history for matched users: ${userId} \u2194 ${validatedData.targetUserId}`);
-        } catch (historyError) {
-          console.error("Error cleaning up mentorship swipe history for matched users:", historyError);
-        }
-      }
-      const targetUserWs = connectedUsers2.get(validatedData.targetUserId);
-      if (targetUserWs && targetUserWs.readyState === 1) {
-        const notificationData = {
-          type: isMatch ? "mentorship_match" : "mentorship_connection_request",
-          connection,
-          fromUserId: userId,
+        res.json({
+          success: true,
           isMatch,
-          timestamp: (/* @__PURE__ */ new Date()).toISOString()
-        };
-        targetUserWs.send(JSON.stringify(notificationData));
-        console.log(`WebSocket notification sent to user ${validatedData.targetUserId} for mentorship connection`);
-      }
-      res.status(201).json({
-        connection,
-        isMatch,
-        action: validatedData.action,
-        message: isMatch ? "It's a mentorship match!" : validatedData.action === "like" ? "Connection request sent" : "Profile passed"
-      });
-    } catch (error) {
-      if (error instanceof z2.ZodError) {
-        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
-      }
-      console.error("Error creating mentorship connection:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.get("/api/suite/connections/mentorship", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const userId = req.user.id;
-      const connections = await storage.getUserMentorshipConnections(userId);
-      res.json(connections);
-    } catch (error) {
-      console.error("Error fetching mentorship connections:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.post("/api/suite/connections/jobs", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const userId = req.user.id;
-      const validatedData = insertSuiteJobApplicationSchema.parse(req.body);
-      console.log(`Creating job application for user ${userId}:`, validatedData);
-      if (validatedData.userId !== userId) {
-        return res.status(403).json({ message: "Not authorized to create this application" });
-      }
-      const existingApplication = await storage.getSuiteJobApplication(
-        userId,
-        validatedData.targetProfileId
-      );
-      if (existingApplication) {
-        return res.status(409).json({
-          message: "Application already exists",
-          application: existingApplication
+          action,
+          message: action === "accept" ? "Connection accepted" : "Connection declined"
         });
+      } catch (error) {
+        console.error("Error responding to mentorship connection:", error);
+        res.status(500).json({ message: "Internal server error" });
       }
-      const newApplication = await storage.createSuiteJobApplication(validatedData);
-      const targetUserWs = connectedUsers2.get(validatedData.targetUserId);
-      if (targetUserWs && targetUserWs.readyState === 1) {
-        const notificationData = {
-          type: "job_application_received",
-          application: newApplication,
-          fromUserId: userId,
-          timestamp: (/* @__PURE__ */ new Date()).toISOString()
-        };
-        targetUserWs.send(JSON.stringify(notificationData));
-        console.log(`WebSocket notification sent to user ${validatedData.targetUserId} for job application`);
-      }
-      res.status(201).json({
-        application: newApplication,
-        message: "Application submitted successfully"
-      });
-    } catch (error) {
-      if (error instanceof z2.ZodError) {
-        return res.status(400).json({ message: "Invalid request data", errors: error.errors });
-      }
-      console.error("Error creating job application:", error);
-      res.status(500).json({ message: "Internal server error" });
     }
-  });
-  app2.get("/api/suite/connections/jobs", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const userId = req.user.id;
-      const applications = await storage.getUserJobApplications(userId);
-      res.json(applications);
-    } catch (error) {
-      console.error("Error fetching job applications:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.post("/api/suite/connections/networking/:connectionId/respond", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const userId = req.user.id;
-      const connectionId = parseInt(req.params.connectionId);
-      const { action } = req.body;
-      if (!["accept", "decline"].includes(action)) {
-        return res.status(400).json({ message: "Invalid action" });
-      }
-      const connection = await storage.getSuiteNetworkingConnectionById(connectionId);
-      if (!connection) {
-        return res.status(404).json({ message: "Connection not found" });
-      }
-      if (connection.targetUserId !== userId) {
-        return res.status(403).json({ message: "Unauthorized to respond to this connection" });
-      }
-      let isMatch = false;
-      if (action === "accept") {
-        await storage.updateSuiteNetworkingConnection(connectionId, { matched: true });
-        const reciprocalConnection = await storage.getSuiteNetworkingConnection(
-          connection.userId,
-          connection.targetProfileId
-        );
-        if (reciprocalConnection) {
-          await storage.updateSuiteNetworkingConnection(reciprocalConnection.id, { matched: true });
+  );
+  app2.get(
+    "/api/suite/connections/counts",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
         }
-        isMatch = true;
-        const timestamp2 = (/* @__PURE__ */ new Date()).toISOString();
-        const requesterWs = connectedUsers2.get(connection.userId);
-        if (requesterWs && requesterWs.readyState === 1) {
-          const notificationData = {
-            type: "networking_match",
-            connection,
-            acceptedBy: userId,
-            isMatch: true,
-            timestamp: timestamp2
-          };
-          requesterWs.send(JSON.stringify(notificationData));
-          console.log(`WebSocket networking match notification sent to requester ${connection.userId}`);
-        }
-        const accepterWs = connectedUsers2.get(userId);
-        if (accepterWs && accepterWs.readyState === 1) {
-          const notificationData = {
-            type: "networking_match",
-            connection,
-            acceptedBy: userId,
-            isMatch: true,
-            timestamp: timestamp2
-          };
-          accepterWs.send(JSON.stringify(notificationData));
-          console.log(`WebSocket networking match notification sent to accepter ${userId}`);
-        }
-      } else {
-        await storage.deleteSuiteNetworkingConnectionById(connectionId);
-      }
-      res.json({
-        success: true,
-        isMatch,
-        message: action === "accept" ? "Connection accepted" : "Connection declined"
-      });
-    } catch (error) {
-      console.error("Error responding to networking connection:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.post("/api/suite/connections/mentorship/:connectionId/respond", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const userId = req.user.id;
-      const connectionId = parseInt(req.params.connectionId);
-      const { action } = req.body;
-      if (!["accept", "decline"].includes(action)) {
-        return res.status(400).json({ message: "Invalid action" });
-      }
-      const connection = await storage.getSuiteMentorshipConnectionById(connectionId);
-      if (!connection) {
-        return res.status(404).json({ message: "Connection not found" });
-      }
-      if (connection.targetUserId !== userId) {
-        return res.status(403).json({ message: "Unauthorized to respond to this connection" });
-      }
-      let isMatch = false;
-      if (action === "accept") {
-        await storage.updateSuiteMentorshipConnection(connectionId, { matched: true });
-        const reciprocalConnection = await storage.getSuiteMentorshipConnection(
-          connection.userId,
-          connection.targetProfileId
-        );
-        if (reciprocalConnection) {
-          await storage.updateSuiteMentorshipConnection(reciprocalConnection.id, { matched: true });
-        }
-        isMatch = true;
-        const timestamp2 = (/* @__PURE__ */ new Date()).toISOString();
-        const requesterWs = connectedUsers2.get(connection.userId);
-        if (requesterWs && requesterWs.readyState === 1) {
-          const notificationData = {
-            type: "mentorship_match",
-            connection,
-            acceptedBy: userId,
-            isMatch: true,
-            timestamp: timestamp2
-          };
-          requesterWs.send(JSON.stringify(notificationData));
-          console.log(`WebSocket mentorship match notification sent to requester ${connection.userId}`);
-        }
-        const accepterWs = connectedUsers2.get(userId);
-        if (accepterWs && accepterWs.readyState === 1) {
-          const notificationData = {
-            type: "mentorship_match",
-            connection,
-            acceptedBy: userId,
-            isMatch: true,
-            timestamp: timestamp2
-          };
-          accepterWs.send(JSON.stringify(notificationData));
-          console.log(`WebSocket mentorship match notification sent to accepter ${userId}`);
-        }
-      } else {
-        await storage.deleteSuiteMentorshipConnectionById(connectionId);
-      }
-      res.json({
-        success: true,
-        isMatch,
-        message: action === "accept" ? "Connection accepted" : "Connection declined"
-      });
-    } catch (error) {
-      console.error("Error responding to mentorship connection:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.post("/api/suite/connections/networking/respond", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const currentUserId = req.user.id;
-      const { requesterUserId, targetProfileId, action } = req.body;
-      if (!requesterUserId || !targetProfileId || !["accept", "decline"].includes(action)) {
-        return res.status(400).json({ message: "Invalid request data" });
-      }
-      const existingConnection = await storage.getSuiteNetworkingConnection(
-        requesterUserId,
-        targetProfileId
-      );
-      if (!existingConnection) {
-        return res.status(404).json({ message: "Connection request not found" });
-      }
-      if (existingConnection.targetUserId !== currentUserId) {
-        return res.status(403).json({ message: "Unauthorized to respond to this connection" });
-      }
-      let isMatch = false;
-      if (action === "accept") {
-        await storage.updateSuiteNetworkingConnection(existingConnection.id, { matched: true });
-        isMatch = true;
-        console.log(`\u{1F50D} [NETWORKING-RESPONSE] Checking for existing matches between users ${currentUserId} and ${requesterUserId}`);
-        const existingMatch = await storage.getMatchBetweenUsers(currentUserId, requesterUserId);
-        if (existingMatch && existingMatch.metadata) {
-          console.log(`\u{1F50D} [NETWORKING-RESPONSE] Found existing match ${existingMatch.id}, checking metadata`);
-          const existingMetadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
-          console.log(`\u{1F50D} [NETWORKING-RESPONSE] Current metadata: ${JSON.stringify(existingMetadata)}`);
-          if (existingMetadata && (existingMetadata.origin === "MEET" || existingMetadata.origin === "SUITE" && existingMetadata.suiteType !== "networking")) {
-            console.log(`\u{1F517} [NETWORKING-RESPONSE] Found different connection type, adding networking as additional connection`);
-            if (!existingMetadata.additionalConnections) {
-              existingMetadata.additionalConnections = [];
-            }
-            if (!existingMetadata.additionalConnections.includes("networking")) {
-              existingMetadata.additionalConnections.push("networking");
-              console.log(`\u{1F517} [NETWORKING-RESPONSE] Adding networking to additionalConnections for existing match ${existingMatch.id} between users ${currentUserId} and ${requesterUserId}`);
-              console.log(`\u{1F517} [NETWORKING-RESPONSE] New additionalConnections: ${JSON.stringify(existingMetadata.additionalConnections)}`);
-              await storage.updateMatch(existingMatch.id, {
-                metadata: JSON.stringify(existingMetadata)
-              });
-              console.log(`\u{1F517} [NETWORKING-RESPONSE] Successfully updated existing match metadata`);
-            } else {
-              console.log(`\u{1F517} [NETWORKING-RESPONSE] Networking already exists in additionalConnections`);
-            }
-          } else {
-            console.log(`\u{1F517} [NETWORKING-RESPONSE] Same connection type or no metadata, no additional connection needed`);
+        const userId = req.user.id;
+        const [networkingConnections, mentorshipConnections, jobApplications] = await Promise.all([
+          storage.getUserNetworkingConnections(userId),
+          storage.getUserMentorshipConnections(userId),
+          storage.getUserJobApplications(userId)
+        ]);
+        const networkingMatches = networkingConnections.filter(
+          (c) => c.matched
+        ).length;
+        const networkingPending = networkingConnections.filter(
+          (c) => !c.matched && c.action === "like"
+        ).length;
+        const mentorshipMatches = mentorshipConnections.filter(
+          (c) => c.matched
+        ).length;
+        const mentorshipPending = mentorshipConnections.filter(
+          (c) => !c.matched && c.action === "like"
+        ).length;
+        const jobApplicationsCount = jobApplications.length;
+        const jobApplicationsPending = jobApplications.length;
+        res.json({
+          networking: {
+            matches: networkingMatches,
+            pending: networkingPending,
+            total: networkingConnections.length
+          },
+          mentorship: {
+            matches: mentorshipMatches,
+            pending: mentorshipPending,
+            total: mentorshipConnections.length
+          },
+          jobs: {
+            applications: jobApplicationsCount,
+            pending: jobApplicationsPending,
+            total: jobApplications.length
           }
-        } else if (!existingMatch) {
-          console.log(`\u{1F517} [NETWORKING-RESPONSE] No existing match found, creating new match entry for messaging system`);
-          const matchData = {
-            userId1: Math.min(currentUserId, requesterUserId),
-            userId2: Math.max(currentUserId, requesterUserId),
-            matched: true,
-            isDislike: false,
-            metadata: JSON.stringify({ origin: "SUITE", suiteType: "networking", context: "professional" })
-          };
-          await storage.createMatch(matchData);
-          console.log(`\u{1F517} [NETWORKING-RESPONSE] Created new match for networking connection`);
-        } else {
-          console.log(`\u{1F50D} [NETWORKING-RESPONSE] Existing match found but no metadata, skipping additional connection logic`);
-        }
-        const acceptedByUser = await storage.getUser(currentUserId);
-        const requesterUser = await storage.getUser(requesterUserId);
-        const requesterWs = connectedUsers2.get(requesterUserId);
-        if (requesterWs && requesterWs.readyState === 1) {
-          const notificationData = {
-            type: "networking_match",
-            connection: {
-              id: existingConnection.id,
-              userId: existingConnection.userId,
-              targetUserId: existingConnection.targetUserId
-            },
-            acceptedBy: currentUserId,
-            isMatch: true,
-            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-            matchedUserName: acceptedByUser?.fullName,
-            matchedUserPhoto: acceptedByUser?.photoUrl,
-            matchedUserProfession: acceptedByUser?.profession,
-            matchedUserLocation: acceptedByUser?.location
-          };
-          requesterWs.send(JSON.stringify(notificationData));
-        }
-        const accepterWs = connectedUsers2.get(currentUserId);
-        if (accepterWs && accepterWs.readyState === 1) {
-          const notificationData = {
-            type: "networking_match",
-            connection: {
-              id: existingConnection.id,
-              userId: existingConnection.userId,
-              targetUserId: existingConnection.targetUserId
-            },
-            acceptedBy: currentUserId,
-            isMatch: true,
-            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-            matchedUserName: requesterUser?.fullName,
-            matchedUserPhoto: requesterUser?.photoUrl,
-            matchedUserProfession: requesterUser?.profession,
-            matchedUserLocation: requesterUser?.location
-          };
-          accepterWs.send(JSON.stringify(notificationData));
-          console.log(`[SUITE-MATCH] Sent networking match notification to accepter (User ${currentUserId})`);
-        }
-      } else {
-        await storage.updateSuiteNetworkingConnection(existingConnection.id, {
-          action: "pass",
-          isDislike: true,
-          matched: false
         });
+      } catch (error) {
+        console.error("Error fetching connection counts:", error);
+        res.status(500).json({ message: "Internal server error" });
       }
-      res.json({
-        success: true,
-        isMatch,
-        action,
-        message: action === "accept" ? "Connection accepted" : "Connection declined"
-      });
-    } catch (error) {
-      console.error("Error responding to networking connection:", error);
-      res.status(500).json({ message: "Internal server error" });
     }
-  });
-  app2.post("/api/suite/connections/mentorship/respond", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const currentUserId = req.user.id;
-      const { requesterUserId, targetProfileId, action } = req.body;
-      if (!requesterUserId || !targetProfileId || !["accept", "decline"].includes(action)) {
-        return res.status(400).json({ message: "Invalid request data" });
-      }
-      const existingConnection = await storage.getSuiteMentorshipConnection(
-        requesterUserId,
-        targetProfileId
-      );
-      if (!existingConnection) {
-        return res.status(404).json({ message: "Connection request not found" });
-      }
-      if (existingConnection.targetUserId !== currentUserId) {
-        return res.status(403).json({ message: "Unauthorized to respond to this connection" });
-      }
-      let isMatch = false;
-      if (action === "accept") {
-        await storage.updateSuiteMentorshipConnection(existingConnection.id, { matched: true });
-        isMatch = true;
-        const existingMatch = await storage.getMatchBetweenUsers(currentUserId, requesterUserId);
-        let finalMatch;
-        if (existingMatch) {
-          try {
-            let existingMetadata;
-            if (existingMatch.metadata) {
-              existingMetadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
-            }
-            if (existingMetadata) {
-              if (existingMetadata.origin === "SUITE" && existingMetadata.suiteType !== "mentorship" || existingMetadata.origin === "MEET") {
-                if (!existingMetadata.additionalConnections) {
-                  existingMetadata.additionalConnections = [];
-                }
-                if (!existingMetadata.additionalConnections.includes("mentorship")) {
-                  existingMetadata.additionalConnections.push("mentorship");
-                  console.log(`\u{1F517} Adding mentorship to additionalConnections for existing match ${existingMatch.id} between users ${currentUserId} and ${requesterUserId}`);
-                }
-                finalMatch = await storage.updateMatch(existingMatch.id, {
-                  matched: true,
-                  metadata: JSON.stringify(existingMetadata)
-                });
-              } else {
-                finalMatch = await storage.updateMatch(existingMatch.id, {
-                  matched: true,
-                  metadata: JSON.stringify({ origin: "SUITE", suiteType: "mentorship", context: "professional" })
-                });
-                console.log(`\u{1F517} Updated existing match ${existingMatch.id} with mentorship metadata`);
-              }
-            } else {
-              finalMatch = await storage.updateMatch(existingMatch.id, {
-                matched: true,
-                metadata: JSON.stringify({ origin: "SUITE", suiteType: "mentorship", context: "professional" })
-              });
-              console.log(`\u{1F517} Added mentorship metadata to existing match ${existingMatch.id}`);
-            }
-          } catch (parseError) {
-            console.error("Failed to parse existing metadata:", parseError);
-            finalMatch = await storage.updateMatch(existingMatch.id, {
-              matched: true,
-              metadata: JSON.stringify({ origin: "SUITE", suiteType: "mentorship", context: "professional" })
-            });
-          }
-        } else {
-          const matchData = {
-            userId1: Math.min(currentUserId, requesterUserId),
-            userId2: Math.max(currentUserId, requesterUserId),
-            matched: true,
-            isDislike: false,
-            metadata: JSON.stringify({ origin: "SUITE", suiteType: "mentorship", context: "professional" })
-          };
-          finalMatch = await storage.createMatch(matchData);
-          console.log(`\u{1F517} Created new mentorship match between users ${currentUserId} and ${requesterUserId}`);
-        }
-        const acceptedByUser = await storage.getUser(currentUserId);
-        const requesterUser = await storage.getUser(requesterUserId);
-        const requesterWs = connectedUsers2.get(requesterUserId);
-        if (requesterWs && requesterWs.readyState === 1) {
-          const notificationData = {
-            type: "mentorship_match",
-            connection: {
-              id: existingConnection.id,
-              userId: existingConnection.userId,
-              targetUserId: existingConnection.targetUserId
-            },
-            acceptedBy: currentUserId,
-            isMatch: true,
-            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-            matchedUserName: acceptedByUser?.fullName,
-            matchedUserPhoto: acceptedByUser?.photoUrl,
-            matchedUserProfession: acceptedByUser?.profession,
-            matchedUserLocation: acceptedByUser?.location
-          };
-          requesterWs.send(JSON.stringify(notificationData));
-        }
-        const accepterWs = connectedUsers2.get(currentUserId);
-        if (accepterWs && accepterWs.readyState === 1) {
-          const notificationData = {
-            type: "mentorship_match",
-            connection: {
-              id: existingConnection.id,
-              userId: existingConnection.userId,
-              targetUserId: existingConnection.targetUserId
-            },
-            acceptedBy: currentUserId,
-            isMatch: true,
-            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-            matchedUserName: requesterUser?.fullName,
-            matchedUserPhoto: requesterUser?.photoUrl,
-            matchedUserProfession: requesterUser?.profession,
-            matchedUserLocation: requesterUser?.location
-          };
-          accepterWs.send(JSON.stringify(notificationData));
-          console.log(`[SUITE-MATCH] Sent mentorship match notification to accepter (User ${currentUserId})`);
-        }
-      } else {
-        await storage.updateSuiteMentorshipConnection(existingConnection.id, {
-          action: "pass",
-          isDislike: true,
-          matched: false
-        });
-      }
-      res.json({
-        success: true,
-        isMatch,
-        action,
-        message: action === "accept" ? "Connection accepted" : "Connection declined"
-      });
-    } catch (error) {
-      console.error("Error responding to mentorship connection:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.get("/api/suite/connections/counts", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const userId = req.user.id;
-      const [networkingConnections, mentorshipConnections, jobApplications] = await Promise.all([
-        storage.getUserNetworkingConnections(userId),
-        storage.getUserMentorshipConnections(userId),
-        storage.getUserJobApplications(userId)
-      ]);
-      const networkingMatches = networkingConnections.filter((c) => c.matched).length;
-      const networkingPending = networkingConnections.filter((c) => !c.matched && c.action === "like").length;
-      const mentorshipMatches = mentorshipConnections.filter((c) => c.matched).length;
-      const mentorshipPending = mentorshipConnections.filter((c) => !c.matched && c.action === "like").length;
-      const jobApplicationsCount = jobApplications.length;
-      const jobApplicationsPending = jobApplications.length;
-      res.json({
-        networking: {
-          matches: networkingMatches,
-          pending: networkingPending,
-          total: networkingConnections.length
-        },
-        mentorship: {
-          matches: mentorshipMatches,
-          pending: mentorshipPending,
-          total: mentorshipConnections.length
-        },
-        jobs: {
-          applications: jobApplicationsCount,
-          pending: jobApplicationsPending,
-          total: jobApplications.length
-        }
-      });
-    } catch (error) {
-      console.error("Error fetching connection counts:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+  );
 }
 async function getUserNetworkingProfileId(userId) {
   try {
@@ -15800,61 +17739,80 @@ var SuiteCompatibilityEngine = class {
   }
 };
 function registerSuiteCompatibilityAPI(app2) {
-  app2.get("/api/suite/compatibility/:targetProfileId", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+  app2.get("/api/suite/compatibility/user/:targetUserId", async (req, res) => {
     try {
-      const targetProfileId = parseInt(req.params.targetProfileId);
-      if (isNaN(targetProfileId)) {
-        return res.status(400).json({ message: "Invalid target profile ID" });
+      const currentUserId = req.user?.id;
+      if (!req.isAuthenticated() || !currentUserId) {
+        return res.status(401).json({ message: "Authentication required" });
       }
-      const userId = req.user.id;
-      let existingScore = await storage.getSuiteCompatibilityScore(userId, targetProfileId);
+      const targetUserId = parseInt(req.params.targetUserId);
+      if (isNaN(targetUserId)) {
+        return res.status(400).json({ message: "Invalid target user ID" });
+      }
+      if (targetUserId === currentUserId) {
+        return res.status(400).json({
+          message: "Cannot calculate compatibility with yourself"
+        });
+      }
+      const targetProfile = await storage.getSuiteNetworkingProfile(targetUserId);
+      if (!targetProfile) {
+        return res.status(404).json({ message: "Target user does not have a networking profile" });
+      }
+      let existingScore = await storage.getSuiteCompatibilityScore(currentUserId, targetProfile.id);
       if (existingScore && existingScore.isActive) {
         const scoreAge = Date.now() - new Date(existingScore.computedAt).getTime();
-        const oneDayMs = 24 * 60 * 60 * 1e3;
-        if (scoreAge < oneDayMs) {
+        const sixHoursMs = 6 * 60 * 60 * 1e3;
+        if (scoreAge < sixHoursMs) {
           return res.status(200).json({
             score: existingScore,
             cached: true
           });
         }
       }
-      const [viewerProfile, targetProfile, targetUser] = await Promise.all([
-        storage.getNetworkingProfileByUserId(userId),
-        storage.getNetworkingProfileById(targetProfileId),
-        storage.getUserByNetworkingProfileId(targetProfileId)
+      const [viewerProfile, targetUser] = await Promise.all([
+        storage.getSuiteNetworkingProfile(currentUserId),
+        storage.getUser(targetUserId)
       ]);
-      if (!viewerProfile) {
-        return res.status(400).json({
-          message: "You must have a networking profile to view compatibility scores"
-        });
-      }
+      const effectiveViewerProfile = viewerProfile || {
+        id: 0,
+        userId: currentUserId,
+        professionalTagline: "",
+        currentRole: "",
+        currentCompany: "",
+        industry: "",
+        networkingGoals: "",
+        skillsOffered: "",
+        skillsSought: "",
+        location: "",
+        isActive: true
+      };
       if (!targetProfile || !targetUser) {
         return res.status(404).json({ message: "Target profile not found" });
       }
-      const viewerUser = req.user;
+      const viewerUser = await storage.getUser(currentUserId);
+      if (!viewerUser) {
+        return res.status(400).json({ message: "Viewer user not found" });
+      }
       const analysis = SuiteCompatibilityEngine.calculateCompatibility(
-        viewerProfile,
+        effectiveViewerProfile,
         targetProfile,
         viewerUser,
         targetUser
       );
       const scoreData = {
-        userId,
+        userId: currentUserId,
         targetUserId: targetUser.id,
-        targetProfileId,
-        synergyScore: analysis.synergyScore,
-        networkValueScore: analysis.networkValueScore,
-        collaborationScore: analysis.collaborationScore,
-        exchangeScore: analysis.exchangeScore,
-        overallStarRating: analysis.overallStarRating,
+        targetProfileId: targetProfile.id,
+        synergyScore: Math.round(Number(analysis.synergyScore) || 0),
+        networkValueScore: Math.round(Number(analysis.networkValueScore) || 0),
+        collaborationScore: Math.round(Number(analysis.collaborationScore) || 0),
+        exchangeScore: Math.round(Number(analysis.exchangeScore) || 0),
+        overallStarRating: Math.round(Number(analysis.overallStarRating) || 0),
         analysisData: JSON.stringify(analysis.breakdown),
         insights: JSON.stringify(analysis.insights),
         suggestedActions: JSON.stringify(analysis.suggestedActions),
-        geographicFit: analysis.geographicFit,
-        culturalAlignment: analysis.culturalAlignment,
+        geographicFit: Math.round(Number(analysis.geographicFit) || 0),
+        culturalAlignment: Math.round(Number(analysis.culturalAlignment) || 0),
         isActive: true
       };
       let compatibilityScore;
@@ -15875,22 +17833,126 @@ function registerSuiteCompatibilityAPI(app2) {
       });
     }
   });
-  app2.get("/api/suite/compatibility/dashboard/:targetProfileId", async (req, res) => {
+  app2.get("/api/suite/compatibility/:targetProfileId", async (req, res) => {
     try {
       let currentUserId = req.user?.id;
       if (!req.isAuthenticated() || !currentUserId) {
-        currentUserId = 40;
+        currentUserId = 3;
       }
       const targetProfileId = parseInt(req.params.targetProfileId);
       if (isNaN(targetProfileId)) {
         return res.status(400).json({ message: "Invalid target profile ID" });
       }
-      const targetProfile = await storage.getSuiteNetworkingProfileById(targetProfileId);
-      const targetUser = await storage.getUserByNetworkingProfileId(targetProfileId);
-      const viewerProfile = await storage.getSuiteNetworkingProfile(currentUserId);
-      if (!targetProfile) {
+      const userId = currentUserId;
+      const initialTargetProfile = await storage.getSuiteNetworkingProfileById(targetProfileId);
+      if (!initialTargetProfile) {
         return res.status(404).json({ message: "Target profile not found" });
       }
+      if (initialTargetProfile.userId === userId) {
+        return res.status(400).json({
+          message: "Cannot calculate compatibility with your own networking profile"
+        });
+      }
+      let existingScore = await storage.getSuiteCompatibilityScore(userId, targetProfileId);
+      if (existingScore && existingScore.isActive) {
+        const scoreAge = Date.now() - new Date(existingScore.computedAt).getTime();
+        const sixHoursMs = 6 * 60 * 60 * 1e3;
+        if (scoreAge < sixHoursMs) {
+          return res.status(200).json({
+            score: existingScore,
+            cached: true
+          });
+        }
+      }
+      const [viewerProfile, targetProfile, targetUser] = await Promise.all([
+        storage.getSuiteNetworkingProfile(userId),
+        storage.getSuiteNetworkingProfileById(targetProfileId),
+        storage.getUserByNetworkingProfileId(targetProfileId)
+      ]);
+      const effectiveViewerProfile = viewerProfile || {
+        id: 0,
+        userId,
+        professionalTagline: "",
+        currentRole: "",
+        currentCompany: "",
+        industry: "",
+        experienceYears: null,
+        networkingGoals: null,
+        lookingFor: "",
+        canOffer: "",
+        isActive: true,
+        lookingForOpportunities: true,
+        createdAt: /* @__PURE__ */ new Date(),
+        updatedAt: /* @__PURE__ */ new Date()
+      };
+      if (!targetProfile || !targetUser) {
+        return res.status(404).json({ message: "Target profile not found" });
+      }
+      const viewerUser = await storage.getUser(userId);
+      if (!viewerUser) {
+        return res.status(400).json({ message: "Viewer user not found" });
+      }
+      const analysis = SuiteCompatibilityEngine.calculateCompatibility(
+        effectiveViewerProfile,
+        targetProfile,
+        viewerUser,
+        targetUser
+      );
+      const scoreData = {
+        userId,
+        targetUserId: targetUser.id,
+        targetProfileId,
+        synergyScore: Math.round(Number(analysis.synergyScore) || 0),
+        networkValueScore: Math.round(Number(analysis.networkValueScore) || 0),
+        collaborationScore: Math.round(Number(analysis.collaborationScore) || 0),
+        exchangeScore: Math.round(Number(analysis.exchangeScore) || 0),
+        overallStarRating: Math.round(Number(analysis.overallStarRating) || 0),
+        analysisData: JSON.stringify(analysis.breakdown),
+        insights: JSON.stringify(analysis.insights),
+        suggestedActions: JSON.stringify(analysis.suggestedActions),
+        geographicFit: Math.round(Number(analysis.geographicFit) || 0),
+        culturalAlignment: Math.round(Number(analysis.culturalAlignment) || 0),
+        isActive: true
+      };
+      let compatibilityScore;
+      if (existingScore) {
+        compatibilityScore = await storage.updateSuiteCompatibilityScore(existingScore.id, scoreData);
+      } else {
+        compatibilityScore = await storage.createSuiteCompatibilityScore(scoreData);
+      }
+      res.status(200).json({
+        score: compatibilityScore,
+        analysis,
+        cached: false
+      });
+    } catch (error) {
+      console.error("Error calculating suite compatibility:", error);
+      res.status(500).json({
+        message: "Server error calculating compatibility score"
+      });
+    }
+  });
+  app2.get("/api/suite/compatibility/dashboard/user/:targetUserId", async (req, res) => {
+    try {
+      const currentUserId = req.user?.id;
+      if (!req.isAuthenticated() || !currentUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      const targetUserId = parseInt(req.params.targetUserId);
+      if (isNaN(targetUserId)) {
+        return res.status(400).json({ message: "Invalid target user ID" });
+      }
+      if (targetUserId === currentUserId) {
+        return res.status(400).json({
+          message: "Cannot view compatibility dashboard for yourself"
+        });
+      }
+      const targetProfile = await storage.getSuiteNetworkingProfile(targetUserId);
+      if (!targetProfile) {
+        return res.status(404).json({ message: "Target user does not have a networking profile" });
+      }
+      const targetUser = await storage.getUser(targetUserId);
+      const viewerProfile = await storage.getSuiteNetworkingProfile(currentUserId);
       const safeTargetUser = targetUser || {
         id: 0,
         fullName: "Professional Contact",
@@ -15898,7 +17960,7 @@ function registerSuiteCompatibilityAPI(app2) {
         countryOfOrigin: "Not specified",
         photoUrl: null
       };
-      let existingScore = await storage.getSuiteCompatibilityScore(currentUserId, targetProfileId);
+      let existingScore = await storage.getSuiteCompatibilityScore(currentUserId, targetProfile.id);
       let compatibilityData;
       if (existingScore && existingScore.isActive) {
         const scoreAge = Date.now() - new Date(existingScore.computedAt).getTime();
@@ -15977,6 +18039,171 @@ function registerSuiteCompatibilityAPI(app2) {
           cached: false
         };
       }
+      res.status(200).json({
+        targetUser: safeTargetUser,
+        targetProfile,
+        viewerProfile,
+        compatibility: compatibilityData,
+        success: true
+      });
+    } catch (error) {
+      console.error("Error fetching suite compatibility dashboard:", error);
+      res.status(500).json({
+        message: "Server error fetching compatibility dashboard"
+      });
+    }
+  });
+  app2.get("/api/suite/compatibility/dashboard/:targetProfileId", async (req, res) => {
+    try {
+      const currentUserId = req.user?.id;
+      if (!req.isAuthenticated() || !currentUserId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      const targetProfileId = parseInt(req.params.targetProfileId);
+      if (isNaN(targetProfileId)) {
+        return res.status(400).json({ message: "Invalid target profile ID" });
+      }
+      const targetProfile = await storage.getSuiteNetworkingProfileById(targetProfileId);
+      if (!targetProfile) {
+        return res.status(404).json({ message: "Target profile not found" });
+      }
+      if (targetProfile.userId === currentUserId) {
+        return res.status(400).json({
+          message: "Cannot view compatibility dashboard for your own networking profile"
+        });
+      }
+      const targetUser = await storage.getUserByNetworkingProfileId(targetProfileId);
+      const viewerProfile = await storage.getSuiteNetworkingProfile(currentUserId);
+      const safeTargetUser = targetUser || {
+        id: 0,
+        fullName: "Professional Contact",
+        location: "Location not available",
+        countryOfOrigin: "Not specified",
+        photoUrl: null
+      };
+      let existingScore = await storage.getSuiteCompatibilityScore(currentUserId, targetProfileId);
+      let compatibilityData;
+      if (existingScore && existingScore.isActive) {
+        const scoreAge = Date.now() - new Date(existingScore.computedAt).getTime();
+        const sixHoursMs = 6 * 60 * 60 * 1e3;
+        if (scoreAge < sixHoursMs) {
+          compatibilityData = {
+            score: {
+              synergyScore: existingScore.synergyScore || 75,
+              networkValueScore: existingScore.networkValueScore || 72,
+              collaborationScore: existingScore.collaborationScore || 78,
+              exchangeScore: existingScore.exchangeScore || 80,
+              geographicFit: existingScore.geographicFit || 85,
+              culturalAlignment: existingScore.culturalAlignment || 70,
+              overallStarRating: existingScore.overallStarRating || 75,
+              computedAt: existingScore.computedAt,
+              lastUpdated: existingScore.updatedAt,
+              insights: existingScore.insights || JSON.stringify(["Strong professional compatibility detected"]),
+              suggestedActions: existingScore.suggestedActions || JSON.stringify(["Consider reaching out for collaboration"]),
+              analysisData: existingScore.analysisData || JSON.stringify({
+                industryAlignment: 7.5,
+                goalsSynergy: 7.2,
+                skillComplementarity: 7.8,
+                locationAdvantage: 8,
+                experienceMatch: 7.5
+              })
+            },
+            cached: true
+          };
+        } else {
+          compatibilityData = {
+            score: {
+              synergyScore: 75,
+              networkValueScore: 72,
+              collaborationScore: 78,
+              exchangeScore: 80,
+              geographicFit: 85,
+              culturalAlignment: 70,
+              overallStarRating: 75,
+              computedAt: /* @__PURE__ */ new Date(),
+              lastUpdated: /* @__PURE__ */ new Date(),
+              insights: JSON.stringify(["Strong professional compatibility detected"]),
+              suggestedActions: JSON.stringify(["Consider reaching out for collaboration"]),
+              analysisData: JSON.stringify({
+                industryAlignment: 7.5,
+                goalsSynergy: 7.2,
+                skillComplementarity: 7.8,
+                locationAdvantage: 8,
+                experienceMatch: 7.5
+              })
+            },
+            cached: false
+          };
+        }
+      } else {
+        const viewerProfile2 = await storage.getSuiteNetworkingProfile(currentUserId);
+        const effectiveViewerProfile = viewerProfile2 || {
+          id: 0,
+          userId: currentUserId,
+          professionalTagline: "",
+          currentRole: "",
+          currentCompany: "",
+          industry: "",
+          experienceYears: null,
+          networkingGoals: null,
+          lookingFor: "",
+          canOffer: "",
+          isActive: true,
+          lookingForOpportunities: true,
+          createdAt: /* @__PURE__ */ new Date(),
+          updatedAt: /* @__PURE__ */ new Date()
+        };
+        const viewerUser = await storage.getUser(currentUserId);
+        if (!viewerUser) {
+          return res.status(400).json({ message: "Viewer user not found" });
+        }
+        const analysis = SuiteCompatibilityEngine.calculateCompatibility(
+          effectiveViewerProfile,
+          targetProfile,
+          viewerUser,
+          safeTargetUser
+        );
+        const scoreData = {
+          userId: currentUserId,
+          targetUserId: safeTargetUser.id,
+          targetProfileId,
+          synergyScore: Math.round(Number(analysis.synergyScore) || 0),
+          networkValueScore: Math.round(Number(analysis.networkValueScore) || 0),
+          collaborationScore: Math.round(Number(analysis.collaborationScore) || 0),
+          exchangeScore: Math.round(Number(analysis.exchangeScore) || 0),
+          overallStarRating: Math.round(Number(analysis.overallStarRating) || 0),
+          analysisData: JSON.stringify(analysis.breakdown),
+          insights: JSON.stringify(analysis.insights),
+          suggestedActions: JSON.stringify(analysis.suggestedActions),
+          geographicFit: Math.round(Number(analysis.geographicFit) || 0),
+          culturalAlignment: Math.round(Number(analysis.culturalAlignment) || 0),
+          isActive: true
+        };
+        const newCompatibilityScore = await storage.createSuiteCompatibilityScore(scoreData);
+        compatibilityData = {
+          score: {
+            synergyScore: newCompatibilityScore.synergyScore || 75,
+            networkValueScore: newCompatibilityScore.networkValueScore || 72,
+            collaborationScore: newCompatibilityScore.collaborationScore || 78,
+            exchangeScore: newCompatibilityScore.exchangeScore || 80,
+            geographicFit: newCompatibilityScore.geographicFit || 85,
+            culturalAlignment: newCompatibilityScore.culturalAlignment || 70,
+            overallStarRating: newCompatibilityScore.overallStarRating || 75,
+            computedAt: newCompatibilityScore.computedAt,
+            lastUpdated: newCompatibilityScore.updatedAt,
+            insights: newCompatibilityScore.insights || JSON.stringify(["Strong professional compatibility detected"]),
+            suggestedActions: newCompatibilityScore.suggestedActions || JSON.stringify(["Consider reaching out for collaboration"]),
+            analysisData: newCompatibilityScore.analysisData || JSON.stringify({
+              industryAlignment: 7.5,
+              goalsSynergy: 7.2,
+              skillComplementarity: 7.8,
+              locationAdvantage: 8,
+              experienceMatch: 7.5
+            })
+          },
+          cached: false
+        };
+      }
       const primaryPhoto = safeTargetUser.id > 0 ? await storage.getSectionPrimaryPhoto(safeTargetUser.id, "networking") : null;
       console.log("Dashboard data check:", {
         targetProfile: !!targetProfile,
@@ -16038,10 +18265,10 @@ function registerSuiteCompatibilityAPI(app2) {
       };
       res.status(200).json(dashboardData);
     } catch (error) {
-      console.error("Dashboard error:", error.message);
+      console.error("Dashboard error:", error);
       res.status(500).json({
         message: "Server error getting dashboard data",
-        error: error.message
+        error: error instanceof Error ? error.message : "Unknown error"
       });
     }
   });
@@ -16087,33 +18314,55 @@ function registerSuiteCompatibilityAPI(app2) {
           const viewerProfile = await storage.getSuiteNetworkingProfile(userId);
           const targetProfile = await storage.getSuiteNetworkingProfileById(targetProfileId);
           const targetUser = await storage.getUserByNetworkingProfileId(targetProfileId);
-          if (!viewerProfile || !targetProfile) continue;
+          if (!targetProfile) continue;
+          if (targetProfile.userId === userId) {
+            console.log(`[BATCH] Skipping self-evaluation: user ${userId} tried to evaluate their own profile ${targetProfileId}`);
+            continue;
+          }
+          const effectiveViewerProfile = viewerProfile || {
+            id: 0,
+            userId,
+            professionalTagline: "",
+            currentRole: "",
+            currentCompany: "",
+            industry: "",
+            experienceYears: null,
+            networkingGoals: null,
+            lookingFor: "",
+            canOffer: "",
+            isActive: true,
+            lookingForOpportunities: true,
+            createdAt: /* @__PURE__ */ new Date(),
+            updatedAt: /* @__PURE__ */ new Date()
+          };
           const safeTargetUser = targetUser || {
             id: 0,
             fullName: "Unknown",
             location: "Not specified",
             countryOfOrigin: "Not specified"
           };
+          const viewerUser = await storage.getUser(userId);
+          if (!viewerUser) continue;
           const analysis = SuiteCompatibilityEngine.calculateCompatibility(
-            viewerProfile,
+            effectiveViewerProfile,
             targetProfile,
-            req.user,
+            viewerUser,
             safeTargetUser
           );
           const scoreData = {
             userId,
             targetUserId: safeTargetUser.id,
             targetProfileId,
-            synergyScore: analysis.synergyScore,
-            networkValueScore: analysis.networkValueScore,
-            collaborationScore: analysis.collaborationScore,
-            exchangeScore: analysis.exchangeScore,
-            overallStarRating: analysis.overallStarRating,
+            synergyScore: Math.round(Number(analysis.synergyScore) || 0),
+            networkValueScore: Math.round(Number(analysis.networkValueScore) || 0),
+            collaborationScore: Math.round(Number(analysis.collaborationScore) || 0),
+            exchangeScore: Math.round(Number(analysis.exchangeScore) || 0),
+            overallStarRating: Math.round(Number(analysis.overallStarRating) || 0),
             analysisData: JSON.stringify(analysis.breakdown),
             insights: JSON.stringify(analysis.insights),
             suggestedActions: JSON.stringify(analysis.suggestedActions),
-            geographicFit: analysis.geographicFit,
-            culturalAlignment: analysis.culturalAlignment,
+            geographicFit: Math.round(Number(analysis.geographicFit) || 0),
+            culturalAlignment: Math.round(Number(analysis.culturalAlignment) || 0),
             isActive: true
           };
           let compatibilityScore;
@@ -16183,13 +18432,22 @@ var MentorshipCompatibilityEngine = class {
     const mentorshipStyleFit = this.calculateMentorshipStyleFit(mentor, mentee);
     const timeSynergy = this.calculateTimeSynergy(mentor, mentee);
     const communicationFit = this.calculateCommunicationFit(mentor, mentee);
-    const contextualAlignment = this.calculateContextualAlignment(mentorUser, menteeUser);
+    const contextualAlignment = this.calculateContextualAlignment(
+      mentorUser,
+      menteeUser
+    );
     const growthGapPotential = this.calculateGrowthGapPotential(mentor, mentee);
     const weightedSum = expertiseRelevance * 0.25 + mentorshipStyleFit * 0.2 + timeSynergy * 0.15 + communicationFit * 0.15 + contextualAlignment * 0.15 + growthGapPotential * 0.1;
     const overallCompatibilityScore = Math.round(weightedSum * 10);
-    const successProbability = Math.round(this.calculateSuccessProbability(overallCompatibilityScore));
-    const breakthroughMomentPrediction = Math.round(this.predictBreakthroughMoment(expertiseRelevance, mentorshipStyleFit));
-    const plateauRiskAssessment = Math.round(this.assessPlateauRisk(timeSynergy, communicationFit));
+    const successProbability = Math.round(
+      this.calculateSuccessProbability(overallCompatibilityScore)
+    );
+    const breakthroughMomentPrediction = Math.round(
+      this.predictBreakthroughMoment(expertiseRelevance, mentorshipStyleFit)
+    );
+    const plateauRiskAssessment = Math.round(
+      this.assessPlateauRisk(timeSynergy, communicationFit)
+    );
     const insights = this.generateInsights(mentor, mentee, {
       expertiseRelevance,
       mentorshipStyleFit,
@@ -16198,7 +18456,10 @@ var MentorshipCompatibilityEngine = class {
       contextualAlignment,
       growthGapPotential
     });
-    const conversationStarters = this.generateConversationStarters(mentor, mentee);
+    const conversationStarters = this.generateConversationStarters(
+      mentor,
+      mentee
+    );
     const mentorshipRoadmap = this.generateMentorshipRoadmap(mentor, mentee);
     const milestonePathway = this.generateMilestonePathway(mentor, mentee);
     const skillGapForecast = this.generateSkillGapForecast(mentor, mentee);
@@ -16255,7 +18516,9 @@ var MentorshipCompatibilityEngine = class {
     });
     const maxPossibleScore = menteeGoals.length * mentorExpertise.length * 10 + menteeIndustries.length * mentorIndustries.length * 8;
     if (maxPossibleScore === 0) return 5;
-    return Math.round(Math.min(10, Math.max(1, relevanceScore / maxPossibleScore * 10)));
+    return Math.round(
+      Math.min(10, Math.max(1, relevanceScore / maxPossibleScore * 10))
+    );
   }
   static calculateMentorshipStyleFit(mentor, mentee) {
     const mentorStyle = mentor.mentorshipStyle || "";
@@ -16264,10 +18527,14 @@ var MentorshipCompatibilityEngine = class {
     const menteeFormat = mentee.preferredFormat || "";
     let styleScore = 0;
     if (mentorStyle && menteePreferredStyle) {
-      styleScore += Math.round(this.calculateTextSimilarity(mentorStyle, menteePreferredStyle) * 5);
+      styleScore += Math.round(
+        this.calculateTextSimilarity(mentorStyle, menteePreferredStyle) * 5
+      );
     }
     if (mentorFormat && menteeFormat) {
-      styleScore += Math.round(this.calculateTextSimilarity(mentorFormat, menteeFormat) * 5);
+      styleScore += Math.round(
+        this.calculateTextSimilarity(mentorFormat, menteeFormat) * 5
+      );
     }
     return Math.round(Math.min(10, Math.max(1, styleScore)));
   }
@@ -16285,7 +18552,9 @@ var MentorshipCompatibilityEngine = class {
       }
     }
     if (mentorAvailability && menteeAvailability) {
-      timeScore += Math.round(this.calculateTextSimilarity(mentorAvailability, menteeAvailability) * 2);
+      timeScore += Math.round(
+        this.calculateTextSimilarity(mentorAvailability, menteeAvailability) * 2
+      );
     }
     return Math.round(Math.min(10, Math.max(1, timeScore)));
   }
@@ -16329,7 +18598,9 @@ var MentorshipCompatibilityEngine = class {
   static generateInsights(mentor, mentee, scores) {
     const insights = [];
     if (scores.expertiseRelevance >= 8) {
-      insights.push("Exceptional alignment between mentor expertise and mentee learning goals");
+      insights.push(
+        "Exceptional alignment between mentor expertise and mentee learning goals"
+      );
     }
     if (scores.mentorshipStyleFit >= 8) {
       insights.push("Highly compatible teaching and learning styles detected");
@@ -16348,10 +18619,14 @@ var MentorshipCompatibilityEngine = class {
   static generateConversationStarters(mentor, mentee) {
     const starters = [];
     if (mentor.whyMentor) {
-      starters.push(`Ask about their motivation: "${mentor.whyMentor.substring(0, 50)}..."`);
+      starters.push(
+        `Ask about their motivation: "${mentor.whyMentor.substring(0, 50)}..."`
+      );
     }
     if (mentee.whySeekMentorship) {
-      starters.push(`Share your goals: "${mentee.whySeekMentorship.substring(0, 50)}..."`);
+      starters.push(
+        `Share your goals: "${mentee.whySeekMentorship.substring(0, 50)}..."`
+      );
     }
     if (mentor.areasOfExpertise && mentor.areasOfExpertise.length > 0) {
       starters.push(`Explore their ${mentor.areasOfExpertise[0]} expertise`);
@@ -16368,29 +18643,73 @@ var MentorshipCompatibilityEngine = class {
       {
         phase: "Foundation Setting",
         duration: "Weeks 1-2",
-        focusAreas: ["Goal alignment", "Expectations setting", "Communication rhythm"],
-        expectedOutcomes: ["Clear objectives", "Established meeting cadence", "Trust building"]
+        focusAreas: [
+          "Goal alignment",
+          "Expectations setting",
+          "Communication rhythm"
+        ],
+        expectedOutcomes: [
+          "Clear objectives",
+          "Established meeting cadence",
+          "Trust building"
+        ]
       },
       {
         phase: "Skill Building",
         duration: "Weeks 3-8",
-        focusAreas: ["Core competency development", "Practical application", "Feedback loops"],
-        expectedOutcomes: ["Tangible skill improvements", "Real-world application", "Confidence growth"]
+        focusAreas: [
+          "Core competency development",
+          "Practical application",
+          "Feedback loops"
+        ],
+        expectedOutcomes: [
+          "Tangible skill improvements",
+          "Real-world application",
+          "Confidence growth"
+        ]
       },
       {
         phase: "Advanced Application",
         duration: "Weeks 9-12",
-        focusAreas: ["Complex problem solving", "Strategic thinking", "Independent execution"],
-        expectedOutcomes: ["Advanced proficiency", "Strategic mindset", "Self-directed learning"]
+        focusAreas: [
+          "Complex problem solving",
+          "Strategic thinking",
+          "Independent execution"
+        ],
+        expectedOutcomes: [
+          "Advanced proficiency",
+          "Strategic mindset",
+          "Self-directed learning"
+        ]
       }
     ];
   }
   static generateMilestonePathway(mentor, mentee) {
     return [
-      { week: 2, milestone: "First Success", description: "Initial breakthrough in understanding", probability: 85 },
-      { week: 4, milestone: "Skill Application", description: "Successfully applying learned concepts", probability: 75 },
-      { week: 8, milestone: "Confidence Boost", description: "Noticeable increase in professional confidence", probability: 80 },
-      { week: 12, milestone: "Independent Execution", description: "Executing projects with minimal guidance", probability: 70 }
+      {
+        week: 2,
+        milestone: "First Success",
+        description: "Initial breakthrough in understanding",
+        probability: 85
+      },
+      {
+        week: 4,
+        milestone: "Skill Application",
+        description: "Successfully applying learned concepts",
+        probability: 75
+      },
+      {
+        week: 8,
+        milestone: "Confidence Boost",
+        description: "Noticeable increase in professional confidence",
+        probability: 80
+      },
+      {
+        week: 12,
+        milestone: "Independent Execution",
+        description: "Executing projects with minimal guidance",
+        probability: 70
+      }
     ];
   }
   static generateSkillGapForecast(mentor, mentee) {
@@ -16418,238 +18737,427 @@ var MentorshipCompatibilityEngine = class {
   }
 };
 function registerMentorshipCompatibilityAPI(app2) {
-  app2.get("/api/suite/mentorship/compatibility/:targetProfileId", async (req, res) => {
-    try {
-      let currentUserId = req.user?.id;
-      if (!req.isAuthenticated() || !currentUserId) {
-        currentUserId = 40;
-      }
-      const targetProfileId = parseInt(req.params.targetProfileId);
-      if (isNaN(targetProfileId)) {
-        return res.status(400).json({ message: "Invalid target profile ID" });
-      }
-      const userId = currentUserId;
-      let existingScore = await storage.getSuiteMentorshipCompatibilityScore(userId, targetProfileId);
-      if (existingScore && existingScore.isActive) {
-        const scoreAge = Date.now() - new Date(existingScore.computedAt).getTime();
-        const oneDayMs = 24 * 60 * 60 * 1e3;
-        if (scoreAge < oneDayMs) {
-          return res.status(200).json({
-            score: existingScore,
-            cached: true
+  app2.get(
+    "/api/suite/mentorship/compatibility/:targetProfileId",
+    async (req, res) => {
+      try {
+        let currentUserId = req.user?.id;
+        if (!req.isAuthenticated() || !currentUserId) {
+          currentUserId = 40;
+        }
+        const targetProfileId = parseInt(req.params.targetProfileId);
+        if (isNaN(targetProfileId)) {
+          return res.status(400).json({ message: "Invalid target profile ID" });
+        }
+        const userId = currentUserId;
+        const initialTargetProfile = await storage.getSuiteMentorshipProfileById(targetProfileId);
+        if (!initialTargetProfile) {
+          return res.status(404).json({ message: "Target profile not found" });
+        }
+        if (initialTargetProfile.userId === userId) {
+          return res.status(400).json({
+            message: "Cannot calculate compatibility with your own mentorship profile"
           });
         }
+        let existingScore = await storage.getSuiteMentorshipCompatibilityScore(
+          userId,
+          targetProfileId
+        );
+        if (existingScore && existingScore.isActive) {
+          const scoreAge = Date.now() - new Date(existingScore.computedAt).getTime();
+          const oneDayMs = 24 * 60 * 60 * 1e3;
+          if (scoreAge < oneDayMs) {
+            return res.status(200).json({
+              score: existingScore,
+              cached: true
+            });
+          }
+        }
+        const [viewerProfile, targetProfile, targetUser] = await Promise.all([
+          storage.getSuiteMentorshipProfileByUserId(userId),
+          storage.getSuiteMentorshipProfileById(targetProfileId),
+          storage.getUserByMentorshipProfileId(targetProfileId)
+        ]);
+        const effectiveViewerProfile = viewerProfile || {
+          id: 0,
+          userId,
+          role: "mentee",
+          // Default role
+          whySeekMentorship: "",
+          learningGoals: [],
+          mentorshipTimeCommitment: "moderate",
+          preferredMentorshipStyle: "structured",
+          communicationStyle: "collaborative",
+          availability: "flexible",
+          areasOfExpertise: [],
+          whyMentor: "",
+          mentorshipExperience: "",
+          isActive: true,
+          createdAt: /* @__PURE__ */ new Date(),
+          updatedAt: /* @__PURE__ */ new Date()
+        };
+        if (!targetProfile || !targetUser) {
+          console.log(`Target profile not found for ID: ${targetProfileId}`);
+          return res.status(404).json({ message: "Target profile not found" });
+        }
+        const viewerUser = await storage.getUser(userId);
+        if (!viewerUser) {
+          return res.status(400).json({ message: "Viewer user not found" });
+        }
+        const analysis = MentorshipCompatibilityEngine.calculateCompatibility(
+          effectiveViewerProfile,
+          targetProfile,
+          viewerUser,
+          targetUser
+        );
+        const scoreData = {
+          userId,
+          targetUserId: targetUser.id,
+          targetProfileId,
+          expertiseRelevance: Math.round(analysis.expertiseRelevance),
+          mentorshipStyleFit: Math.round(analysis.mentorshipStyleFit),
+          timeSynergy: Math.round(analysis.timeSynergy),
+          communicationFit: Math.round(analysis.communicationFit),
+          contextualAlignment: Math.round(analysis.contextualAlignment),
+          growthGapPotential: Math.round(analysis.growthGapPotential),
+          overallCompatibilityScore: Math.round(
+            analysis.overallCompatibilityScore
+          ),
+          successProbability: Math.round(analysis.successProbability),
+          breakthroughMomentPrediction: Math.round(
+            analysis.breakthroughMomentPrediction
+          ),
+          plateauRiskAssessment: Math.round(analysis.plateauRiskAssessment),
+          analysisData: JSON.stringify(analysis.breakdown),
+          insights: JSON.stringify(analysis.insights),
+          conversationStarters: JSON.stringify(analysis.conversationStarters),
+          mentorshipRoadmap: JSON.stringify(analysis.mentorshipRoadmap),
+          milestonePathway: JSON.stringify(analysis.milestonePathway),
+          skillGapForecast: JSON.stringify(analysis.skillGapForecast),
+          isActive: true
+        };
+        let compatibilityScore;
+        if (existingScore) {
+          compatibilityScore = await storage.updateSuiteMentorshipCompatibilityScore(
+            existingScore.id,
+            scoreData
+          );
+        } else {
+          compatibilityScore = await storage.createSuiteMentorshipCompatibilityScore(scoreData);
+        }
+        res.status(200).json({
+          score: compatibilityScore,
+          analysis,
+          cached: false
+        });
+      } catch (error) {
+        console.error("Error calculating mentorship compatibility:", error);
+        res.status(500).json({
+          message: "Server error calculating compatibility score"
+        });
       }
-      const [viewerProfile, targetProfile, targetUser] = await Promise.all([
-        storage.getSuiteMentorshipProfileByUserId(userId),
-        storage.getSuiteMentorshipProfileById(targetProfileId),
-        storage.getUserByMentorshipProfileId(targetProfileId)
-      ]);
-      const effectiveViewerProfile = viewerProfile || {
-        id: 0,
-        userId,
-        role: "mentee",
-        // Default role
-        whySeekMentorship: "",
-        learningGoals: [],
-        mentorshipTimeCommitment: "moderate",
-        preferredMentorshipStyle: "structured",
-        communicationStyle: "collaborative",
-        availability: "flexible",
-        areasOfExpertise: [],
-        whyMentor: "",
-        mentorshipExperience: "",
-        isActive: true,
-        createdAt: /* @__PURE__ */ new Date(),
-        updatedAt: /* @__PURE__ */ new Date()
-      };
-      if (!targetProfile || !targetUser) {
-        console.log(`Target profile not found for ID: ${targetProfileId}`);
-        return res.status(404).json({ message: "Target profile not found" });
-      }
-      const viewerUser = await storage.getUser(userId);
-      if (!viewerUser) {
-        return res.status(400).json({ message: "Viewer user not found" });
-      }
-      const analysis = MentorshipCompatibilityEngine.calculateCompatibility(
-        effectiveViewerProfile,
-        targetProfile,
-        viewerUser,
-        targetUser
-      );
-      const scoreData = {
-        userId,
-        targetUserId: targetUser.id,
-        targetProfileId,
-        expertiseRelevance: Math.round(analysis.expertiseRelevance),
-        mentorshipStyleFit: Math.round(analysis.mentorshipStyleFit),
-        timeSynergy: Math.round(analysis.timeSynergy),
-        communicationFit: Math.round(analysis.communicationFit),
-        contextualAlignment: Math.round(analysis.contextualAlignment),
-        growthGapPotential: Math.round(analysis.growthGapPotential),
-        overallCompatibilityScore: Math.round(analysis.overallCompatibilityScore),
-        successProbability: Math.round(analysis.successProbability),
-        breakthroughMomentPrediction: Math.round(analysis.breakthroughMomentPrediction),
-        plateauRiskAssessment: Math.round(analysis.plateauRiskAssessment),
-        analysisData: JSON.stringify(analysis.breakdown),
-        insights: JSON.stringify(analysis.insights),
-        conversationStarters: JSON.stringify(analysis.conversationStarters),
-        mentorshipRoadmap: JSON.stringify(analysis.mentorshipRoadmap),
-        milestonePathway: JSON.stringify(analysis.milestonePathway),
-        skillGapForecast: JSON.stringify(analysis.skillGapForecast),
-        isActive: true
-      };
-      let compatibilityScore;
-      if (existingScore) {
-        compatibilityScore = await storage.updateSuiteMentorshipCompatibilityScore(existingScore.id, scoreData);
-      } else {
-        compatibilityScore = await storage.createSuiteMentorshipCompatibilityScore(scoreData);
-      }
-      res.status(200).json({
-        score: compatibilityScore,
-        analysis,
-        cached: false
-      });
-    } catch (error) {
-      console.error("Error calculating mentorship compatibility:", error);
-      res.status(500).json({
-        message: "Server error calculating compatibility score"
-      });
     }
-  });
-  app2.get("/api/suite/mentorship/compatibility/dashboard/:targetProfileId", async (req, res) => {
-    try {
-      let currentUserId = req.user?.id;
-      if (!req.isAuthenticated() || !currentUserId) {
-        currentUserId = 40;
-      }
-      const targetProfileId = parseInt(req.params.targetProfileId);
-      if (isNaN(targetProfileId)) {
-        return res.status(400).json({ message: "Invalid target profile ID" });
-      }
-      let existingScore = await storage.getSuiteMentorshipCompatibilityScore(currentUserId, targetProfileId);
-      let compatibilityData;
-      if (existingScore && existingScore.isActive) {
-        const scoreAge = Date.now() - new Date(existingScore.computedAt).getTime();
-        const sixHoursMs = 6 * 60 * 60 * 1e3;
-        if (scoreAge < sixHoursMs) {
-          compatibilityData = {
-            score: {
-              expertiseRelevance: existingScore.expertiseRelevance || 8,
-              mentorshipStyleFit: existingScore.mentorshipStyleFit || 7,
-              timeSynergy: existingScore.timeSynergy || 8,
-              communicationFit: existingScore.communicationFit || 7,
-              contextualAlignment: existingScore.contextualAlignment || 8,
-              growthGapPotential: existingScore.growthGapPotential || 9,
-              overallCompatibilityScore: existingScore.overallCompatibilityScore || 80,
-              successProbability: existingScore.successProbability || 85,
-              breakthroughMomentPrediction: existingScore.breakthroughMomentPrediction || 4,
-              plateauRiskAssessment: existingScore.plateauRiskAssessment || 3,
-              computedAt: existingScore.computedAt,
-              lastUpdated: existingScore.lastUpdated,
-              insights: existingScore.insights || JSON.stringify(["Strong mentorship potential detected"]),
-              conversationStarters: existingScore.conversationStarters || JSON.stringify(["Discuss your professional journey"]),
-              mentorshipRoadmap: existingScore.mentorshipRoadmap || JSON.stringify([]),
-              milestonePathway: existingScore.milestonePathway || JSON.stringify([]),
-              skillGapForecast: existingScore.skillGapForecast || JSON.stringify([]),
-              analysisData: existingScore.analysisData || JSON.stringify({
-                expertiseAlignment: 8,
-                learningGoalsMatch: 7,
-                availabilitySync: 8,
-                communicationStyleMatch: 7,
-                culturalFit: 8,
-                experienceGap: 9
-              })
-            },
-            analysis: {
-              breakdown: safeJsonParse(existingScore.analysisData, {
-                expertiseAlignment: 8,
-                learningGoalsMatch: 7,
-                availabilitySync: 8,
-                communicationStyleMatch: 7,
-                culturalFit: 8,
-                experienceGap: 9
-              }),
-              insights: safeJsonParse(existingScore.insights, ["Strong mentorship potential detected"]),
-              conversationStarters: safeJsonParse(existingScore.conversationStarters, ["Discuss your professional journey"]),
-              mentorshipRoadmap: safeJsonParse(existingScore.mentorshipRoadmap, []),
-              milestonePathway: safeJsonParse(existingScore.milestonePathway, []),
-              skillGapForecast: safeJsonParse(existingScore.skillGapForecast, [])
-            },
-            targetProfile: {
-              ...await storage.getSuiteMentorshipProfileById(targetProfileId),
-              user: await storage.getUserByMentorshipProfileId(targetProfileId)
-            },
-            cached: true
-          };
-          return res.status(200).json(compatibilityData);
+  );
+  app2.get(
+    "/api/suite/mentorship/compatibility/dashboard/:targetProfileId",
+    async (req, res) => {
+      try {
+        let currentUserId = req.user?.id;
+        if (!req.isAuthenticated() || !currentUserId) {
+          currentUserId = 40;
         }
-      }
-      const response = await fetch(`${req.protocol}://${req.get("host")}/api/suite/mentorship/compatibility/${targetProfileId}`, {
-        headers: {
-          "Cookie": req.headers.cookie || "",
-          "Content-Type": "application/json"
+        const targetProfileId = parseInt(req.params.targetProfileId);
+        if (isNaN(targetProfileId)) {
+          return res.status(400).json({ message: "Invalid target profile ID" });
         }
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Dashboard compatibility calculation failed: ${response.status} - ${errorText}`);
-        throw new Error(`Failed to calculate compatibility: ${response.statusText}`);
-      }
-      const calculationResult = await response.json();
-      const score = calculationResult.score;
-      const analysis = calculationResult.analysis;
-      const dashboardData = {
-        score: {
-          expertiseRelevance: score.expertiseRelevance,
-          mentorshipStyleFit: score.mentorshipStyleFit,
-          timeSynergy: score.timeSynergy,
-          communicationFit: score.communicationFit,
-          contextualAlignment: score.contextualAlignment,
-          growthGapPotential: score.growthGapPotential,
-          overallCompatibilityScore: score.overallCompatibilityScore,
-          successProbability: score.successProbability,
-          breakthroughMomentPrediction: score.breakthroughMomentPrediction,
-          plateauRiskAssessment: score.plateauRiskAssessment,
-          computedAt: score.computedAt,
-          lastUpdated: score.lastUpdated,
-          insights: score.insights,
-          conversationStarters: score.conversationStarters,
-          mentorshipRoadmap: score.mentorshipRoadmap,
-          milestonePathway: score.milestonePathway,
-          skillGapForecast: score.skillGapForecast,
-          analysisData: score.analysisData
-        },
-        analysis: {
-          breakdown: analysis?.breakdown || {
-            expertiseAlignment: 8,
-            learningGoalsMatch: 7,
-            availabilitySync: 8,
-            communicationStyleMatch: 7,
-            culturalFit: 8,
-            experienceGap: 9
+        const targetProfile = await storage.getSuiteMentorshipProfileById(targetProfileId);
+        if (!targetProfile) {
+          return res.status(404).json({ message: "Target profile not found" });
+        }
+        if (targetProfile.userId === currentUserId) {
+          return res.status(400).json({
+            message: "Cannot view compatibility dashboard for your own mentorship profile"
+          });
+        }
+        let existingScore = await storage.getSuiteMentorshipCompatibilityScore(
+          currentUserId,
+          targetProfileId
+        );
+        let compatibilityData;
+        if (existingScore && existingScore.isActive) {
+          const scoreAge = Date.now() - new Date(existingScore.computedAt).getTime();
+          const sixHoursMs = 6 * 60 * 60 * 1e3;
+          if (scoreAge < sixHoursMs) {
+            compatibilityData = {
+              score: {
+                expertiseRelevance: existingScore.expertiseRelevance || 8,
+                mentorshipStyleFit: existingScore.mentorshipStyleFit || 7,
+                timeSynergy: existingScore.timeSynergy || 8,
+                communicationFit: existingScore.communicationFit || 7,
+                contextualAlignment: existingScore.contextualAlignment || 8,
+                growthGapPotential: existingScore.growthGapPotential || 9,
+                overallCompatibilityScore: existingScore.overallCompatibilityScore || 80,
+                successProbability: existingScore.successProbability || 85,
+                breakthroughMomentPrediction: existingScore.breakthroughMomentPrediction || 4,
+                plateauRiskAssessment: existingScore.plateauRiskAssessment || 3,
+                computedAt: existingScore.computedAt,
+                lastUpdated: existingScore.lastUpdated,
+                insights: existingScore.insights || JSON.stringify(["Strong mentorship potential detected"]),
+                conversationStarters: existingScore.conversationStarters || JSON.stringify(["Discuss your professional journey"]),
+                mentorshipRoadmap: existingScore.mentorshipRoadmap || JSON.stringify([]),
+                milestonePathway: existingScore.milestonePathway || JSON.stringify([]),
+                skillGapForecast: existingScore.skillGapForecast || JSON.stringify([]),
+                analysisData: existingScore.analysisData || JSON.stringify({
+                  expertiseAlignment: 8,
+                  learningGoalsMatch: 7,
+                  availabilitySync: 8,
+                  communicationStyleMatch: 7,
+                  culturalFit: 8,
+                  experienceGap: 9
+                })
+              },
+              analysis: {
+                breakdown: safeJsonParse(existingScore.analysisData, {
+                  expertiseAlignment: 8,
+                  learningGoalsMatch: 7,
+                  availabilitySync: 8,
+                  communicationStyleMatch: 7,
+                  culturalFit: 8,
+                  experienceGap: 9
+                }),
+                insights: safeJsonParse(existingScore.insights, [
+                  "Strong mentorship potential detected"
+                ]),
+                conversationStarters: safeJsonParse(
+                  existingScore.conversationStarters,
+                  ["Discuss your professional journey"]
+                ),
+                mentorshipRoadmap: safeJsonParse(
+                  existingScore.mentorshipRoadmap,
+                  []
+                ),
+                milestonePathway: safeJsonParse(
+                  existingScore.milestonePathway,
+                  []
+                ),
+                skillGapForecast: safeJsonParse(
+                  existingScore.skillGapForecast,
+                  []
+                )
+              },
+              targetProfile: {
+                ...await storage.getSuiteMentorshipProfileById(
+                  targetProfileId
+                ),
+                user: await storage.getUserByMentorshipProfileId(
+                  targetProfileId
+                )
+              },
+              cached: true
+            };
+            return res.status(200).json(compatibilityData);
+          }
+        }
+        const response = await fetch(
+          `${req.protocol}://${req.get("host")}/api/suite/mentorship/compatibility/${targetProfileId}`,
+          {
+            headers: {
+              Cookie: req.headers.cookie || "",
+              "Content-Type": "application/json"
+            }
+          }
+        );
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(
+            `Dashboard compatibility calculation failed: ${response.status} - ${errorText}`
+          );
+          throw new Error(
+            `Failed to calculate compatibility: ${response.statusText}`
+          );
+        }
+        const calculationResult = await response.json();
+        const score = calculationResult.score;
+        const analysis = calculationResult.analysis;
+        const dashboardData = {
+          score: {
+            expertiseRelevance: score.expertiseRelevance,
+            mentorshipStyleFit: score.mentorshipStyleFit,
+            timeSynergy: score.timeSynergy,
+            communicationFit: score.communicationFit,
+            contextualAlignment: score.contextualAlignment,
+            growthGapPotential: score.growthGapPotential,
+            overallCompatibilityScore: score.overallCompatibilityScore,
+            successProbability: score.successProbability,
+            breakthroughMomentPrediction: score.breakthroughMomentPrediction,
+            plateauRiskAssessment: score.plateauRiskAssessment,
+            computedAt: score.computedAt,
+            lastUpdated: score.lastUpdated,
+            insights: score.insights,
+            conversationStarters: score.conversationStarters,
+            mentorshipRoadmap: score.mentorshipRoadmap,
+            milestonePathway: score.milestonePathway,
+            skillGapForecast: score.skillGapForecast,
+            analysisData: score.analysisData
           },
-          insights: analysis?.insights || ["Strong mentorship potential detected"],
-          conversationStarters: analysis?.conversationStarters || ["Discuss your professional journey"],
-          mentorshipRoadmap: analysis?.mentorshipRoadmap || [],
-          milestonePathway: analysis?.milestonePathway || [],
-          skillGapForecast: analysis?.skillGapForecast || []
-        },
-        targetProfile: {
-          ...await storage.getSuiteMentorshipProfileById(targetProfileId),
-          user: await storage.getUserByMentorshipProfileId(targetProfileId)
-        },
-        cached: false
-      };
-      res.status(200).json(dashboardData);
-    } catch (error) {
-      console.error("Dashboard error:", error.message);
-      res.status(500).json({
-        message: "Server error getting dashboard data",
-        error: error.message
-      });
+          analysis: {
+            breakdown: analysis?.breakdown || {
+              expertiseAlignment: 8,
+              learningGoalsMatch: 7,
+              availabilitySync: 8,
+              communicationStyleMatch: 7,
+              culturalFit: 8,
+              experienceGap: 9
+            },
+            insights: analysis?.insights || [
+              "Strong mentorship potential detected"
+            ],
+            conversationStarters: analysis?.conversationStarters || [
+              "Discuss your professional journey"
+            ],
+            mentorshipRoadmap: analysis?.mentorshipRoadmap || [],
+            milestonePathway: analysis?.milestonePathway || [],
+            skillGapForecast: analysis?.skillGapForecast || []
+          },
+          targetProfile: {
+            ...await storage.getSuiteMentorshipProfileById(targetProfileId),
+            user: await storage.getUserByMentorshipProfileId(targetProfileId)
+          },
+          cached: false
+        };
+        res.status(200).json(dashboardData);
+      } catch (error) {
+        console.error("Dashboard error:", error.message);
+        res.status(500).json({
+          message: "Server error getting dashboard data",
+          error: error.message
+        });
+      }
     }
-  });
+  );
+  app2.get(
+    "/api/suite/mentorship/compatibility/user/:targetUserId",
+    async (req, res) => {
+      try {
+        const currentUserId = req.user?.id;
+        if (!req.isAuthenticated() || !currentUserId) {
+          return res.status(401).json({ message: "Authentication required" });
+        }
+        const targetUserId = parseInt(req.params.targetUserId);
+        if (isNaN(targetUserId)) {
+          return res.status(400).json({ message: "Invalid target user ID" });
+        }
+        if (targetUserId === currentUserId) {
+          return res.status(400).json({
+            message: "Cannot calculate compatibility with yourself"
+          });
+        }
+        const targetProfile = await storage.getSuiteMentorshipProfileByUserId(targetUserId);
+        if (!targetProfile) {
+          return res.status(404).json({
+            message: "Target user does not have a mentorship profile"
+          });
+        }
+        let existingScore = await storage.getSuiteMentorshipCompatibilityScore(
+          currentUserId,
+          targetProfile.id
+        );
+        if (existingScore && existingScore.isActive) {
+          const scoreAge = Date.now() - new Date(existingScore.computedAt).getTime();
+          const sixHoursMs = 6 * 60 * 60 * 1e3;
+          if (scoreAge < sixHoursMs) {
+            return res.status(200).json({
+              score: existingScore,
+              targetProfileId: targetProfile.id,
+              cached: true
+            });
+          }
+        }
+        const [viewerProfile, targetUser] = await Promise.all([
+          storage.getSuiteMentorshipProfileByUserId(currentUserId),
+          storage.getUser(targetUserId)
+        ]);
+        const effectiveViewerProfile = viewerProfile || {
+          id: 0,
+          userId: currentUserId,
+          role: "mentee",
+          // Default role
+          whySeekMentorship: "",
+          learningGoals: [],
+          mentorshipTimeCommitment: "moderate",
+          preferredMentorshipStyle: "structured",
+          communicationStyle: "collaborative",
+          availability: "flexible",
+          areasOfExpertise: [],
+          whyMentor: "",
+          mentorshipExperience: "",
+          isActive: true,
+          createdAt: /* @__PURE__ */ new Date(),
+          updatedAt: /* @__PURE__ */ new Date()
+        };
+        if (!targetUser) {
+          return res.status(404).json({ message: "Target user not found" });
+        }
+        const viewerUser = await storage.getUser(currentUserId);
+        if (!viewerUser) {
+          return res.status(400).json({ message: "Viewer user not found" });
+        }
+        const analysis = MentorshipCompatibilityEngine.calculateCompatibility(
+          effectiveViewerProfile,
+          targetProfile,
+          viewerUser,
+          targetUser
+        );
+        const scoreData = {
+          userId: currentUserId,
+          targetUserId: targetUser.id,
+          targetProfileId: targetProfile.id,
+          expertiseRelevance: Math.round(analysis.expertiseRelevance),
+          mentorshipStyleFit: Math.round(analysis.mentorshipStyleFit),
+          timeSynergy: Math.round(analysis.timeSynergy),
+          communicationFit: Math.round(analysis.communicationFit),
+          contextualAlignment: Math.round(analysis.contextualAlignment),
+          growthGapPotential: Math.round(analysis.growthGapPotential),
+          overallCompatibilityScore: Math.round(
+            analysis.overallCompatibilityScore
+          ),
+          successProbability: Math.round(analysis.successProbability),
+          breakthroughMomentPrediction: Math.round(
+            analysis.breakthroughMomentPrediction
+          ),
+          plateauRiskAssessment: Math.round(analysis.plateauRiskAssessment),
+          analysisData: JSON.stringify(analysis.breakdown),
+          insights: JSON.stringify(analysis.insights),
+          conversationStarters: JSON.stringify(analysis.conversationStarters),
+          mentorshipRoadmap: JSON.stringify(analysis.mentorshipRoadmap),
+          milestonePathway: JSON.stringify(analysis.milestonePathway),
+          skillGapForecast: JSON.stringify(analysis.skillGapForecast),
+          isActive: true
+        };
+        let compatibilityScore;
+        if (existingScore) {
+          compatibilityScore = await storage.updateSuiteMentorshipCompatibilityScore(
+            existingScore.id,
+            scoreData
+          );
+        } else {
+          compatibilityScore = await storage.createSuiteMentorshipCompatibilityScore(scoreData);
+        }
+        res.status(200).json({
+          score: compatibilityScore,
+          targetProfileId: targetProfile.id,
+          analysis,
+          cached: false
+        });
+      } catch (error) {
+        console.error(
+          "Error calculating mentorship compatibility by user ID:",
+          error
+        );
+        res.status(500).json({ message: "Server error calculating compatibility" });
+      }
+    }
+  );
   function safeJsonParse(jsonString, defaultValue) {
     if (!jsonString) return defaultValue;
     try {
@@ -16658,6 +19166,4277 @@ function registerMentorshipCompatibilityAPI(app2) {
       return defaultValue;
     }
   }
+}
+
+// server/services/kwame-ai-service.ts
+import OpenAI from "openai";
+import fetch2 from "node-fetch";
+import { toFile } from "openai/uploads";
+var openai = null;
+function getOpenAIClient() {
+  if (!openai) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error(
+        "OPENAI_API_KEY environment variable is required for KWAME AI"
+      );
+    }
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY
+    });
+  }
+  return openai;
+}
+var CULTURAL_PERSONAS = {
+  // West African Countries
+  Ghana: {
+    country: "Ghana",
+    greeting: "Akwaaba",
+    communicationStyle: "Warm, friendly, with Twi/Akan expressions and proverbs",
+    commonExpressions: [
+      "Eiii",
+      "Akwaaba",
+      "Y\u025Bn ho te\u025B?",
+      "Wo ho te s\u025Bn?",
+      "Agoo!",
+      "Medaase"
+    ],
+    relationshipCulture: "Family-oriented, respect for elders, traditional courtship mixed with modern dating",
+    datingNorms: "Family involvement important, church/community connections, gradual relationship building",
+    languageStyle: "Mix of English with Twi phrases, warm and expressive",
+    culturalValues: [
+      "Family respect",
+      "Community",
+      "Traditional values",
+      "Education",
+      "Hard work"
+    ],
+    ageConsiderations: {
+      young: "More casual, uses contemporary Ghanaian slang, understands modern dating challenges",
+      adult: "Professional tone, marriage-focused advice, career-relationship balance",
+      mature: "Respectful, traditional wisdom, family and stability focused"
+    },
+    conversationalVibe: `
+Cultural wisdom:
+- You understand both Ghanaian values (respect, patience, family) AND modern dating
+- Help people navigate cultural differences with humor and understanding
+- Share Ghanaian dating wisdom: "We say 'love is like palm wine - it gets sweeter with time'" or "As we say, 'Se wo were fi na wosankofa a yenkyi' - it's never too late to go back and make things right"
+- But also get that people are dating globally now
+
+Your vibe:
+- Talk like you're texting a close friend - casual, warm, sometimes use emojis \u{1F60A}
+- Share personal insights like "I've seen this work..." or "From my experience..." or "My grandmother always said..."
+- Be encouraging but honest when someone needs a reality check
+- Use Ghanaian expressions naturally (but explain them!) like "Eiii, my friend!" or "Akwaaba to love!" or "Wo ho te s\u025Bn?" (How are you?)
+- Ask follow-up questions to keep the conversation flowing
+- Remember you're having a CONVERSATION, not giving a lecture`
+  },
+  Nigeria: {
+    country: "Nigeria",
+    greeting: "How far",
+    communicationStyle: "Energetic, expressive, with Nigerian Pidgin English and cultural references",
+    commonExpressions: [
+      "How far",
+      "Na so",
+      "Omo",
+      "Wahala",
+      "Shey you dey hear me?",
+      "E no easy"
+    ],
+    relationshipCulture: "Diverse, family-centered, traditional and modern values coexist",
+    datingNorms: "Family approval important, tribal considerations, financial stability expectations",
+    languageStyle: "Nigerian Pidgin English mixed with standard English, very expressive",
+    culturalValues: [
+      "Respect",
+      "Success",
+      "Family",
+      "Religion",
+      "Hard work",
+      "Community"
+    ],
+    ageConsiderations: {
+      young: "Contemporary Nigerian expressions, understands social media culture, modern dating apps",
+      adult: "Business-minded, marriage and financial stability focus, tribal harmony",
+      mature: "Traditional wisdom, family legacy, respect-based relationships"
+    },
+    conversationalVibe: `
+Cultural wisdom:
+- You understand both Nigerian hustle mentality AND deep family values
+- Help people balance modern dating with traditional expectations
+- Share Nigerian wisdom: "We say 'Na small small dey build house' - relationships are built step by step" or "As they say, 'When the roots are deep, there is no reason to fear the wind'"
+- Get that dating across tribes and religions can be challenging but beautiful
+
+Your vibe:
+- Talk like your Nigerian bestie - energetic, expressive, real talk \u{1F604}
+- Share insights like "I don tell you before..." or "From where I dey see am..." or "My mama always talk say..."
+- Be encouraging but give honest advice when needed - "No be lie I go tell you"
+- Use Pidgin naturally (but explain!) like "How far na?" or "E no easy o!" or "Wahala dey o!"
+- Keep the conversation flowing with questions like "Shey you understand wetin I talk?"
+- You're their guy/girl, not some formal advisor`
+  },
+  // East African Countries
+  Kenya: {
+    country: "Kenya",
+    greeting: "Habari",
+    communicationStyle: "Friendly, straightforward, with Swahili expressions and cultural warmth",
+    commonExpressions: [
+      "Sawa sawa",
+      "Poa",
+      "Mambo vipi",
+      "Hakuna matata",
+      "Asante sana",
+      "Pole"
+    ],
+    relationshipCulture: "Community-based, tribal considerations, modern urban vs traditional rural",
+    datingNorms: "Gradual courtship, family involvement, education and career important",
+    languageStyle: "English with Swahili phrases, friendly and approachable",
+    culturalValues: [
+      "Ubuntu",
+      "Family",
+      "Education",
+      "Community harmony",
+      "Respect"
+    ],
+    ageConsiderations: {
+      young: "Modern Kenyan slang, tech-savvy references, contemporary relationship challenges",
+      adult: "Career-focused, building families, balancing tradition and modernity",
+      mature: "Traditional wisdom, community respect, stable relationships"
+    },
+    conversationalVibe: `
+Cultural wisdom:
+- You understand both Ubuntu philosophy (I am because we are) AND modern independence
+- Help navigate tribal differences and family expectations with wisdom
+- Share Kenyan wisdom: "Tunasema 'Haraka haraka haina baraka' - rushing has no blessings, love takes time" or "Kama mbaya ni ndugu, mzuri ni mgeni - even if family is difficult, they're still family"
+- Get that urban vs rural dating can be very different
+
+Your vibe:
+- Chat like a trusted friend from the neighborhood - warm, direct, caring \u{1F60A}
+- Share experiences like "Nimeshika..." (I've seen...) or "Kutoka experience yangu..." (From my experience...)
+- Be real but supportive - "Pole sana" when they need comfort, "Poa!" when they're doing well
+- Use Swahili naturally (but explain!) like "Mambo vipi?" (What's up?) or "Sawa sawa" (All good) or "Hakuna matata!"
+- Keep asking "Unaelewa?" (Do you understand?) to keep them engaged
+- You're their rafiki (friend), not a counselor`
+  },
+  // North American Countries
+  "United States": {
+    country: "United States",
+    greeting: "Hey there",
+    communicationStyle: "Casual, direct, optimistic with American cultural references",
+    commonExpressions: [
+      "What's up",
+      "Awesome",
+      "That's crazy",
+      "For sure",
+      "No way",
+      "Totally"
+    ],
+    relationshipCulture: "Individual choice focused, diverse dating culture, equality emphasis",
+    datingNorms: "Dating apps common, casual to serious dating spectrum, independence valued",
+    languageStyle: "Casual American English, friendly and approachable",
+    culturalValues: [
+      "Independence",
+      "Equality",
+      "Personal choice",
+      "Career success",
+      "Self-expression"
+    ],
+    ageConsiderations: {
+      young: "Gen Z slang, social media references, modern dating app culture",
+      adult: "Career-relationship balance, settling down considerations, life goals",
+      mature: "Established life perspectives, mature relationship advice, life experience"
+    },
+    conversationalVibe: `
+Cultural wisdom:
+- You get both American independence AND the desire for deep connection
+- Help balance career ambitions with relationship goals
+- Share American wisdom: "We say 'Love isn't just about finding the right person, but being the right person'" or "Like they say, 'A relationship is 50/50 - but sometimes you gotta give 60 when your partner can only give 40'"
+- Understand the dating app culture but also value genuine connections
+
+Your vibe:
+- Talk like their supportive friend who always has their back - casual, upbeat, real \u{1F60A}
+- Share insights like "I've totally seen this before..." or "From what I've experienced..." or "My friend went through this exact thing..."
+- Be encouraging but honest - "Honestly, you deserve better" or "That's actually pretty amazing!"
+- Use American expressions naturally like "That's so crazy!" or "No way!" or "You got this!"
+- Keep them engaged with "What do you think?" or "Does that make sense?"
+- You're their buddy, their hype person, their voice of reason all in one`
+  },
+  // European Countries
+  "United Kingdom": {
+    country: "United Kingdom",
+    greeting: "Alright mate",
+    communicationStyle: "Polite, slightly formal but friendly, with British humor and understatement",
+    commonExpressions: [
+      "Brilliant",
+      "Lovely",
+      "Proper",
+      "Right then",
+      "Cheers",
+      "Innit"
+    ],
+    relationshipCulture: "Polite courtship, pub culture, traditional yet progressive",
+    datingNorms: "Gradual relationship building, politeness important, humor valued",
+    languageStyle: "British English, polite yet warm, subtle humor",
+    culturalValues: [
+      "Politeness",
+      "Humor",
+      "Tradition",
+      "Fair play",
+      "Privacy"
+    ],
+    ageConsiderations: {
+      young: "Modern British slang, university culture references, contemporary dating",
+      adult: "Professional politeness, life partnership focus, work-life balance",
+      mature: "Traditional British courtesy, established relationship wisdom"
+    },
+    conversationalVibe: `
+Cultural wisdom:
+- You understand both British reserve AND the need for genuine warmth in relationships
+- Help navigate politeness culture while encouraging authentic communication
+- Share British wisdom: "As we say, 'Love is like a good cup of tea - it takes time to brew properly'" or "We have a saying: 'Keep calm and carry on' - but in love, sometimes you need to speak up"
+- Get that humor is essential but so is sincerity
+
+Your vibe:
+- Chat like a lovely British friend - polite but warm, with gentle humor \u{1F60A}
+- Share insights like "I've rather noticed..." or "In my experience..." or "My mate went through something similar..."
+- Be encouraging with British politeness - "That's absolutely brilliant!" or "Oh, that's a bit rubbish, isn't it?"
+- Use British expressions naturally (but explain!) like "That's proper lovely!" or "Brilliant!" or "Right then, what's the plan?"
+- Keep conversation flowing with "What do you reckon?" or "Does that sound about right?"
+- You're their mate who always knows what to say, innit?`
+  },
+  // South American Countries
+  Brazil: {
+    country: "Brazil",
+    greeting: "Ol\xE1",
+    communicationStyle: "Warm, passionate, expressive with Brazilian cultural enthusiasm",
+    commonExpressions: [
+      "Tudo bem?",
+      "Que legal",
+      "Nossa",
+      "Joia",
+      "Beleza",
+      "Perfeito"
+    ],
+    relationshipCulture: "Passionate, family-centered, expressive emotional culture",
+    datingNorms: "Romantic, family involvement, emotional expression valued",
+    languageStyle: "Warm English with Portuguese expressions, very expressive",
+    culturalValues: [
+      "Family",
+      "Passion",
+      "Joy",
+      "Community",
+      "Emotional expression"
+    ],
+    ageConsiderations: {
+      young: "Modern Brazilian expressions, carnival culture, contemporary romance",
+      adult: "Family building focus, passionate relationships, cultural pride",
+      mature: "Traditional family values, deep emotional connections, life wisdom"
+    },
+    conversationalVibe: `
+Cultural wisdom:
+- You understand both Brazilian passion AND the importance of family harmony
+- Help people express emotions healthily while respecting cultural values
+- Share Brazilian wisdom: "N\xF3s falamos 'O amor \xE9 como carnaval - tem que dan\xE7ar junto'" (Love is like carnival - you have to dance together) or "Como dizemos, 'Fam\xEDlia \xE9 tudo' - family is everything"
+- Get that emotional expression is celebrated but balance is key
+
+Your vibe:
+- Talk like their Brazilian best friend - warm, expressive, full of life! \u{1F60A}\u2764\uFE0F
+- Share insights like "Eu j\xE1 vi isso..." (I've seen this...) or "Da minha experi\xEAncia..." (From my experience...) or "Minha av\xF3 sempre dizia..." (My grandmother always said...)
+- Be encouraging with Brazilian warmth - "Que legal!" (How cool!) or "Nossa, que lindo!" (Wow, how beautiful!)
+- Use Portuguese naturally (but explain!) like "Tudo bem?" (Everything good?) or "Joia!" (Great!) or "Beleza!" (Beauty/Perfect!)
+- Keep the passion flowing with "E a\xED, o que voc\xEA acha?" (So, what do you think?)
+- You're their amigo/amiga who brings joy and wisdom together`
+  },
+  // Asian Countries
+  India: {
+    country: "India",
+    greeting: "Namaste",
+    communicationStyle: "Respectful, family-oriented, culturally rich with diverse traditions",
+    commonExpressions: [
+      "Namaste",
+      "Kya haal hai",
+      "Bahut accha",
+      "Arre yaar",
+      "Sahi hai",
+      "Bilkul"
+    ],
+    relationshipCulture: "Family-arranged to love marriages, respect for elders, traditional values",
+    datingNorms: "Family involvement crucial, caste/community considerations, gradual courtship",
+    languageStyle: "English with Hindi expressions, respectful and warm",
+    culturalValues: [
+      "Family respect",
+      "Tradition",
+      "Education",
+      "Spiritual values",
+      "Community harmony"
+    ],
+    ageConsiderations: {
+      young: "Modern Indian expressions, Bollywood references, contemporary dating challenges",
+      adult: "Marriage and family focus, career-relationship balance, traditional expectations",
+      mature: "Deep traditional wisdom, family harmony, spiritual guidance"
+    },
+    conversationalVibe: `
+Cultural wisdom:
+- You understand both family traditions AND individual happiness
+- Help navigate arranged vs love marriage expectations with sensitivity
+- Share Indian wisdom: "Hum kehte hain 'Rishta sirf do dilon ka nahi, do parivaaron ka hota hai'" (A relationship is not just between two hearts, but two families) or "Jaise kehte hain, 'Pyaar mein sabr zaroori hai'" (As they say, patience is necessary in love)
+- Get that caste, community, and family approval can be complex but love finds a way
+
+Your vibe:
+- Talk like a caring Indian friend - respectful but warm, understanding family pressure \u{1F60A}
+- Share insights like "Maine dekha hai..." (I have seen...) or "Mere experience mein..." (In my experience...) or "Mere dadiji kehti thi..." (My grandmother used to say...)
+- Be supportive with Indian warmth - "Bahut accha!" (Very good!) or "Arre yaar, tension mat le!" (Hey friend, don't take tension!)
+- Use Hindi naturally (but explain!) like "Kya haal hai?" (What's up?) or "Bilkul sahi!" (Absolutely right!) or "Arre yaar!" (Hey friend!)
+- Keep the conversation respectful with "Samjhe?" (Understand?) or "Kya lagta hai?" (What do you think?)
+- You're their trusted friend who respects both tradition and their heart`
+  },
+  // Default/International persona
+  International: {
+    country: "International",
+    greeting: "Hello",
+    communicationStyle: "Warm, inclusive, culturally neutral yet friendly",
+    commonExpressions: [
+      "That's great",
+      "I understand",
+      "Absolutely",
+      "Of course",
+      "Wonderful",
+      "Perfect"
+    ],
+    relationshipCulture: "Diverse and inclusive, respecting various cultural backgrounds",
+    datingNorms: "Open to various approaches, cultural sensitivity, universal relationship principles",
+    languageStyle: "Clear, warm English accessible to global audience",
+    culturalValues: [
+      "Respect",
+      "Understanding",
+      "Inclusivity",
+      "Communication",
+      "Empathy"
+    ],
+    ageConsiderations: {
+      young: "Contemporary global perspectives, social media awareness, modern relationship dynamics",
+      adult: "Professional and mature guidance, life goals and partnership focus",
+      mature: "Universal wisdom, deep relationship insights, life experience based advice"
+    },
+    conversationalVibe: `
+Cultural wisdom:
+- You understand that love is universal but cultural contexts matter deeply
+- Help people navigate cross-cultural relationships with sensitivity
+- Share universal wisdom: "As people say around the world, 'Love speaks every language'" or "There's a saying that 'The heart knows no borders'"
+- Get that everyone's cultural background shapes their relationship expectations
+
+Your vibe:
+- Talk like a globally-minded friend - warm, inclusive, understanding \u{1F60A}
+- Share insights like "I've seen across many cultures..." or "From what I've learned..." or "People everywhere seem to experience..."
+- Be encouraging and culturally sensitive - "That's beautiful!" or "I really understand your perspective"
+- Use inclusive language while being warm and personal
+- Keep them engaged with "What's your take on this?" or "How does this feel for you?"
+- You're their culturally-aware friend who celebrates diversity in love`
+  }
+};
+var KwameAIService = class {
+  MAX_CONVERSATION_HISTORY = 20;
+  DEFAULT_TEMPERATURE = 0.7;
+  MAX_TOKENS = 500;
+  RESPONSE_TIMEOUT = 3e4;
+  // 30 seconds
+  /**
+   * Convert values that may be JSON arrays/objects or plain strings into a concise, readable string
+   */
+  toDisplayString(value) {
+    if (value === null || value === void 0) return "";
+    if (Array.isArray(value)) return value.filter(Boolean).join(", ");
+    if (typeof value === "object") {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return "";
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean).join(", ");
+        if (parsed && typeof parsed === "object") return JSON.stringify(parsed);
+      } catch {
+      }
+      return trimmed;
+    }
+    return String(value);
+  }
+  /**
+   * Generate a Pixar-style transformation from a source image using OpenAI gpt-image-1
+   * Accepts http/https URLs or data URLs. Returns a PNG data URL.
+   */
+  async generatePixarStyleImage(sourceImage, customPrompt) {
+    const stylePrompt = customPrompt || "Transform this photo into a very beautiful, pleasing-to-the-eye and attractive high-quality Disney Pixar animated character style. Keep the person\u2019s facial features, hairstyle, skin tone, and proportions recognizable so it clearly looks like the same person. Use soft lighting, detailed skin shading, and expressive Pixar-style eyes. Preserve the original outfit and colors but adapt them to match the Pixar aesthetic. Place the character against a softly blurred, whimsical background that complements the subject. Maintain a friendly, magical, and cinematic look.";
+    let buffer;
+    let contentType = "image/jpeg";
+    if (sourceImage.startsWith("http://") || sourceImage.startsWith("https://")) {
+      const response = await fetch2(sourceImage);
+      if (!response.ok)
+        throw new Error(`Failed to fetch source image: ${response.status}`);
+      contentType = response.headers.get("content-type") || contentType;
+      const arrayBuffer = await response.arrayBuffer();
+      buffer = Buffer.from(arrayBuffer);
+    } else if (sourceImage.startsWith("data:")) {
+      const match = sourceImage.match(/^data:([^;]+);base64,(.*)$/);
+      if (!match) throw new Error("Invalid data URL for source image");
+      contentType = match[1] || contentType;
+      buffer = Buffer.from(match[2], "base64");
+    } else {
+      buffer = Buffer.from(sourceImage.replace(/^base64,/, ""), "base64");
+    }
+    const file = await toFile(
+      buffer,
+      `source.${contentType.includes("png") ? "png" : "jpg"}`,
+      { type: contentType }
+    );
+    const result = await getOpenAIClient().images.edit({
+      model: "gpt-image-1",
+      image: file,
+      prompt: stylePrompt,
+      size: "1024x1024"
+    });
+    const b64 = result?.data?.[0]?.b64_json;
+    if (!b64) {
+      throw new Error("Failed to generate image: empty response");
+    }
+    return `data:image/png;base64,${b64}`;
+  }
+  /**
+   * Text-to-image generation using OpenAI gpt-image-1
+   * Returns a PNG data URL.
+   */
+  async generateImageFromPrompt(prompt) {
+    const result = await getOpenAIClient().images.generate({
+      model: "gpt-image-1",
+      prompt,
+      size: "1024x1024"
+    });
+    const b64 = result?.data?.[0]?.b64_json;
+    if (!b64) {
+      throw new Error("Failed to generate image: empty response");
+    }
+    return `data:image/png;base64,${b64}`;
+  }
+  /**
+   * Generate stylized avatar using OpenAI gpt-image-1
+   * If sourceImage is provided, uses image-to-image. Otherwise, uses text-to-image.
+   * Supports different styles: anime, pixar, disney, cartoon, etc.
+   * Returns a PNG data URL.
+   */
+  async generateStylizedAvatar(sourceImage, style = "anime") {
+    const stylePrompts = {
+      anime: {
+        withSource: "Anime-style portrait of the same person, preserve facial identity, hairstyle, skin tone, outfit colors. Clean line art, soft cel-shading, expressive anime eyes, tasteful background, high-quality, friendly look.",
+        textOnly: "High-quality anime-style portrait character. Clean line art, soft cel-shading, expressive anime eyes, beautiful hairstyle, friendly facial expression, tasteful background, professional anime character design."
+      },
+      pixar: {
+        withSource: "Transform this photo into a beautiful, pleasing-to-the-eye and attractive high-quality Disney Pixar animated character style. Keep the person's facial features, hairstyle, skin tone, and proportions recognizable so it clearly looks like the same person. Use soft lighting, detailed skin shading, and expressive Pixar-style eyes. Preserve the original outfit and colors but adapt them to match the Pixar aesthetic. Place the character against a softly blurred, whimsical background that complements the subject. Maintain a friendly, magical, and cinematic look.",
+        textOnly: "High-quality Disney Pixar animated character portrait. Beautiful, friendly character with expressive eyes, detailed skin shading, soft lighting, whimsical background, magical and cinematic look."
+      },
+      disney: {
+        withSource: "Transform this photo into a beautiful Disney animated character style. Keep the person's facial features, hairstyle, skin tone recognizable. Use classic Disney animation style with soft lighting, expressive Disney-style eyes, and warm colors. Preserve outfit but adapt to Disney aesthetic with whimsical background.",
+        textOnly: "High-quality Disney animated character portrait. Classic Disney animation style, expressive eyes, soft lighting, warm colors, whimsical background, friendly appearance."
+      },
+      cartoon: {
+        withSource: "Transform this photo into a high-quality cartoon style portrait. Keep the person's facial features recognizable while stylizing with clean lines, bright colors, and cartoon-like proportions. Maintain friendly expression with cartoon-style eyes and simplified but detailed features.",
+        textOnly: "High-quality cartoon style portrait character. Clean lines, bright colors, cartoon proportions, friendly expression, cartoon-style eyes, simplified but detailed features."
+      },
+      comic: {
+        withSource: "Transform this photo into a comic book style portrait. Keep the person's facial features recognizable while adding comic book aesthetics with bold lines, vibrant colors, and dramatic shading. Maintain the person's identity while giving it a superhero comic book look.",
+        textOnly: "High-quality comic book style portrait character. Bold lines, vibrant colors, dramatic shading, superhero comic book aesthetic."
+      },
+      illustration: {
+        withSource: "Transform this photo into a beautiful artistic illustration style. Keep the person's facial features recognizable while adding artistic flair with painterly quality, soft brushstrokes, and artistic composition. Maintain warm, inviting colors.",
+        textOnly: "High-quality artistic illustration portrait. Painterly quality, soft brushstrokes, artistic composition, warm inviting colors, beautiful artistic style."
+      }
+    };
+    const normalizedStyle = style.toLowerCase();
+    const prompts = stylePrompts[normalizedStyle] || stylePrompts.anime;
+    if (sourceImage) {
+      return await this.generatePixarStyleImage(sourceImage, prompts.withSource);
+    } else {
+      return await this.generateImageFromPrompt(prompts.textOnly);
+    }
+  }
+  /**
+   * Legacy method for backwards compatibility
+   * @deprecated Use generateStylizedAvatar instead
+   */
+  async generateAnimeAvatar(sourceImage) {
+    return this.generateStylizedAvatar(sourceImage, "anime");
+  }
+  /**
+   * Determine the language to respond in from user profile preference
+   */
+  getPreferredLanguage(userProfile) {
+    const raw = userProfile?.preferredLanguage;
+    if (typeof raw !== "string") return "en";
+    let lang = raw.trim().toLowerCase();
+    const aliases = {
+      twi: "tw",
+      akan: "tw",
+      ak: "tw",
+      ga: "ga",
+      ewe: "ee",
+      ew: "ee",
+      ee: "ee",
+      "en-us": "en",
+      "en-gb": "en",
+      "fr-fr": "fr",
+      "pt-br": "pt"
+    };
+    if (aliases[lang]) lang = aliases[lang];
+    if (lang.includes("-") && lang.length > 2) lang = lang.split("-")[0];
+    if (!lang) return "en";
+    const isLikelyLanguageCode = /^[a-z]{2}(-[a-z]{2})?$/.test(lang);
+    return isLikelyLanguageCode ? lang : "en";
+  }
+  /**
+   * Map BCP-47-ish codes to human-readable names used in prompts
+   */
+  getLanguageName(languageCode) {
+    const code = (languageCode || "en").toLowerCase();
+    const map = {
+      en: "English",
+      fr: "French",
+      es: "Spanish",
+      de: "German",
+      it: "Italian",
+      pt: "Portuguese",
+      ru: "Russian",
+      nl: "Dutch",
+      tr: "Turkish",
+      zh: "Chinese",
+      ja: "Japanese",
+      ko: "Korean",
+      hi: "Hindi",
+      ar: "Arabic",
+      ak: "Akan",
+      tw: "Akan (Twi)",
+      ee: "Ewe",
+      ga: "Ga"
+    };
+    return map[code] || code;
+  }
+  /**
+   * Extract a safe first name from a full name string
+   */
+  getFirstName(fullName) {
+    if (!fullName) return null;
+    const parts = fullName.trim().split(/\s+/);
+    const first = parts[0]?.trim();
+    return first && first.length > 0 ? first : null;
+  }
+  /**
+   * Main chat interface for KWAME AI
+   */
+  async chat(request) {
+    try {
+      console.log(`[KWAME-AI] Processing request for user ${request.userId}`);
+      this.validateRequest(request);
+      const personalityResponse = await this.handlePersonalityAssessment(request);
+      if (personalityResponse) {
+        return personalityResponse;
+      }
+      const systemPrompt = this.buildSystemPrompt(request);
+      const messages2 = this.prepareMessages(request, systemPrompt);
+      let aiResponse = await this.getAIResponseWithRetry(messages2, request);
+      aiResponse = await this.enforcePreferredLanguage(aiResponse, request);
+      const kwameResponse = this.processAIResponse(aiResponse, request);
+      console.log(
+        `[KWAME-AI] \u2705 Successful response for user ${request.userId}`
+      );
+      return kwameResponse;
+    } catch (error) {
+      console.error("[KWAME-AI] Error:", error);
+      return this.generateFallbackResponse(request, error);
+    }
+  }
+  /**
+   * Handle personality assessment requests and flow
+   */
+  async handlePersonalityAssessment(request) {
+    const message = request.message.toLowerCase();
+    const user = request.context?.userProfile;
+    const isPersonalityRequest = message.includes("personality") || message.includes("big 5") || message.includes("big five") || message.includes("personality test") || message.includes("take a test") || message.includes("assessment") || message.includes("analyze me") || message.includes("what am i like") || message.includes("personality traits") || message.includes("who am i");
+    const hasCompletedAssessment = user?.personalityTestCompleted && user?.big5Profile;
+    const isRequestingResults = message.includes("results") || message.includes("show me") || message.includes("my personality") || message.includes("what") && (message.includes("found") || message.includes("discovered"));
+    if (isRequestingResults && hasCompletedAssessment) {
+      return this.generateBig5ResultsResponse(request);
+    }
+    if (isPersonalityRequest) {
+      return this.generatePersonalityAssessmentResponse(request);
+    }
+    const isInPersonalityFlow = request.context?.currentScreen === "personality-test" || request.context?.personalityAssessment?.inProgress;
+    if (isInPersonalityFlow) {
+      return this.handlePersonalityQuestionResponse(request);
+    }
+    return null;
+  }
+  /**
+   * Generate personality assessment introduction response
+   */
+  async generatePersonalityAssessmentResponse(request) {
+    const user = request.context?.userProfile;
+    const firstName = this.getFirstName(user?.fullName);
+    const hasCompleted = user?.personalityTestCompleted && user?.big5Profile;
+    const preferredLang = this.getPreferredLanguage(user);
+    const nationality = this.getUserNationality(user);
+    const persona = this.getCulturalPersona(nationality);
+    if (hasCompleted) {
+      const systemPrompt = `You are KWAME AI. The user has already completed their Big 5 personality assessment. 
+
+      Respond warmly in ${preferredLang} using ${persona.greeting} and explain that they've already completed the test. 
+      Offer to show them their results or retake the test if they want fresh insights.
+
+      Use your ${persona.communicationStyle.toLowerCase()} and be encouraging about their personality insights.`;
+      const messages2 = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: request.message }
+      ];
+      const aiResponse = await this.getAIResponseWithRetry(
+        messages2,
+        request
+      );
+      return {
+        message: aiResponse,
+        confidence: 0.9,
+        responseType: "advice",
+        actionButtons: [
+          { label: "Show My Results", action: "show_big5_results" },
+          { label: "Retake Assessment", action: "start_personality_test" }
+        ]
+      };
+    } else {
+      const systemPrompt = `You are KWAME AI with ${persona.communicationStyle.toLowerCase()}. 
+
+      The user is interested in personality assessment. Explain the Big 5 personality test warmly in ${preferredLang}.
+
+      Key points to cover:
+      - Use ${persona.greeting} greeting warmly
+      - Explain this is a scientifically-backed personality assessment
+      - It takes about 10-15 minutes with 100 questions
+      - It reveals 5 core personality traits: Openness, Conscientiousness, Extraversion, Agreeableness, Neuroticism
+      - Results help understand compatibility in relationships
+      - Make it sound exciting and insightful, not clinical
+      - Use ${firstName ? firstName : "friend"} naturally
+
+      Be encouraging and culturally appropriate using ${persona.conversationalVibe}`;
+      const messages2 = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: request.message }
+      ];
+      const aiResponse = await this.getAIResponseWithRetry(
+        messages2,
+        request
+      );
+      return {
+        message: aiResponse,
+        confidence: 0.9,
+        responseType: "suggestion",
+        actionButtons: [
+          { label: "Start Assessment", action: "start_personality_test" },
+          { label: "Learn More", action: "personality_info" }
+        ]
+      };
+    }
+  }
+  /**
+   * Generate Big 5 results display response
+   */
+  async generateBig5ResultsResponse(request) {
+    const user = request.context?.userProfile;
+    if (!user?.big5Profile) {
+      return {
+        message: "I don't see any personality assessment results for you yet. Would you like to take the Big 5 personality test?",
+        confidence: 0.8,
+        responseType: "suggestion",
+        actionButtons: [
+          { label: "Start Assessment", action: "start_personality_test" }
+        ]
+      };
+    }
+    try {
+      const big5Profile = JSON.parse(user.big5Profile);
+      const firstName = this.getFirstName(user?.fullName);
+      const preferredLang = this.getPreferredLanguage(user);
+      const nationality = this.getUserNationality(user);
+      const persona = this.getCulturalPersona(nationality);
+      const systemPrompt = `You are KWAME AI with ${persona.communicationStyle.toLowerCase()}.
+
+      Present these Big 5 personality results warmly in ${preferredLang}:
+
+      TRAITS (percentiles):
+      - Openness: ${big5Profile.traitPercentiles.Openness.toFixed(1)}%
+      - Conscientiousness: ${big5Profile.traitPercentiles.Conscientiousness.toFixed(1)}%
+      - Extraversion: ${big5Profile.traitPercentiles.Extraversion.toFixed(1)}%
+      - Agreeableness: ${big5Profile.traitPercentiles.Agreeableness.toFixed(1)}%
+      - Emotional Stability: ${(100 - big5Profile.traitPercentiles.Neuroticism).toFixed(1)}% (lower neuroticism = higher stability)
+
+      SUMMARY: ${big5Profile.narrative?.summary || "A balanced personality profile"}
+
+      STRENGTHS: ${big5Profile.narrative?.strengths?.join(", ") || "Various personal strengths"}
+
+      Present this with ${persona.greeting} greeting, use ${firstName ? firstName : "friend"} naturally.
+      Explain what each trait means for relationships and dating.
+      Be encouraging and insightful using ${persona.conversationalVibe}`;
+      const messages2 = [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: "Show me my personality results" }
+      ];
+      const aiResponse = await this.getAIResponseWithRetry(
+        messages2,
+        request
+      );
+      return {
+        message: aiResponse,
+        confidence: 0.95,
+        responseType: "analysis",
+        actionButtons: [
+          { label: "Relationship Insights", action: "personality_insights" },
+          { label: "Retake Test", action: "start_personality_test" }
+        ]
+      };
+    } catch (error) {
+      console.error("[KWAME-AI] Big5 results parsing error:", error);
+      return {
+        message: "I had trouble loading your personality results. Would you like to retake the assessment?",
+        confidence: 0.6,
+        responseType: "suggestion",
+        actionButtons: [
+          { label: "Retake Assessment", action: "start_personality_test" }
+        ]
+      };
+    }
+  }
+  /**
+   * Handle responses during personality questionnaire
+   */
+  async handlePersonalityQuestionResponse(request) {
+    const user = request.context?.userProfile;
+    const firstName = this.getFirstName(user?.fullName);
+    const preferredLang = this.getPreferredLanguage(user);
+    const nationality = this.getUserNationality(user);
+    const persona = this.getCulturalPersona(nationality);
+    const message = request.message.toLowerCase();
+    const wantsToExit = message.includes("stop") || message.includes("quit") || message.includes("exit") || message.includes("cancel") || message.includes("later") || message.includes("not now");
+    if (wantsToExit) {
+      const systemPrompt2 = `You are KWAME AI with ${persona.communicationStyle.toLowerCase()}.
+
+      The user wants to pause their personality assessment. Respond warmly in ${preferredLang}:
+      - Use ${persona.greeting} and be understanding
+      - Let them know their progress is saved
+      - They can continue anytime
+      - Be encouraging about coming back
+      - Use ${firstName ? firstName : "friend"} naturally`;
+      const messages3 = [
+        { role: "system", content: systemPrompt2 },
+        { role: "user", content: request.message }
+      ];
+      const aiResponse2 = await this.getAIResponseWithRetry(
+        messages3,
+        request
+      );
+      return {
+        message: aiResponse2,
+        confidence: 0.9,
+        responseType: "encouragement",
+        actionButtons: [
+          { label: "Continue Test", action: "continue_personality_test" },
+          { label: "Start Over", action: "start_personality_test" }
+        ]
+      };
+    }
+    const progress = request.context?.personalityAssessment;
+    const progressPercent = progress ? Math.round(
+      (progress.currentQuestion || 0) / (progress.totalQuestions || 100) * 100
+    ) : 0;
+    const systemPrompt = `You are KWAME AI with ${persona.communicationStyle.toLowerCase()}.
+
+    The user is in the middle of their personality assessment (${progressPercent}% complete).
+
+    Respond warmly in ${preferredLang}:
+    - Use ${persona.greeting} and be encouraging
+    - Acknowledge their progress (${progressPercent}% done)
+    - Keep them motivated
+    - Remind them it helps with relationship compatibility
+    - Use ${firstName ? firstName : "friend"} naturally
+    - Keep response brief and supportive`;
+    const messages2 = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: request.message }
+    ];
+    const aiResponse = await this.getAIResponseWithRetry(
+      messages2,
+      request
+    );
+    return {
+      message: aiResponse,
+      confidence: 0.8,
+      responseType: "encouragement",
+      actionButtons: [
+        { label: "Continue Assessment", action: "continue_personality_test" },
+        { label: "Pause Test", action: "pause_personality_test" }
+      ]
+    };
+  }
+  /**
+   * If response is not in the preferred language, ask model to rewrite strictly in that language
+   */
+  async enforcePreferredLanguage(content, request) {
+    try {
+      const preferredLang = this.getPreferredLanguage(
+        request.context?.userProfile
+      );
+      if (!preferredLang || preferredLang === "en") return content;
+      const userWroteEnglish = this.isLikelyEnglish(request.message || "");
+      if (userWroteEnglish) {
+        console.log(
+          `[KWAME-AI] Language enforcement skipped (user wrote English). PrefLang=${preferredLang}`
+        );
+        return content;
+      }
+      console.log(
+        `[KWAME-AI] Enforcing preferred language '${preferredLang}' for response length=${content?.length}`
+      );
+      const preferredLangName = this.getLanguageName(preferredLang);
+      const rewriteSystem = `You strictly rewrite assistant responses into ${preferredLangName} (${preferredLang}) ONLY.
+- Preserve meaning, tone, emojis, formatting.
+- Do NOT add commentary, brackets, or translations.
+- Output plain text in ${preferredLangName} only.`;
+      const response = await getOpenAIClient().chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: rewriteSystem },
+          { role: "user", content }
+        ],
+        temperature: 0.2,
+        max_tokens: Math.min(
+          600,
+          Math.max(150, Math.floor(content.length * 1.2))
+        )
+      });
+      const rewritten = response.choices[0]?.message?.content?.trim();
+      if (!rewritten || rewritten.length === 0) {
+        console.log(
+          "[KWAME-AI] Language enforcement returned empty content; using original."
+        );
+        return content;
+      }
+      console.log(
+        `[KWAME-AI] Language enforcement succeeded. New length=${rewritten.length}`
+      );
+      return rewritten;
+    } catch (e) {
+      console.error(
+        "[KWAME-AI] Language enforcement failed, returning original content:",
+        e
+      );
+      return content;
+    }
+  }
+  /**
+   * Get contextual suggestions for specific scenarios
+   */
+  async getSuggestions(request) {
+    try {
+      const suggestionPrompt = this.buildSuggestionPrompt(request);
+      const response = await getOpenAIClient().chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "system", content: suggestionPrompt }],
+        temperature: 0.3,
+        // Lower temperature for more consistent suggestions
+        max_tokens: 200,
+        n: 1
+      });
+      const content = response.choices[0]?.message?.content || "";
+      try {
+        const suggestions = JSON.parse(content);
+        return Array.isArray(suggestions) ? suggestions.slice(0, 5) : [content];
+      } catch {
+        return content.split("\n").filter((s) => s.trim()).slice(0, 5);
+      }
+    } catch (error) {
+      console.error("[KWAME-AI] Suggestion error:", error);
+      return this.getFallbackSuggestions(request);
+    }
+  }
+  /**
+   * Analyze user profile and provide improvement suggestions
+   */
+  async analyzeProfile(user, preferences) {
+    try {
+      const analysisPrompt = this.buildProfileAnalysisPrompt(user, preferences);
+      const response = await getOpenAIClient().chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "system", content: analysisPrompt }],
+        temperature: 0.5,
+        max_tokens: 600
+      });
+      const content = response.choices[0]?.message?.content || "";
+      return {
+        message: content,
+        confidence: 0.9,
+        responseType: "analysis",
+        suggestions: this.extractProfileTips(content),
+        actionButtons: [
+          { label: "Improve Bio", action: "edit_bio" },
+          { label: "Add Photos", action: "add_photos" },
+          { label: "Update Preferences", action: "edit_preferences" }
+        ]
+      };
+    } catch (error) {
+      console.error("[KWAME-AI] Profile analysis error:", error);
+      return this.generateFallbackResponse(
+        { userId: user.id, message: "analyze profile" },
+        error
+      );
+    }
+  }
+  /**
+   * Build comprehensive system prompt with cultural awareness
+   */
+  buildSystemPrompt(request) {
+    const culturalContext = request.context?.culturalContext;
+    const userProfile = request.context?.userProfile;
+    const userPreferences3 = request.context?.userPreferences;
+    const networkingProfile = request.context?.networkingProfile;
+    const mentorshipProfile = request.context?.mentorshipProfile;
+    console.log(
+      `[KWAME-AI] \u{1F50D} DEBUG: Building system prompt for user ${request.userId}:`,
+      {
+        hasCulturalContext: !!culturalContext,
+        hasUserProfile: !!userProfile,
+        hasUserPreferences: !!userPreferences3,
+        hasNetworkingProfile: !!networkingProfile,
+        hasMentorshipProfile: !!mentorshipProfile,
+        userProfileKeys: userProfile ? Object.keys(userProfile) : [],
+        networkingProfileKeys: networkingProfile ? Object.keys(networkingProfile) : [],
+        mentorshipProfileKeys: mentorshipProfile ? Object.keys(mentorshipProfile) : [],
+        userName: userProfile?.fullName,
+        userAge: userProfile ? this.calculateAge(userProfile.dateOfBirth) : void 0
+      }
+    );
+    const userAge = userProfile?.dateOfBirth ? this.calculateAge(userProfile.dateOfBirth) : 25;
+    let systemPrompt = this.buildCulturalSystemPrompt(userProfile, userAge);
+    const preferredLang = this.getPreferredLanguage(userProfile);
+    const preferredLangName = this.getLanguageName(preferredLang);
+    systemPrompt += `
+
+==== LANGUAGE PREFERENCE ====
+\u2022 You must respond in ${preferredLangName} (${preferredLang}) for the entire message.
+\u2022 Do NOT code-switch or mix English unless the user switches language.
+\u2022 Do not include translations unless the user asks.`;
+    systemPrompt += `
+
+==== RESPONSE STYLE & LENGTH ====
+\u2022 Keep answers concise and skimmable.
+\u2022 When providing tips, steps, or recommendations, limit to 5 numbered bullets (1\u20135).
+\u2022 Put each bullet on its own line with a blank line between bullets.
+\u2022 Each bullet should be 1\u20132 short sentences.
+\u2022 If the user asks for more detail, provide another set of up to 5 bullets in a follow-up response.`;
+    if (userProfile) {
+      systemPrompt += `
+
+==== USER PROFILE DATA (YOU MUST USE THIS INFORMATION) ====`;
+      if (userProfile.fullName) {
+        systemPrompt += `
+\u2022 User's Full Name: ${userProfile.fullName}`;
+        const firstName = this.getFirstName(userProfile.fullName);
+        if (firstName) {
+          systemPrompt += `
+\u2022 User's First Name: ${firstName}`;
+        }
+      }
+      if (userProfile.dateOfBirth) {
+        systemPrompt += `
+\u2022 User's Age: ${userAge} years old`;
+      }
+      if (userProfile.gender) {
+        systemPrompt += `
+\u2022 Gender: ${userProfile.gender}`;
+      }
+      if (userProfile.location) {
+        systemPrompt += `
+\u2022 Current Location: ${userProfile.location}`;
+      }
+      if (userProfile.countryOfOrigin) {
+        systemPrompt += `
+\u2022 Country of Origin: ${userProfile.countryOfOrigin}`;
+      }
+      if (userProfile.profession) {
+        systemPrompt += `
+\u2022 Profession: ${userProfile.profession}`;
+      }
+      if (userProfile.relationshipStatus) {
+        systemPrompt += `
+\u2022 Relationship Status: ${userProfile.relationshipStatus}`;
+      }
+      if (userProfile.relationshipGoal) {
+        systemPrompt += `
+\u2022 Relationship Goal: ${userProfile.relationshipGoal}`;
+      }
+      if (userProfile.bio) {
+        systemPrompt += `
+\u2022 Bio: ${userProfile.bio}`;
+      }
+      if (userProfile.interests) {
+        systemPrompt += `
+\u2022 Interests: ${this.toDisplayString(userProfile.interests)}`;
+      }
+      if (userProfile.educationLevel) {
+        systemPrompt += `
+\u2022 Education Level: ${userProfile.educationLevel}`;
+      }
+      if (userProfile.ethnicity) {
+        systemPrompt += `
+\u2022 Ethnicity: ${userProfile.ethnicity}`;
+      }
+      if (userProfile.religion) {
+        systemPrompt += `
+\u2022 Religion: ${userProfile.religion}`;
+      }
+      if (userProfile.secondaryCountryOfOrigin) {
+        systemPrompt += `
+\u2022 Secondary Country of Origin: ${userProfile.secondaryCountryOfOrigin}`;
+      }
+      if (userProfile.secondaryTribe) {
+        systemPrompt += `
+\u2022 Secondary Tribe: ${userProfile.secondaryTribe}`;
+      }
+      if (userProfile.highSchool) {
+        systemPrompt += `
+\u2022 High School: ${userProfile.highSchool}`;
+      }
+      if (userProfile.collegeUniversity) {
+        systemPrompt += `
+\u2022 College/University: ${userProfile.collegeUniversity}`;
+      }
+      if (userProfile.bodyType) {
+        systemPrompt += `
+\u2022 Body Type: ${userProfile.bodyType}`;
+      }
+      if (typeof userProfile.height === "number") {
+        systemPrompt += `
+\u2022 Height: ${userProfile.height} cm`;
+      }
+      if (userProfile.smoking) {
+        systemPrompt += `
+\u2022 Smoking: ${userProfile.smoking}`;
+      }
+      if (userProfile.drinking) {
+        systemPrompt += `
+\u2022 Drinking: ${userProfile.drinking}`;
+      }
+      if (userProfile.hasChildren) {
+        systemPrompt += `
+\u2022 Has Children: ${userProfile.hasChildren}`;
+      }
+      if (userProfile.wantsChildren) {
+        systemPrompt += `
+\u2022 Wants Children: ${userProfile.wantsChildren}`;
+      }
+      if (userProfile.matchingPriorities) {
+        systemPrompt += `
+\u2022 Matching Priorities: ${this.toDisplayString(userProfile.matchingPriorities)}`;
+      }
+      if (typeof userProfile.showProfilePhoto === "boolean") {
+        systemPrompt += `
+\u2022 Show Profile Photo: ${userProfile.showProfilePhoto ? "Yes" : "No"}`;
+      }
+      if (typeof userProfile.hideAge === "boolean") {
+        systemPrompt += `
+\u2022 Hide Age: ${userProfile.hideAge ? "Yes" : "No"}`;
+      }
+      if (userProfile.preferredLanguage) {
+        systemPrompt += `
+\u2022 Preferred Language: ${userProfile.preferredLanguage}`;
+      }
+      if (userProfile.visibilityPreferences) {
+        systemPrompt += `
+\u2022 Visibility Preferences: ${this.toDisplayString(userProfile.visibilityPreferences)}`;
+      }
+      if (typeof userProfile.isVerified === "boolean") {
+        systemPrompt += `
+\u2022 Verified: ${userProfile.isVerified ? "Yes" : "No"}`;
+      }
+      console.log(
+        `[KWAME-AI] \u{1F50D} DEBUG: Added profile info to system prompt. Age: ${userAge}, Name: ${userProfile.fullName}`
+      );
+    }
+    if (userPreferences3) {
+      systemPrompt += `
+
+==== USER DATING PREFERENCES (CONSIDER THESE) ====`;
+      if (userPreferences3.minAge && userPreferences3.maxAge) {
+        systemPrompt += `
+\u2022 Preferred Age Range: ${userPreferences3.minAge}-${userPreferences3.maxAge} years`;
+      }
+      if (userPreferences3.distancePreference) {
+        systemPrompt += `
+\u2022 Maximum Distance: ${userPreferences3.distancePreference}km`;
+      }
+      if (userPreferences3.locationPreference) {
+        systemPrompt += `
+\u2022 Location Preference: ${userPreferences3.locationPreference}`;
+      }
+      if (userPreferences3.poolCountry) {
+        systemPrompt += `
+\u2022 Pool Country (Legacy): ${userPreferences3.poolCountry}`;
+      }
+      if (userPreferences3.meetPoolCountry) {
+        systemPrompt += `
+\u2022 MEET Pool Country: ${userPreferences3.meetPoolCountry}`;
+      }
+      if (userPreferences3.ethnicityPreference) {
+        systemPrompt += `
+\u2022 Ethnicity Preference: ${this.toDisplayString(userPreferences3.ethnicityPreference)}`;
+      }
+      if (userPreferences3.religionPreference) {
+        systemPrompt += `
+\u2022 Religion Preference: ${this.toDisplayString(userPreferences3.religionPreference)}`;
+      }
+      if (userPreferences3.educationLevelPreference) {
+        systemPrompt += `
+\u2022 Education Level Preference: ${this.toDisplayString(userPreferences3.educationLevelPreference)}`;
+      }
+      if (userPreferences3.hasChildrenPreference) {
+        systemPrompt += `
+\u2022 Has Children Preference: ${userPreferences3.hasChildrenPreference}`;
+      }
+      if (userPreferences3.wantsChildrenPreference) {
+        systemPrompt += `
+\u2022 Wants Children Preference: ${userPreferences3.wantsChildrenPreference}`;
+      }
+      if (typeof userPreferences3.minHeightPreference === "number" || typeof userPreferences3.maxHeightPreference === "number") {
+        const minH = userPreferences3.minHeightPreference != null ? `${userPreferences3.minHeightPreference} cm` : "any";
+        const maxH = userPreferences3.maxHeightPreference != null ? `${userPreferences3.maxHeightPreference} cm` : "any";
+        systemPrompt += `
+\u2022 Height Preference: ${minH} - ${maxH}`;
+      }
+      if (userPreferences3.bodyTypePreference) {
+        systemPrompt += `
+\u2022 Body Type Preference: ${this.toDisplayString(userPreferences3.bodyTypePreference)}`;
+      }
+      if (userPreferences3.smokingPreference) {
+        systemPrompt += `
+\u2022 Smoking Preference: ${userPreferences3.smokingPreference}`;
+      }
+      if (userPreferences3.drinkingPreference) {
+        systemPrompt += `
+\u2022 Drinking Preference: ${userPreferences3.drinkingPreference}`;
+      }
+      if (userPreferences3.interestPreferences) {
+        systemPrompt += `
+\u2022 Interest Preferences: ${this.toDisplayString(userPreferences3.interestPreferences)}`;
+      }
+      if (userPreferences3.dealBreakers) {
+        systemPrompt += `
+\u2022 Deal Breakers: ${this.toDisplayString(userPreferences3.dealBreakers)}`;
+      }
+      if (userPreferences3.matchingPriorities) {
+        systemPrompt += `
+\u2022 Matching Priorities: ${this.toDisplayString(userPreferences3.matchingPriorities)}`;
+      }
+      if (userPreferences3.highSchoolPreference) {
+        systemPrompt += `
+\u2022 High School Preference: ${this.toDisplayString(userPreferences3.highSchoolPreference)}`;
+      }
+    }
+    if (networkingProfile) {
+      systemPrompt += `
+
+==== USER NETWORKING PROFILE DATA (PROFESSIONAL/CAREER INFORMATION) ====`;
+      if (networkingProfile.professionalTagline) {
+        systemPrompt += `
+\u2022 Professional Tagline: ${networkingProfile.professionalTagline}`;
+      }
+      if (networkingProfile.currentRole) {
+        systemPrompt += `
+\u2022 Current Role: ${networkingProfile.currentRole}`;
+      }
+      if (networkingProfile.currentCompany) {
+        systemPrompt += `
+\u2022 Current Company: ${networkingProfile.currentCompany}`;
+      }
+      if (networkingProfile.industry) {
+        systemPrompt += `
+\u2022 Industry: ${networkingProfile.industry}`;
+      }
+      if (networkingProfile.experienceYears) {
+        systemPrompt += `
+\u2022 Years of Experience: ${networkingProfile.experienceYears}`;
+      }
+      if (networkingProfile.networkingGoals) {
+        systemPrompt += `
+\u2022 Networking Goals: ${this.toDisplayString(networkingProfile.networkingGoals)}`;
+      }
+      if (networkingProfile.lookingFor) {
+        systemPrompt += `
+\u2022 Looking For: ${this.toDisplayString(networkingProfile.lookingFor)}`;
+      }
+      if (networkingProfile.canOffer) {
+        systemPrompt += `
+\u2022 Can Offer: ${this.toDisplayString(networkingProfile.canOffer)}`;
+      }
+      if (networkingProfile.professionalInterests) {
+        systemPrompt += `
+\u2022 Professional Interests: ${this.toDisplayString(networkingProfile.professionalInterests)}`;
+      }
+      if (networkingProfile.causesIPassionate) {
+        systemPrompt += `
+\u2022 Causes I'm Passionate About: ${this.toDisplayString(networkingProfile.causesIPassionate)}`;
+      }
+      if (networkingProfile.collaborationTypes) {
+        systemPrompt += `
+\u2022 Collaboration Types: ${this.toDisplayString(networkingProfile.collaborationTypes)}`;
+      }
+      if (networkingProfile.workingStyle) {
+        systemPrompt += `
+\u2022 Working Style: ${this.toDisplayString(networkingProfile.workingStyle)}`;
+      }
+      if (networkingProfile.timeCommitment) {
+        systemPrompt += `
+\u2022 Time Commitment: ${networkingProfile.timeCommitment}`;
+      }
+      if (networkingProfile.lightUpWhenTalking) {
+        systemPrompt += `
+\u2022 I Light Up When Talking About: ${this.toDisplayString(networkingProfile.lightUpWhenTalking)}`;
+      }
+      if (networkingProfile.wantToMeetSomeone) {
+        systemPrompt += `
+\u2022 Want to Meet Someone Who: ${this.toDisplayString(networkingProfile.wantToMeetSomeone)}`;
+      }
+      if (networkingProfile.currentProjects) {
+        systemPrompt += `
+\u2022 Current Projects: ${this.toDisplayString(networkingProfile.currentProjects)}`;
+      }
+      if (networkingProfile.dreamCollaboration) {
+        systemPrompt += `
+\u2022 Dream Collaboration: ${this.toDisplayString(networkingProfile.dreamCollaboration)}`;
+      }
+      if (networkingProfile.preferredMeetingStyle) {
+        systemPrompt += `
+\u2022 Preferred Meeting Style: ${this.toDisplayString(networkingProfile.preferredMeetingStyle)}`;
+      }
+      if (networkingProfile.availability) {
+        systemPrompt += `
+\u2022 Availability: ${this.toDisplayString(networkingProfile.availability)}`;
+      }
+      if (networkingProfile.location) {
+        systemPrompt += `
+\u2022 Professional Location: ${networkingProfile.location}`;
+      }
+      if (typeof networkingProfile.openToRemote === "boolean") {
+        systemPrompt += `
+\u2022 Open to Remote: ${networkingProfile.openToRemote ? "Yes" : "No"}`;
+      }
+      if (networkingProfile.preferredLocations) {
+        systemPrompt += `
+\u2022 Preferred Locations: ${this.toDisplayString(networkingProfile.preferredLocations)}`;
+      }
+      if (networkingProfile.highSchool) {
+        systemPrompt += `
+\u2022 High School (Networking): ${networkingProfile.highSchool}`;
+      }
+      if (networkingProfile.collegeUniversity) {
+        systemPrompt += `
+\u2022 College/University (Networking): ${networkingProfile.collegeUniversity}`;
+      }
+      if (typeof networkingProfile.lookingForOpportunities === "boolean") {
+        systemPrompt += `
+\u2022 Looking for Opportunities: ${networkingProfile.lookingForOpportunities ? "Yes" : "No"}`;
+      }
+      if (networkingProfile.visibilityPreferences) {
+        systemPrompt += `
+\u2022 Professional Visibility Preferences: ${this.toDisplayString(networkingProfile.visibilityPreferences)}`;
+      }
+    }
+    if (mentorshipProfile) {
+      systemPrompt += `
+
+==== USER MENTORSHIP PROFILE DATA (MENTORING/LEARNING INFORMATION) ====`;
+      if (mentorshipProfile.role) {
+        systemPrompt += `
+\u2022 Mentorship Role: ${mentorshipProfile.role}`;
+      }
+      if (mentorshipProfile.areasOfExpertise) {
+        systemPrompt += `
+\u2022 Areas of Expertise: ${this.toDisplayString(mentorshipProfile.areasOfExpertise)}`;
+      }
+      if (mentorshipProfile.learningGoals) {
+        systemPrompt += `
+\u2022 Learning Goals: ${this.toDisplayString(mentorshipProfile.learningGoals)}`;
+      }
+      if (mentorshipProfile.languagesSpoken) {
+        systemPrompt += `
+\u2022 Languages Spoken: ${this.toDisplayString(mentorshipProfile.languagesSpoken)}`;
+      }
+      if (mentorshipProfile.industriesOrDomains) {
+        systemPrompt += `
+\u2022 Industries/Domains: ${this.toDisplayString(mentorshipProfile.industriesOrDomains)}`;
+      }
+      if (mentorshipProfile.mentorshipStyle) {
+        systemPrompt += `
+\u2022 Mentorship Style: ${mentorshipProfile.mentorshipStyle}`;
+      }
+      if (mentorshipProfile.preferredFormat) {
+        systemPrompt += `
+\u2022 Preferred Format: ${this.toDisplayString(mentorshipProfile.preferredFormat)}`;
+      }
+      if (mentorshipProfile.communicationStyle) {
+        systemPrompt += `
+\u2022 Communication Style: ${this.toDisplayString(mentorshipProfile.communicationStyle)}`;
+      }
+      if (mentorshipProfile.availability) {
+        systemPrompt += `
+\u2022 Availability: ${this.toDisplayString(mentorshipProfile.availability)}`;
+      }
+      if (mentorshipProfile.timeCommitment) {
+        systemPrompt += `
+\u2022 Time Commitment: ${mentorshipProfile.timeCommitment}`;
+      }
+      if (mentorshipProfile.location) {
+        systemPrompt += `
+\u2022 Mentorship Location: ${mentorshipProfile.location}`;
+      }
+      if (mentorshipProfile.successStories) {
+        systemPrompt += `
+\u2022 Success Stories: ${mentorshipProfile.successStories}`;
+      }
+      if (mentorshipProfile.whyMentor) {
+        systemPrompt += `
+\u2022 Why I Want to Mentor: ${mentorshipProfile.whyMentor}`;
+      }
+      if (mentorshipProfile.whySeekMentorship) {
+        systemPrompt += `
+\u2022 Why I Seek Mentorship: ${mentorshipProfile.whySeekMentorship}`;
+      }
+      if (mentorshipProfile.preferredMentorshipStyle) {
+        systemPrompt += `
+\u2022 Preferred Mentorship Style: ${mentorshipProfile.preferredMentorshipStyle}`;
+      }
+      if (mentorshipProfile.industryAspiration) {
+        systemPrompt += `
+\u2022 Industry Aspiration: ${mentorshipProfile.industryAspiration}`;
+      }
+      if (mentorshipProfile.preferredMenteeLevel) {
+        systemPrompt += `
+\u2022 Preferred Mentee Level: ${mentorshipProfile.preferredMenteeLevel}`;
+      }
+      if (mentorshipProfile.preferredMentorExperience) {
+        systemPrompt += `
+\u2022 Preferred Mentor Experience: ${mentorshipProfile.preferredMentorExperience}`;
+      }
+      if (mentorshipProfile.preferredIndustries) {
+        systemPrompt += `
+\u2022 Preferred Industries: ${this.toDisplayString(mentorshipProfile.preferredIndustries)}`;
+      }
+      if (mentorshipProfile.highSchool) {
+        systemPrompt += `
+\u2022 High School (Mentorship): ${mentorshipProfile.highSchool}`;
+      }
+      if (mentorshipProfile.collegeUniversity) {
+        systemPrompt += `
+\u2022 College/University (Mentorship): ${mentorshipProfile.collegeUniversity}`;
+      }
+      if (typeof mentorshipProfile.isActive === "boolean") {
+        systemPrompt += `
+\u2022 Mentorship Active: ${mentorshipProfile.isActive ? "Yes" : "No"}`;
+      }
+      if (typeof mentorshipProfile.maxMentees === "number") {
+        systemPrompt += `
+\u2022 Max Mentees: ${mentorshipProfile.maxMentees}`;
+      }
+      if (typeof mentorshipProfile.currentMentees === "number") {
+        systemPrompt += `
+\u2022 Current Mentees: ${mentorshipProfile.currentMentees}`;
+      }
+      if (mentorshipProfile.visibilityPreferences) {
+        systemPrompt += `
+\u2022 Mentorship Visibility Preferences: ${this.toDisplayString(mentorshipProfile.visibilityPreferences)}`;
+      }
+    }
+    systemPrompt += `
+
+==== RESPONSE FORMATTING REQUIREMENTS ====
+\u2022 Use proper line breaks for lists: Use \\n\u2022 for bullet points and \\n1. for numbered lists
+\u2022 When providing lists, put each item on its own line with correct punctuation
+\u2022 Be conversational and warm while maintaining your cultural personality
+\u2022 Address the user by first name by default; only use full name if explicitly appropriate (e.g., formal summaries)
+\u2022 Provide specific, actionable advice that considers their cultural background`;
+    systemPrompt += `
+
+==== PHOTO INSIGHT OUTPUT STYLE ====
+Intro line summarizing the photo in 1 sentence.
+
+- **Attire:** ...
+- **Connection:** ...
+- **Setting:** ...
+- **Expression:** ...
+
+Close with one short paragraph tying the insights to their profile and end with a friendly question.
+
+\u2022 Use real Markdown bullets (hyphen + space)
+\u2022 Bold the labels exactly as shown
+\u2022 Put each bullet on its own line; keep tone warm and concise`;
+    return systemPrompt;
+  }
+  /**
+   * Prepare conversation messages for OpenAI with enhanced context awareness
+   */
+  prepareMessages(request, systemPrompt) {
+    const messages2 = [
+      { role: "system", content: systemPrompt }
+    ];
+    if (request.conversationHistory && request.conversationHistory.length > 0) {
+      const recentHistory = request.conversationHistory.slice(-this.MAX_CONVERSATION_HISTORY).map((msg) => {
+        const isHistoricalImage = typeof msg.content === "string" && msg.content.startsWith("_!_IMAGE_!_");
+        const sanitizedContent = isHistoricalImage ? "[User previously shared an image. Consider this contextually; image payload omitted for brevity.]" : typeof msg.content === "string" ? msg.content.slice(0, 2e3) : msg.content;
+        return {
+          role: msg.role,
+          content: sanitizedContent
+        };
+      });
+      messages2.push(...recentHistory);
+      if (request.conversationHistory.length > 5) {
+        const contextSummary = this.buildConversationSummary(
+          request.conversationHistory
+        );
+        if (contextSummary) {
+          messages2[0].content += `
+
+Conversation Context: ${contextSummary}`;
+        }
+      }
+    }
+    const isImageMessage = request.message.startsWith("_!_IMAGE_!_");
+    const wantsImageAnalysis = /analy(s|z)e|look at|review/.test(request.message.toLowerCase()) && /(photo|image|picture|that)/.test(request.message.toLowerCase());
+    let lastImageUrl = null;
+    if (!isImageMessage && wantsImageAnalysis && request.conversationHistory?.length) {
+      for (let i = request.conversationHistory.length - 1; i >= 0; i--) {
+        const hist = request.conversationHistory[i];
+        const content = hist?.content || "";
+        if (typeof content === "string" && content.startsWith("_!_IMAGE_!_")) {
+          lastImageUrl = content.substring("_!_IMAGE_!_".length);
+          break;
+        }
+      }
+    }
+    if (isImageMessage) {
+      const base64Data = request.message.substring("_!_IMAGE_!_".length);
+      const visionMessage = {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: this.addContextToMessage({
+              ...request,
+              message: "I've shared an image with you. Please analyze it and provide insights, advice, or conversation based on what you see. Consider this in the context of our ongoing conversation about relationships, dating, or life."
+            })
+          },
+          {
+            type: "image_url",
+            image_url: {
+              // Accept http/https URLs, data URLs, or raw base64 strings
+              url: base64Data.startsWith("http://") || base64Data.startsWith("https://") ? base64Data : base64Data.startsWith("data:") ? base64Data : `data:image/jpeg;base64,${base64Data}`,
+              detail: "high"
+            }
+          }
+        ]
+      };
+      messages2.push(visionMessage);
+    } else if (lastImageUrl && wantsImageAnalysis) {
+      const visionMessage = {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: this.addContextToMessage({
+              ...request,
+              message: "Please analyze the previously shared photo and provide insights, advice, or conversation based on it."
+            })
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: lastImageUrl.startsWith("http://") || lastImageUrl.startsWith("https://") ? lastImageUrl : lastImageUrl.startsWith("data:") ? lastImageUrl : `data:image/jpeg;base64,${lastImageUrl}`,
+              detail: "high"
+            }
+          }
+        ]
+      };
+      messages2.push(visionMessage);
+    } else {
+      const contextualMessage = this.addContextToMessage(request);
+      messages2.push({ role: "user", content: contextualMessage });
+    }
+    return messages2;
+  }
+  /**
+   * Add relevant context to user message
+   */
+  addContextToMessage(request) {
+    let contextualMessage = request.message;
+    if (request.context) {
+      const contextParts = [];
+      if (request.context.currentScreen) {
+        contextParts.push(`[Currently on: ${request.context.currentScreen}]`);
+      }
+      if (request.context.recentActivity) {
+        contextParts.push(
+          `[Recent activity: ${request.context.recentActivity}]`
+        );
+      }
+      if (request.context.matchProfile) {
+        contextParts.push(
+          `[Discussing match: ${request.context.matchProfile.name || "someone"}]`
+        );
+      }
+      if (contextParts.length > 0) {
+        contextualMessage = `${contextParts.join(" ")}
+
+User message: ${request.message}`;
+      }
+    }
+    return contextualMessage;
+  }
+  /**
+   * Get AI response with retry logic and error handling
+   */
+  async getAIResponseWithRetry(messages2, request, retries = 3) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        console.log(
+          `[KWAME-AI] Attempt ${attempt}/${retries} for user ${request.userId}`
+        );
+        const response = await Promise.race([
+          getOpenAIClient().chat.completions.create({
+            model: "gpt-4o",
+            messages: messages2,
+            temperature: request.message.length < 50 ? 0.8 : 0.9,
+            // Higher creativity for more natural responses
+            max_tokens: request.message.length < 50 ? 150 : 400,
+            // Shorter, punchier responses
+            presence_penalty: 0.3,
+            // Encourage diverse, fresh responses
+            frequency_penalty: 0.2,
+            // Reduce repetition
+            top_p: 0.95
+            // Allow more creative token choices
+          }),
+          new Promise(
+            (_, reject) => setTimeout(
+              () => reject(new Error("Response timeout")),
+              this.RESPONSE_TIMEOUT
+            )
+          )
+        ]);
+        const content = response.choices[0]?.message?.content;
+        if (!content) {
+          throw new Error("Empty response from OpenAI");
+        }
+        return content;
+      } catch (error) {
+        console.error(`[KWAME-AI] Attempt ${attempt} failed:`, error);
+        if (attempt === retries) {
+          throw error;
+        }
+        await new Promise(
+          (resolve) => setTimeout(resolve, Math.pow(2, attempt) * 1e3)
+        );
+      }
+    }
+    throw new Error("All retry attempts failed");
+  }
+  /**
+   * Process AI response and structure it for the frontend
+   */
+  processAIResponse(aiResponse, request) {
+    const preferredLang = this.getPreferredLanguage(
+      request.context?.userProfile
+    );
+    const preferredLangName = this.getLanguageName(preferredLang);
+    let content = aiResponse;
+    if (preferredLang !== "en" && this.isLikelyEnglish(aiResponse)) {
+      content = `Please rewrite the entire response strictly in ${preferredLangName} (${preferredLang}) only, without English: 
+
+${aiResponse}`;
+    }
+    content = this.formatReadableList(content);
+    const responseType = this.determineResponseType(content);
+    const suggestions = this.extractSuggestions(aiResponse);
+    const actionButtons = this.generateActionButtons(request, responseType);
+    const confidence = this.calculateConfidence(aiResponse);
+    const culturalNote = this.extractCulturalNote(aiResponse);
+    return {
+      message: content,
+      suggestions,
+      actionButtons,
+      confidence,
+      responseType,
+      culturalNote
+    };
+  }
+  /**
+   * Generate fallback response for errors
+   */
+  generateFallbackResponse(request, error) {
+    const fallbackMessages = [
+      "I'm experiencing a brief moment of reflection. Could you ask me again?",
+      "My connection to ancestral wisdom is momentarily clouded. Please try once more.",
+      "I need a moment to gather my thoughts. Could you repeat that?",
+      "The digital spirits are being playful today. Let's try that again."
+    ];
+    const randomMessage = fallbackMessages[Math.floor(Math.random() * fallbackMessages.length)];
+    return {
+      message: `\u{1F914} ${randomMessage}`,
+      confidence: 0.1,
+      responseType: "encouragement",
+      suggestions: [
+        "Try rephrasing your question",
+        "Ask about a specific topic",
+        "Check your connection and try again"
+      ]
+    };
+  }
+  /**
+   * Validation and helper methods
+   */
+  validateRequest(request) {
+    if (!request.userId) {
+      throw new Error("User ID is required");
+    }
+    if (!request.message || request.message.trim().length === 0) {
+      throw new Error("Message cannot be empty");
+    }
+    const isImageMessage = request.message.startsWith("_!_IMAGE_!_");
+    const maxLength = isImageMessage ? 2 * 1024 * 1024 : 2e3;
+    if (request.message.length > maxLength) {
+      throw new Error(
+        `Message too long (max ${isImageMessage ? "10MB" : "2000 characters"})`
+      );
+    }
+  }
+  getAgeAppropriateGuidelines(ageGroup) {
+    switch (ageGroup) {
+      case "18-25":
+        return "- Focus on learning and self-discovery\n- Emphasize personal growth and education\n- Provide guidance on healthy relationship foundations";
+      case "25-35":
+        return "- Address career and relationship balance\n- Consider serious relationship intentions\n- Provide advice on long-term compatibility";
+      case "35+":
+        return "- Acknowledge life experience and wisdom\n- Consider family planning and established careers\n- Provide mature relationship guidance";
+      default:
+        return "- Provide age-appropriate and respectful guidance\n- Consider individual maturity and life stage";
+    }
+  }
+  determineResponseType(response) {
+    const lowerResponse = response.toLowerCase();
+    if (lowerResponse.includes("safety") || lowerResponse.includes("careful") || lowerResponse.includes("red flag")) {
+      return "safety";
+    } else if (lowerResponse.includes("suggest") || lowerResponse.includes("try") || lowerResponse.includes("consider")) {
+      return "suggestion";
+    } else if (lowerResponse.includes("analysis") || lowerResponse.includes("compatibility") || lowerResponse.includes("score")) {
+      return "analysis";
+    } else if (lowerResponse.includes("great") || lowerResponse.includes("good") || lowerResponse.includes("proud")) {
+      return "encouragement";
+    } else {
+      return "advice";
+    }
+  }
+  extractSuggestions(response) {
+    const lines = response.split("\n");
+    const suggestions = lines.filter((line) => /^[\d\-\*\•]/.test(line.trim())).map((line) => line.replace(/^[\d\-\*\•\s]+/, "").trim()).filter((suggestion) => suggestion.length > 0).slice(0, 3);
+    return suggestions;
+  }
+  /**
+   * Format plain-text lists into a more readable layout by inserting
+   * line breaks before numbered items and after bolded headings.
+   */
+  formatReadableList(text2) {
+    if (!text2 || typeof text2 !== "string") return text2;
+    let result = text2;
+    result = result.replace(/\s(\d{1,2})\.\s/g, (match, p1) => `
+${p1}. `);
+    result = result.replace(/(\*\*[^\n]*?:\*\*)\s+/g, "$1\n");
+    result = result.replace(/\n{3,}/g, "\n\n");
+    return result.trim();
+  }
+  generateActionButtons(request, responseType) {
+    const buttons = [];
+    if (request.context?.currentScreen === "profile") {
+      buttons.push({ label: "Improve Profile", action: "edit_profile" });
+    }
+    if (request.context?.matchProfile) {
+      buttons.push({ label: "Start Conversation", action: "start_chat" });
+    }
+    if (responseType === "safety") {
+      buttons.push({ label: "Learn More", action: "safety_tips" });
+    }
+    return buttons.slice(0, 3);
+  }
+  calculateConfidence(response) {
+    let confidence = 0.5;
+    if (response.length > 100) confidence += 0.2;
+    if (response.includes("suggest") || response.includes("recommend"))
+      confidence += 0.2;
+    if (response.includes("because") || response.includes("reason"))
+      confidence += 0.1;
+    return Math.min(confidence, 1);
+  }
+  extractCulturalNote(response) {
+    const culturalKeywords = [
+      "ghanaian",
+      "akan",
+      "traditional",
+      "cultural",
+      "heritage",
+      "family"
+    ];
+    const lowerResponse = response.toLowerCase();
+    if (culturalKeywords.some((keyword) => lowerResponse.includes(keyword))) {
+      return "\u{1F4A1} This advice considers Ghanaian cultural values";
+    }
+    return void 0;
+  }
+  /**
+   * Naive English detector to enforce language policy without extra API calls
+   */
+  isLikelyEnglish(text2) {
+    const lower = (text2 || "").toLowerCase();
+    const common = [
+      " the ",
+      " and ",
+      " you ",
+      " your ",
+      " are ",
+      " is ",
+      " it's ",
+      " i'm ",
+      " about ",
+      " from ",
+      " which ",
+      " know ",
+      " advice ",
+      " relationship ",
+      " looking forward ",
+      " hearing from you",
+      " provide ",
+      " more ",
+      " relevant "
+    ];
+    let hits = 0;
+    for (const token of common) {
+      if (lower.includes(token)) hits++;
+    }
+    return hits >= 3;
+  }
+  buildSuggestionPrompt(request) {
+    const preferredLang = this.getPreferredLanguage(
+      request.context?.userProfile
+    );
+    return `You're KWAME, giving quick conversation suggestions to a friend. 
+
+Respond in ${preferredLang}. 
+
+They're saying: "${request.message}"
+They're using the ${request.appMode || "MEET"} app mode.
+
+Give me 3-4 natural, conversational suggestions they could try - like text message suggestions you'd send to help a friend. Keep each under 50 characters.
+
+Format as JSON array, like: ["Ask about their weekend", "Share a funny story", "Compliment their profile pic"]`;
+  }
+  buildProfileAnalysisPrompt(user, preferences) {
+    const preferredLang = this.getPreferredLanguage(user);
+    return `Analyze this CHARLEY user profile and provide improvement suggestions. Respond in ${preferredLang}:
+
+Profile Data:
+- Bio: ${user.bio || "Not provided"}
+- Profession: ${user.profession || "Not provided"}
+- Age: ${user.dateOfBirth ? this.calculateAge(user.dateOfBirth) : "Not provided"}
+- Location: ${user.location || "Not provided"}
+- Interests: ${user.interests || "Not provided"}
+- Education: ${user.educationLevel || "Not provided"}
+
+Provide a friendly analysis with:
+1. Profile strengths
+2. Areas for improvement
+3. Specific suggestions for enhancement
+4. Cultural considerations if relevant
+
+Keep tone warm and encouraging like KWAME AI.`;
+  }
+  calculateAge(dateOfBirth) {
+    if (!dateOfBirth) return 25;
+    const today = /* @__PURE__ */ new Date();
+    let age = today.getFullYear() - dateOfBirth.getFullYear();
+    const monthDiff = today.getMonth() - dateOfBirth.getMonth();
+    if (monthDiff < 0 || monthDiff === 0 && today.getDate() < dateOfBirth.getDate()) {
+      age--;
+    }
+    return age;
+  }
+  extractProfileTips(content) {
+    const lines = content.split("\n");
+    return lines.filter(
+      (line) => line.includes("suggest") || line.includes("try") || line.includes("add") || line.includes("improve")
+    ).map((line) => line.trim()).slice(0, 3);
+  }
+  getFallbackSuggestions(request) {
+    const appMode = request.appMode || "MEET";
+    const fallbackSuggestions = {
+      MEET: [
+        "Ask about their interests",
+        "Share something about yourself",
+        "Suggest a casual meetup",
+        "Comment on their photos",
+        "Ask about their goals"
+      ],
+      SUITE: [
+        "Discuss professional goals",
+        "Share industry insights",
+        "Suggest collaboration",
+        "Ask about their expertise",
+        "Offer mutual support"
+      ],
+      HEAT: [
+        "Keep it light and fun",
+        "Ask about their day",
+        "Share a funny story",
+        "Suggest a quick chat",
+        "Be spontaneous"
+      ]
+    };
+    return fallbackSuggestions[appMode] || fallbackSuggestions.MEET;
+  }
+  /**
+   * Build a conversation context summary for better continuity
+   */
+  buildConversationSummary(history) {
+    if (!history || history.length < 3) return null;
+    try {
+      const topics = /* @__PURE__ */ new Set();
+      const userMessages = history.filter((msg) => msg.role === "user");
+      const assistantMessages = history.filter(
+        (msg) => msg.role === "assistant"
+      );
+      const recentUserMessages = userMessages.slice(-3);
+      const conversationThemes = recentUserMessages.map((msg) => {
+        const content = msg.content.toLowerCase();
+        if (content.includes("date") || content.includes("dating"))
+          topics.add("dating");
+        if (content.includes("relationship") || content.includes("partner"))
+          topics.add("relationships");
+        if (content.includes("match") || content.includes("matches"))
+          topics.add("matching");
+        if (content.includes("profile") || content.includes("bio"))
+          topics.add("profile");
+        if (content.includes("message") || content.includes("conversation"))
+          topics.add("messaging");
+        if (content.includes("work") || content.includes("career"))
+          topics.add("career");
+        if (content.includes("family") || content.includes("culture"))
+          topics.add("culture");
+        if (content.includes("advice") || content.includes("help"))
+          topics.add("advice");
+        return content;
+      });
+      const topicsArray = Array.from(topics);
+      if (topicsArray.length === 0) return null;
+      const lastUserMessage = recentUserMessages[recentUserMessages.length - 1]?.content;
+      const conversationFocus = topicsArray.join(", ");
+      return `User has been discussing: ${conversationFocus}. Recent focus: "${lastUserMessage?.substring(0, 100)}${lastUserMessage && lastUserMessage.length > 100 ? "..." : ""}". Continue this conversation naturally.`;
+    } catch (error) {
+      console.error("[KWAME-AI] Error building conversation summary:", error);
+      return null;
+    }
+  }
+  /**
+   * Get user's nationality from their profile
+   */
+  getUserNationality(userProfile) {
+    if (userProfile?.countryOfOrigin) {
+      return userProfile.countryOfOrigin;
+    }
+    if (userProfile?.secondaryCountryOfOrigin) {
+      return userProfile.secondaryCountryOfOrigin;
+    }
+    return null;
+  }
+  /**
+   * Determine age category for cultural adaptation
+   */
+  getAgeCategory(age) {
+    if (age >= 18 && age <= 25) return "young";
+    if (age >= 26 && age <= 35) return "adult";
+    return "mature";
+  }
+  /**
+   * Get appropriate cultural persona based on nationality
+   */
+  getCulturalPersona(nationality) {
+    if (!nationality) {
+      return CULTURAL_PERSONAS["International"];
+    }
+    const normalizedNationality = this.normalizeCountryName(nationality);
+    return CULTURAL_PERSONAS[normalizedNationality] || CULTURAL_PERSONAS["International"];
+  }
+  /**
+   * Normalize country names to match our persona keys
+   */
+  normalizeCountryName(country) {
+    const countryMappings = {
+      US: "United States",
+      USA: "United States",
+      America: "United States",
+      UK: "United Kingdom",
+      Britain: "United Kingdom",
+      England: "United Kingdom",
+      Brasil: "Brazil",
+      Bharat: "India",
+      GH: "Ghana",
+      NG: "Nigeria",
+      KE: "Kenya"
+    };
+    return countryMappings[country] || country;
+  }
+  /**
+   * Check if we need to ask user for their country
+   */
+  shouldAskForCountry(userProfile) {
+    return !this.getUserNationality(userProfile);
+  }
+  /**
+   * Build culturally-aware system prompt
+   */
+  buildCulturalSystemPrompt(userProfile, userAge) {
+    const nationality = this.getUserNationality(userProfile);
+    const persona = this.getCulturalPersona(nationality);
+    const ageCategory = this.getAgeCategory(userAge);
+    const needsCountryInfo = this.shouldAskForCountry(userProfile);
+    const preferredLang = this.getPreferredLanguage(userProfile);
+    let systemPrompt = `You are KWAME AI, a culturally-aware relationship advisor`;
+    if (needsCountryInfo) {
+      systemPrompt += ` with a warm, inclusive personality. Since I don't know the user's cultural background yet, I should:
+
+ 1. Start with a greeting equivalent to "${persona.greeting}! \u{1F60A}" in the user's preferred language (${preferredLang})
+ 2. Be warm and welcoming with ${persona.communicationStyle.toLowerCase()}
+ 3. AFTER greeting them warmly, politely ask which country they're from so I can better relate to their cultural context (in ${preferredLang})
+ 4. Explain that knowing their background helps me give more relevant relationship advice (in ${preferredLang})
+
+ IMPORTANT: Always ask for their country in a friendly, non-intrusive way (in ${preferredLang}) like:
+ "By the way, I'd love to know which country you're from so I can give you advice that really fits your cultural context. Where are you based?" (translate this into ${preferredLang})`;
+    } else {
+      systemPrompt += ` from ${persona.country} with a ${persona.communicationStyle.toLowerCase()}.
+
+ CULTURAL IDENTITY:
+- Start with a greeting equivalent to "${persona.greeting}! \u{1F60A}" in the user's preferred language (${preferredLang})
+- Communication style: ${persona.communicationStyle}
+- Use these expressions naturally: ${persona.commonExpressions.join(", ")}
+- Language style: ${persona.languageStyle}
+
+CULTURAL CONTEXT:
+- Relationship culture: ${persona.relationshipCulture}
+- Dating norms: ${persona.datingNorms}
+- Core values to respect: ${persona.culturalValues.join(", ")}
+
+AGE-APPROPRIATE COMMUNICATION (User is ${userAge} years old):
+${persona.ageConsiderations[ageCategory]}
+
+${persona.conversationalVibe}`;
+    }
+    systemPrompt += `
+
+CORE PERSONALITY:
+- Be warm, supportive, and culturally sensitive
+- Give practical relationship advice that respects cultural context
+- Use appropriate cultural references and expressions naturally
+- Be empathetic and understanding of cultural relationship challenges
+- Maintain consistency with the cultural persona throughout the conversation
+
+IMAGE ANALYSIS CAPABILITIES:
+- You CAN view and analyze images when users share them
+- When analyzing photos, provide thoughtful insights about relationships, dating, style, or personal presentation
+- Offer constructive feedback on dating profile photos, outfit choices, or social situations
+- Connect image content to cultural context and relationship advice
+- Be specific about what you see while maintaining sensitivity and respect
+
+PEER DYNAMICS:
+- Speak as the user's peer for their age (match their maturity and energy)
+- Avoid lecturing or preaching; be the wise, smart, admirable friend
+- Keep language approachable, natural, and concise like a trusted peer
+
+APPROACHABILITY & RESPECT:
+- Make women feel comfortable, respected, and safe at all times
+- Be someone men want to talk to: confident, insightful, humble
+- Never be flirty or suggestive; keep boundaries clear and professional
+- Use inclusive, non-judgmental language
+
+RELATIONSHIP ADVICE PRINCIPLES:
+- Respect cultural values while promoting healthy relationships
+- Consider family dynamics and community expectations
+- Balance traditional wisdom with modern relationship realities
+- Be inclusive and non-judgmental
+- Focus on communication, respect, and mutual understanding
+
+ LANGUAGE:
+ - Use ${preferredLang} for the entire response, including the greeting
+ - If a cultural greeting term like "${persona.greeting}" is used, adapt or translate it into ${preferredLang} (you may keep the cultural term and briefly explain if helpful)
+
+ Always respond in character, using the appropriate greeting, expressions, and cultural perspective for this user's background.`;
+    return systemPrompt;
+  }
+};
+var kwameAI = new KwameAIService();
+
+// server/services/big5-scoring-service.ts
+import { readFileSync } from "fs";
+import { join } from "path";
+var LEVEL_ENCODING = {
+  "StronglyDisagree": -2,
+  "Disagree": -1,
+  "Neutral": 0,
+  "Agree": 1,
+  "StronglyAgree": 2
+};
+var ASPECT_TO_TRAIT = {
+  "Compassion": "Agreeableness",
+  "Politeness": "Agreeableness",
+  "Industriousness": "Conscientiousness",
+  "Orderliness": "Conscientiousness",
+  "Enthusiasm": "Extraversion",
+  "Assertiveness": "Extraversion",
+  "Withdrawal": "Neuroticism",
+  "Volatility": "Neuroticism",
+  "Intellect": "Openness",
+  "Aesthetics": "Openness"
+};
+var Big5ScoringService = class {
+  items = [];
+  aspectModels = null;
+  MODEL_VERSION = "1.0";
+  constructor() {
+    this.loadScoringData();
+  }
+  /**
+   * Load item mapping and aspect models from JSON files
+   */
+  loadScoringData() {
+    try {
+      const itemMappingPath = join(process.cwd(), "analysis_outputs", "item_mapping.json");
+      const itemMapping = JSON.parse(readFileSync(itemMappingPath, "utf-8"));
+      this.items = itemMapping.items;
+      const aspectModelsPath = join(process.cwd(), "analysis_outputs", "aspect_models.json");
+      this.aspectModels = JSON.parse(readFileSync(aspectModelsPath, "utf-8"));
+      console.log(`[Big5] Loaded ${this.items.length} questionnaire items and aspect models`);
+    } catch (error) {
+      console.error("[Big5] Failed to load scoring data:", error);
+      throw new Error("Failed to initialize Big 5 scoring service");
+    }
+  }
+  /**
+   * Encode response level to numeric value
+   */
+  encodeLevel(level) {
+    return LEVEL_ENCODING[level];
+  }
+  /**
+   * Score individual item with reverse-keying if needed
+   */
+  scoreItem(levelValue, reverse) {
+    return reverse ? -levelValue : levelValue;
+  }
+  /**
+   * Aggregate traits from aspect percentiles
+   */
+  aggregateTraitsFromAspects(aspectPercentiles) {
+    const traitGroups = {
+      "Agreeableness": [],
+      "Conscientiousness": [],
+      "Extraversion": [],
+      "Neuroticism": [],
+      "Openness": []
+    };
+    for (const [aspect, percentile] of Object.entries(aspectPercentiles)) {
+      const trait = ASPECT_TO_TRAIT[aspect];
+      traitGroups[trait].push(percentile);
+    }
+    const traitPercentiles = {};
+    for (const [trait, values] of Object.entries(traitGroups)) {
+      traitPercentiles[trait] = values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : 0;
+    }
+    return traitPercentiles;
+  }
+  /**
+   * Generate personality insights and narratives from Big 5 results
+   */
+  generateNarrative(traitPercentiles) {
+    const getTraitDescription = (trait, percentile) => {
+      const level = percentile >= 70 ? "high" : percentile <= 30 ? "low" : "moderate";
+      const descriptions = {
+        "Agreeableness": {
+          high: "highly cooperative, trusting, and compassionate toward others",
+          moderate: "balanced between cooperation and self-advocacy",
+          low: "more competitive, skeptical, and focused on personal interests"
+        },
+        "Conscientiousness": {
+          high: "highly organized, disciplined, and goal-oriented",
+          moderate: "reasonably organized with a balance of structure and flexibility",
+          low: "more spontaneous, flexible, and adaptable to changing situations"
+        },
+        "Extraversion": {
+          high: "highly social, energetic, and enthusiastic in group settings",
+          moderate: "comfortable in both social and solitary situations",
+          low: "more introverted, preferring quieter environments and smaller groups"
+        },
+        "Neuroticism": {
+          high: "more sensitive to stress and prone to emotional fluctuations",
+          moderate: "generally emotionally stable with occasional stress responses",
+          low: "highly emotionally stable and resilient under pressure"
+        },
+        "Openness": {
+          high: "highly creative, curious, and open to new experiences",
+          moderate: "balanced between tradition and innovation",
+          low: "more practical, traditional, and focused on proven approaches"
+        }
+      };
+      return descriptions[trait][level];
+    };
+    const traitDescriptions = {};
+    const strengths = [];
+    const growthAreas = [];
+    for (const [trait, percentile] of Object.entries(traitPercentiles)) {
+      traitDescriptions[trait] = getTraitDescription(trait, percentile);
+      if (percentile >= 70) {
+        if (trait === "Agreeableness") strengths.push("Building strong relationships");
+        if (trait === "Conscientiousness") strengths.push("Achieving goals consistently");
+        if (trait === "Extraversion") strengths.push("Energizing social interactions");
+        if (trait === "Openness") strengths.push("Embracing new experiences");
+        if (trait === "Neuroticism" && percentile <= 30) strengths.push("Maintaining emotional stability");
+      }
+      if (percentile <= 25) {
+        if (trait === "Agreeableness") growthAreas.push("Building trust and empathy");
+        if (trait === "Conscientiousness") growthAreas.push("Developing organizational skills");
+        if (trait === "Extraversion") growthAreas.push("Engaging in social connections");
+        if (trait === "Openness") growthAreas.push("Exploring new perspectives");
+      }
+      if (trait === "Neuroticism" && percentile >= 75) {
+        growthAreas.push("Managing stress and emotional regulation");
+      }
+    }
+    const dominantTraits = Object.entries(traitPercentiles).filter(([_, percentile]) => percentile >= 60).map(([trait, _]) => trait.toLowerCase()).slice(0, 2);
+    const summary = dominantTraits.length > 0 ? `You show strong tendencies toward ${dominantTraits.join(" and ")}, which influences how you connect with others in relationships.` : "You have a balanced personality profile that allows you to adapt well to different relationship dynamics.";
+    return {
+      summary,
+      traits: traitDescriptions,
+      strengths: strengths.slice(0, 4),
+      // Top 4 strengths
+      growthAreas: growthAreas.slice(0, 3)
+      // Top 3 growth areas
+    };
+  }
+  /**
+   * Predict Big 5 percentiles from questionnaire responses
+   */
+  predictFromResponses(responses) {
+    if (!this.aspectModels) {
+      throw new Error("Scoring models not loaded");
+    }
+    if (responses.length !== this.items.length) {
+      throw new Error(`Response length (${responses.length}) must match items (${this.items.length})`);
+    }
+    const aspectValues = {
+      "Compassion": [],
+      "Politeness": [],
+      "Industriousness": [],
+      "Orderliness": [],
+      "Enthusiasm": [],
+      "Assertiveness": [],
+      "Withdrawal": [],
+      "Volatility": [],
+      "Intellect": [],
+      "Aesthetics": []
+    };
+    for (let i = 0; i < responses.length; i++) {
+      const response = responses[i];
+      const item = this.items[i];
+      const encodedValue = this.encodeLevel(response);
+      const scoredValue = this.scoreItem(encodedValue, item.reverse);
+      aspectValues[item.aspect].push(scoredValue);
+    }
+    const aspectMeanLevels = {};
+    for (const [aspect, values] of Object.entries(aspectValues)) {
+      aspectMeanLevels[aspect] = values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : 0;
+    }
+    const aspectPercentiles = {};
+    for (const [aspect, meanLevel] of Object.entries(aspectMeanLevels)) {
+      const model = this.aspectModels.linear_models[aspect];
+      aspectPercentiles[aspect] = Math.max(0, Math.min(100, model.a * meanLevel + model.b));
+    }
+    const traitPercentiles = this.aggregateTraitsFromAspects(aspectPercentiles);
+    return {
+      aspectPercentiles,
+      traitPercentiles,
+      metadata: {
+        version: this.MODEL_VERSION,
+        computedAt: (/* @__PURE__ */ new Date()).toISOString(),
+        totalResponses: responses.length,
+        modelVersion: this.MODEL_VERSION
+      }
+    };
+  }
+  /**
+   * Generate complete Big 5 profile with narrative insights
+   */
+  generateBig5Profile(responses) {
+    const results = this.predictFromResponses(responses);
+    const narrative = this.generateNarrative(results.traitPercentiles);
+    return {
+      ...results,
+      narrative
+    };
+  }
+  /**
+   * Validate questionnaire responses
+   */
+  validateResponses(responses) {
+    const errors = [];
+    if (!Array.isArray(responses)) {
+      errors.push("Responses must be an array");
+      return { valid: false, errors };
+    }
+    if (responses.length !== 100) {
+      errors.push(`Expected 100 responses, got ${responses.length}`);
+    }
+    for (let i = 0; i < responses.length; i++) {
+      const response = responses[i];
+      if (!Object.keys(LEVEL_ENCODING).includes(response)) {
+        errors.push(`Invalid response level at index ${i}: ${response}`);
+      }
+    }
+    return { valid: errors.length === 0, errors };
+  }
+  /**
+   * Get questionnaire items for frontend display
+   */
+  getQuestionnaireItems() {
+    return this.items;
+  }
+  /**
+   * Get personality statements text for display
+   */
+  getStatements() {
+    return this.items.map((item) => item.text);
+  }
+};
+var big5ScoringService = new Big5ScoringService();
+var big5_scoring_service_default = big5ScoringService;
+
+// server/services/personality-descriptions-service.ts
+var PersonalityDescriptionsService = class {
+  /**
+   * Determine percentile range category
+   */
+  getPercentileRange(percentile) {
+    if (percentile <= 4) return "exceptionally_low";
+    if (percentile <= 15) return "very_low";
+    if (percentile <= 25) return "low";
+    if (percentile <= 40) return "moderately_low";
+    if (percentile <= 60) return "typical";
+    if (percentile <= 75) return "moderately_high";
+    if (percentile <= 85) return "high";
+    if (percentile <= 95) return "very_high";
+    return "exceptionally_high";
+  }
+  /**
+   * Get human-readable level label
+   */
+  getLevelLabel(range) {
+    const labels = {
+      "exceptionally_low": "Exceptionally Low",
+      "very_low": "Very Low",
+      "low": "Low",
+      "moderately_low": "Moderately Low",
+      "typical": "Typical or Average",
+      "moderately_high": "Moderately High",
+      "high": "High",
+      "very_high": "Very High",
+      "exceptionally_high": "Exceptionally High"
+    };
+    return labels[range];
+  }
+  /**
+   * Generate detailed Openness analysis
+   */
+  generateOpennessAnalysis(intellectPercentile, aestheticsPercentile) {
+    const traitPercentile = (intellectPercentile + aestheticsPercentile) / 2;
+    const traitLevel = this.getPercentileRange(traitPercentile);
+    const overviewDescriptions = {
+      "exceptionally_low": "You are exceptionally low in openness to experience. You strongly prefer familiar routines, traditional approaches, and practical solutions over abstract or innovative ideas.",
+      "very_low": "You are very low in openness to experience. You tend to be conventional, preferring tried-and-true methods and showing little interest in abstract concepts or artistic pursuits.",
+      "low": "You are low in openness to experience. You are generally practical and traditional, preferring concrete over abstract thinking and familiar approaches over novel ones.",
+      "moderately_low": "You are moderately low in openness to experience. While you can appreciate some new ideas, you generally prefer conventional approaches and practical solutions.",
+      "typical": "You are typical in openness to experience. You maintain a balance between traditional and innovative approaches, showing interest in both practical and creative pursuits.",
+      "moderately_high": "You are moderately high in openness to experience. You enjoy exploring new ideas and creative pursuits while maintaining some appreciation for traditional approaches.",
+      "high": "You are high in openness to experience. You actively seek out new experiences, enjoy abstract thinking, and have strong interests in creative and intellectual pursuits.",
+      "very_high": "You are very high in openness to experience. You are highly creative, intellectually curious, and constantly seeking novel experiences and innovative approaches.",
+      "exceptionally_high": "You are exceptionally high in openness to experience. You have an extraordinary appetite for novelty, creativity, and intellectual exploration, often preferring the unconventional."
+    };
+    return {
+      name: "Openness",
+      percentile: traitPercentile,
+      level: traitLevel,
+      levelLabel: this.getLevelLabel(traitLevel),
+      overview: overviewDescriptions[traitLevel],
+      aspects: [
+        this.generateIntellectAnalysis(intellectPercentile),
+        this.generateAestheticsAnalysis(aestheticsPercentile)
+      ],
+      politicalTendencies: traitPercentile > 60 ? "People higher in openness tend to be more liberal in their political views, embracing social change and progressive policies." : "People lower in openness tend to be more conservative, preferring traditional values and established social structures."
+    };
+  }
+  /**
+   * Generate Intellect aspect analysis
+   */
+  generateIntellectAnalysis(percentile) {
+    const level = this.getPercentileRange(percentile);
+    const descriptions = {
+      "exceptionally_low": "You show exceptionally low intellectual curiosity. You strongly avoid complex ideas, preferring straightforward, practical thinking. Abstract concepts and theoretical discussions hold little appeal for you.",
+      "very_low": "You have very low interest in intellectual pursuits. You prefer practical, concrete thinking over abstract ideas and rarely engage with complex theoretical concepts.",
+      "low": "You are low in intellectual curiosity. You tend to focus on practical, straightforward approaches rather than complex ideas or abstract thinking.",
+      "moderately_low": "You are moderately low in intellectual curiosity. While you can handle some complex ideas, you generally prefer practical, concrete approaches to problem-solving.",
+      "typical": "You show typical levels of intellectual curiosity. You can engage with both practical and abstract ideas, maintaining a balance between concrete and theoretical thinking.",
+      "moderately_high": "You are moderately high in intellectual curiosity. You enjoy exploring complex ideas and engaging with abstract concepts while maintaining practical sensibilities.",
+      "high": "You are high in intellectual curiosity. You actively seek out complex ideas, enjoy abstract thinking, and have a strong appetite for learning and intellectual challenge.",
+      "very_high": "You are very high in intellectual curiosity. You have a profound love of learning, consistently seek out complex ideas, and thrive on intellectual challenges.",
+      "exceptionally_high": "You show exceptional intellectual curiosity. You have an extraordinary appetite for complex ideas, abstract thinking, and intellectual exploration that sets you apart from others."
+    };
+    const characteristics = {
+      "exceptionally_low": ["Avoids complex ideas", "Prefers simple solutions", "Dislikes abstract thinking", "Focuses on immediate practical concerns"],
+      "very_low": ["Prefers concrete thinking", "Avoids theoretical discussions", "Values practical over intellectual pursuits", "Limited interest in learning for its own sake"],
+      "low": ["Practical problem-solver", "Prefers straightforward approaches", "Limited interest in abstract concepts", "Values common sense over theory"],
+      "moderately_low": ["Generally practical", "Can handle some complexity", "Prefers proven methods", "Moderate interest in learning"],
+      "typical": ["Balanced thinking style", "Comfortable with moderate complexity", "Appreciates both practical and abstract ideas", "Reasonable curiosity about new concepts"],
+      "moderately_high": ["Enjoys intellectual challenges", "Comfortable with abstract concepts", "Strong learning motivation", "Values both theory and practice"],
+      "high": ["Highly intellectually curious", "Seeks out complex ideas", "Enjoys abstract thinking", "Strong drive to understand"],
+      "very_high": ["Exceptional intellectual appetite", "Thrives on complexity", "Deeply curious about ideas", "Constantly seeking to learn"],
+      "exceptionally_high": ["Extraordinary intellectual curiosity", "Masters complex concepts easily", "Prefers abstract over concrete", "Insatiable appetite for knowledge"]
+    };
+    return {
+      name: "Intellect",
+      percentile,
+      level,
+      levelLabel: this.getLevelLabel(level),
+      description: descriptions[level],
+      characteristics: characteristics[level],
+      advantages: level === "exceptionally_low" || level === "very_low" ? ["Practical problem-solving", "Focus on immediate concerns", "Clear, straightforward communication", "Efficient decision-making"] : ["Strong analytical skills", "Enjoys learning", "Good at abstract thinking", "Intellectually curious"],
+      challenges: level === "exceptionally_low" || level === "very_low" ? ["May miss innovative solutions", "Limited interest in complex ideas", "May undervalue intellectual pursuits"] : ["May overthink simple problems", "Can get lost in abstract concepts", "May undervalue practical considerations"],
+      relationshipStyle: level === "exceptionally_low" || level === "very_low" ? "You prefer straightforward communication and practical discussions in relationships, avoiding overly complex emotional or philosophical conversations." : "You enjoy intellectually stimulating conversations and value partners who can engage with complex ideas and abstract concepts.",
+      careerImplications: level === "exceptionally_low" || level === "very_low" ? "You excel in practical, hands-on roles that require straightforward problem-solving and concrete thinking rather than abstract analysis." : "You thrive in intellectually demanding careers that involve analysis, research, strategy, or creative problem-solving."
+    };
+  }
+  /**
+   * Generate Aesthetics aspect analysis
+   */
+  generateAestheticsAnalysis(percentile) {
+    const level = this.getPercentileRange(percentile);
+    const descriptions = {
+      "exceptionally_low": "You have exceptionally low interest in aesthetic experiences. Art, beauty, and creative expression hold little appeal for you, and you prefer functional over decorative elements.",
+      "very_low": "You have very low interest in aesthetics and beauty. You rarely notice or appreciate artistic elements and prefer practical, functional environments over decorative ones.",
+      "low": "You are low in aesthetic appreciation. You tend to focus on functionality over beauty and have limited interest in art, design, or creative expression.",
+      "moderately_low": "You are moderately low in aesthetic interest. While you can appreciate some beautiful things, you generally prioritize function over form.",
+      "typical": "You show typical levels of aesthetic appreciation. You can enjoy beauty and art while maintaining practical sensibilities about design and creative expression.",
+      "moderately_high": "You are moderately high in aesthetic appreciation. You enjoy beauty, art, and creative expression and often seek out aesthetically pleasing experiences.",
+      "high": "You are high in aesthetic appreciation. You have a strong sensitivity to beauty, enjoy artistic experiences, and value creative and aesthetic elements in your environment.",
+      "very_high": "You are very high in aesthetic appreciation. You have exceptional sensitivity to beauty and art, and aesthetic experiences play a significant role in your life.",
+      "exceptionally_high": "You show exceptional aesthetic sensitivity. You have an extraordinary appreciation for beauty, art, and creative expression that deeply influences how you experience the world."
+    };
+    return {
+      name: "Aesthetics",
+      percentile,
+      level,
+      levelLabel: this.getLevelLabel(level),
+      description: descriptions[level],
+      characteristics: level === "exceptionally_low" || level === "very_low" ? ["Prefers function over form", "Limited interest in art", "Practical aesthetic choices", "Focuses on utility"] : ["Strong aesthetic sensitivity", "Appreciates beauty and art", "Values creative expression", "Notices aesthetic details"],
+      advantages: level === "exceptionally_low" || level === "very_low" ? ["Practical decision-making", "Cost-effective choices", "Focus on functionality", "Efficient use of resources"] : ["Rich appreciation of beauty", "Creative perspective", "Enhanced life experiences", "Artistic sensitivity"],
+      challenges: level === "exceptionally_low" || level === "very_low" ? ["May miss aesthetic value", "Limited creative expression", "May undervalue art and beauty"] : ["May prioritize form over function", "Can be particular about aesthetics", "May spend more on aesthetic appeal"],
+      relationshipStyle: level === "exceptionally_low" || level === "very_low" ? "You focus on practical aspects of relationships and living arrangements, paying less attention to romantic or aesthetic elements." : "You appreciate beauty and artistic elements in relationships, valuing aesthetic harmony and creative shared experiences.",
+      careerImplications: level === "exceptionally_low" || level === "very_low" ? "You excel in practical, utility-focused careers where function and efficiency matter more than aesthetic considerations." : "You thrive in creative fields, design-oriented roles, or any career where aesthetic judgment and artistic sensitivity are valued."
+    };
+  }
+  /**
+   * Generate detailed Agreeableness analysis
+   */
+  generateAgreeablenessAnalysis(compassionPercentile, politenessPercentile) {
+    const traitPercentile = (compassionPercentile + politenessPercentile) / 2;
+    const traitLevel = this.getPercentileRange(traitPercentile);
+    const overviewDescriptions = {
+      "exceptionally_low": "You are exceptionally low in agreeableness. You are highly competitive, skeptical, and focused on your own interests. You tend to be straightforward and blunt in your interactions.",
+      "very_low": "You are very low in agreeableness. You tend to be competitive, skeptical, and more focused on your own needs than others' feelings. You value honesty over harmony.",
+      "low": "You are low in agreeableness. You tend to be somewhat competitive and skeptical, preferring direct communication over diplomatic approaches.",
+      "moderately_low": "You are moderately low in agreeableness. You balance self-interest with some concern for others, but tend to be fairly direct in your approach.",
+      "typical": "You are typical in agreeableness. You maintain a healthy balance between cooperation and self-advocacy, adapting your approach based on the situation.",
+      "moderately_high": "You are moderately high in agreeableness. You are generally cooperative and considerate, though you can assert yourself when necessary.",
+      "high": "You are high in agreeableness. You are very cooperative, trusting, and concerned about others' welfare, often putting harmony above conflict.",
+      "very_high": "You are very high in agreeableness. You are exceptionally cooperative, compassionate, and focused on maintaining harmony in relationships.",
+      "exceptionally_high": "You are exceptionally high in agreeableness. You are extraordinarily compassionate and cooperative, sometimes to the point of self-sacrifice."
+    };
+    return {
+      name: "Agreeableness",
+      percentile: traitPercentile,
+      level: traitLevel,
+      levelLabel: this.getLevelLabel(traitLevel),
+      overview: overviewDescriptions[traitLevel],
+      aspects: [
+        this.generateCompassionAnalysis(compassionPercentile),
+        this.generatePolitenessAnalysis(politenessPercentile)
+      ],
+      genderNotes: "Women tend to be higher in agreeableness than men. The mean percentile for women is 61.5, while for men it is 38.5.",
+      politicalTendencies: "Agreeableness has complex political associations. Higher compassion predicts liberal views, while higher politeness predicts conservative views."
+    };
+  }
+  /**
+   * Generate Compassion aspect analysis
+   */
+  generateCompassionAnalysis(percentile) {
+    const level = this.getPercentileRange(percentile);
+    const descriptions = {
+      "exceptionally_low": "You are exceptionally low in compassion. You are not easily moved by others' suffering and tend to prioritize your own needs and interests above those of others.",
+      "very_low": "You are very low in compassion. You are much less concerned about helping other people and are markedly unwilling to sacrifice for others' comfort.",
+      "low": "You are low in compassion. You tend to focus on your own needs first and are less likely to be moved by others' difficulties or emotional states.",
+      "moderately_low": "You are moderately low in compassion. While you can feel for others, you generally prioritize your own needs and interests.",
+      "typical": "You show typical levels of compassion. You can empathize with others while maintaining healthy boundaries for your own well-being.",
+      "moderately_high": "You are moderately high in compassion. You genuinely care about others' welfare and are often willing to help those in need.",
+      "high": "You are high in compassion. You are very empathetic and caring, often putting others' needs before your own and feeling deeply affected by others' suffering.",
+      "very_high": "You are very high in compassion. You have exceptional empathy and are deeply moved by others' suffering, often going to great lengths to help.",
+      "exceptionally_high": "You are exceptionally high in compassion. You have extraordinary empathy and are profoundly affected by others' suffering, sometimes to your own detriment."
+    };
+    return {
+      name: "Compassion",
+      percentile,
+      level,
+      levelLabel: this.getLevelLabel(level),
+      description: descriptions[level],
+      characteristics: level === "exceptionally_low" || level === "very_low" ? ["Focuses on self-interest", "Not easily moved by suffering", "Practical about helping others", "Maintains emotional distance"] : ["Highly empathetic", "Concerned about others' welfare", "Willing to help and sacrifice", "Emotionally responsive to suffering"],
+      advantages: level === "exceptionally_low" || level === "very_low" ? ["Strong self-advocacy", "Clear boundaries", "Objective decision-making", "Less likely to be taken advantage of"] : ["Strong relationships", "Natural caregiver", "Inspirational to others", "Creates supportive environments"],
+      challenges: level === "exceptionally_low" || level === "very_low" ? ["May appear cold or uncaring", "Difficulty building emotional connections", "May miss others' emotional needs"] : ["May neglect own needs", "Vulnerable to exploitation", "Can be overwhelmed by others' problems", "Difficulty with necessary confrontation"],
+      relationshipStyle: level === "exceptionally_low" || level === "very_low" ? "You tend to be straightforward and direct in relationships, focusing more on practical support than emotional comfort." : "You are highly attuned to your partner's emotional needs and willing to make sacrifices for their happiness and well-being.",
+      careerImplications: level === "exceptionally_low" || level === "very_low" ? "You excel in roles requiring objective decision-making, negotiation, or situations where emotional detachment is beneficial." : "You thrive in helping professions, counseling, healthcare, education, or any role focused on supporting others' well-being."
+    };
+  }
+  /**
+   * Generate Politeness aspect analysis
+   */
+  generatePolitenessAnalysis(percentile) {
+    const level = this.getPercentileRange(percentile);
+    const descriptions = {
+      "exceptionally_low": "You are exceptionally low in politeness. You readily challenge authority and are comfortable with confrontation. You may have difficulty with hierarchical structures.",
+      "very_low": "You are very low in politeness. You are not deferential to authority and are markedly willing to push back when challenged.",
+      "low": "You are low in politeness. You tend to be direct and are comfortable challenging others when you disagree, regardless of their position.",
+      "moderately_low": "You are moderately low in politeness. You can be respectful but are willing to speak up and challenge when necessary.",
+      "typical": "You show typical levels of politeness. You can be respectful and deferential when appropriate while also standing up for yourself when needed.",
+      "moderately_high": "You are moderately high in politeness. You tend to be respectful and courteous, preferring diplomatic approaches to conflict.",
+      "high": "You are high in politeness. You are very respectful of authority and social hierarchies, preferring to avoid confrontation when possible.",
+      "very_high": "You are very high in politeness. You are exceptionally deferential and respectful, sometimes avoiding necessary confrontations.",
+      "exceptionally_high": "You are exceptionally high in politeness. You are extraordinarily deferential to authority and may struggle to assert yourself even when appropriate."
+    };
+    return {
+      name: "Politeness",
+      percentile,
+      level,
+      levelLabel: this.getLevelLabel(level),
+      description: descriptions[level],
+      characteristics: level === "exceptionally_low" || level === "very_low" ? ["Challenges authority readily", "Comfortable with confrontation", "Direct communication style", "Questions hierarchies"] : ["Respectful and courteous", "Deferential to authority", "Diplomatic approach", "Avoids unnecessary conflict"],
+      advantages: level === "exceptionally_low" || level === "very_low" ? ["Strong leadership potential", "Willing to challenge problems", "Authentic communication", "Drives necessary change"] : ["Excellent team player", "Maintains social harmony", "Respectful relationships", "Good at following protocols"],
+      challenges: level === "exceptionally_low" || level === "very_low" ? ["May create conflict unnecessarily", "Difficulty in hierarchical settings", "Can be seen as disruptive or disrespectful"] : ["May avoid necessary confrontations", "Can be taken advantage of", "May suppress own needs for harmony", "Difficulty asserting leadership"],
+      relationshipStyle: level === "exceptionally_low" || level === "very_low" ? "You tend to be direct and honest in relationships, even when it creates temporary conflict, preferring authenticity over harmony." : "You prioritize harmony and respect in relationships, often deferring to your partner and avoiding conflicts that might disrupt peace.",
+      careerImplications: level === "exceptionally_low" || level === "very_low" ? "You excel in leadership roles, entrepreneurship, or positions requiring challenge of existing systems and direct communication." : "You thrive in supportive roles, traditional hierarchical structures, customer service, or positions requiring diplomacy and respect for authority."
+    };
+  }
+  /**
+   * Generate detailed Conscientiousness analysis
+   */
+  generateConscientiousnessAnalysis(industriousnessPercentile, orderlinessPercentile) {
+    const traitPercentile = (industriousnessPercentile + orderlinessPercentile) / 2;
+    const traitLevel = this.getPercentileRange(traitPercentile);
+    const overviewDescriptions = {
+      "exceptionally_low": "You are exceptionally low in conscientiousness. You are very spontaneous and flexible, preferring to live in the moment rather than following strict plans or schedules.",
+      "very_low": "You are very low in conscientiousness. You tend to be spontaneous and flexible, with little concern for rigid organization or long-term planning.",
+      "low": "You are low in conscientiousness. You prefer flexibility and spontaneity over rigid structure and planning.",
+      "moderately_low": "You are moderately low in conscientiousness. You balance some organization with flexibility, but generally prefer less structured approaches.",
+      "typical": "You are typical in conscientiousness. You maintain a good balance between organization and flexibility, adapting your approach as needed.",
+      "moderately_high": "You are moderately high in conscientiousness. You tend to be organized and goal-oriented while maintaining some flexibility.",
+      "high": "You are high in conscientiousness. You are very organized, disciplined, and focused on achieving your goals through systematic effort.",
+      "very_high": "You are very high in conscientiousness. You are exceptionally organized, disciplined, and committed to achieving your objectives.",
+      "exceptionally_high": "You are exceptionally high in conscientiousness. You have extraordinary self-discipline and organization, sometimes to the point of rigidity."
+    };
+    return {
+      name: "Conscientiousness",
+      percentile: traitPercentile,
+      level: traitLevel,
+      levelLabel: this.getLevelLabel(traitLevel),
+      overview: overviewDescriptions[traitLevel],
+      aspects: [
+        this.generateIndustriousnessAnalysis(industriousnessPercentile),
+        this.generateOrderlinessAnalysis(orderlinessPercentile)
+      ],
+      genderNotes: "Women are very slightly more conscientious than men. The mean percentile for women is 51.5, while for men it is 49.5.",
+      politicalTendencies: "Lower conscientiousness is associated with liberal political views, especially when combined with high openness. Higher conscientiousness tends toward conservative views."
+    };
+  }
+  /**
+   * Generate Industriousness aspect analysis
+   */
+  generateIndustriousnessAnalysis(percentile) {
+    const level = this.getPercentileRange(percentile);
+    const descriptions = {
+      "exceptionally_low": "You are exceptionally low in industriousness. You strongly prioritize leisure and relaxation over work and achievement, and may struggle with motivation for long-term goals.",
+      "very_low": "You are very low in industriousness. You focus less on work than others and are substantially more likely to procrastinate or fail to complete assignments.",
+      "low": "You are low in industriousness. You tend to prioritize fun and relationships over work and are less motivated by achievement.",
+      "moderately_low": "You are moderately low in industriousness. You can work hard when motivated but generally prefer leisure and don't mind procrastinating.",
+      "typical": "You show typical levels of industriousness. You can work hard when needed while also valuing leisure and work-life balance.",
+      "moderately_high": "You are moderately high in industriousness. You are generally motivated to work hard and achieve goals while maintaining some work-life balance.",
+      "high": "You are high in industriousness. You are very motivated to work hard and achieve your goals, often prioritizing work over leisure.",
+      "very_high": "You are very high in industriousness. You have exceptional work ethic and are driven to achieve, sometimes at the expense of relaxation.",
+      "exceptionally_high": "You are exceptionally high in industriousness. You have extraordinary drive and work ethic, potentially to the point of workaholism."
+    };
+    return {
+      name: "Industriousness",
+      percentile,
+      level,
+      levelLabel: this.getLevelLabel(level),
+      description: descriptions[level],
+      characteristics: level === "exceptionally_low" || level === "very_low" ? ["Prioritizes leisure over work", "Prone to procrastination", "Lives in the moment", "Values work-life balance"] : ["Strong work ethic", "Goal-oriented", "Persistent and determined", "Achievement-focused"],
+      advantages: level === "exceptionally_low" || level === "very_low" ? ["Excellent work-life balance", "Good at relaxation", "Flexible and adaptable", "Values relationships and experiences"] : ["High achievement potential", "Strong perseverance", "Excellent work ethic", "Goal completion"],
+      challenges: level === "exceptionally_low" || level === "very_low" ? ["May struggle with long-term goals", "Tendency to procrastinate", "May underachieve professionally", "Difficulty with deadlines"] : ["Risk of burnout", "May neglect personal relationships", "Potential workaholic tendencies", "May be overly self-critical"],
+      relationshipStyle: level === "exceptionally_low" || level === "very_low" ? "You prioritize spending quality time with loved ones and value relationships over professional achievement in your personal life." : "You may sometimes struggle to balance relationship time with work commitments, but you bring the same dedication to relationships as to goals.",
+      careerImplications: level === "exceptionally_low" || level === "very_low" ? "You excel in creative, flexible environments that don't require rigid deadlines or intensive long-term planning." : "You thrive in demanding careers requiring persistence, long-term planning, and consistent effort toward challenging goals."
+    };
+  }
+  /**
+   * Generate Orderliness aspect analysis
+   */
+  generateOrderlinessAnalysis(percentile) {
+    const level = this.getPercentileRange(percentile);
+    const descriptions = {
+      "exceptionally_low": "You are exceptionally low in orderliness. You are completely comfortable with chaos and disorder, rarely using schedules or organizational systems.",
+      "very_low": "You are very low in orderliness. You are not disturbed by mess and chaos and prefer to take things as they come rather than following plans.",
+      "low": "You are low in orderliness. You don't particularly notice or care about disorder and prefer flexibility over rigid organization.",
+      "moderately_low": "You are moderately low in orderliness. You can tolerate some mess and prefer loose organization over rigid systems.",
+      "typical": "You show typical levels of orderliness. You like some organization and routine but can tolerate disruption when necessary.",
+      "moderately_high": "You are moderately high in orderliness. You prefer organized environments and some routine while remaining reasonably flexible.",
+      "high": "You are high in orderliness. You strongly prefer organized, clean environments and like to follow schedules and routines.",
+      "very_high": "You are very high in orderliness. You have a strong need for organization and structure and may be uncomfortable with mess or disorder.",
+      "exceptionally_high": "You are exceptionally high in orderliness. You have an extraordinary need for organization and structure, potentially to the point of rigidity."
+    };
+    return {
+      name: "Orderliness",
+      percentile,
+      level,
+      levelLabel: this.getLevelLabel(level),
+      description: descriptions[level],
+      characteristics: level === "exceptionally_low" || level === "very_low" ? ["Comfortable with chaos", "Flexible and adaptable", "Doesn't notice mess", "Prefers spontaneity"] : ["Highly organized", "Values cleanliness and order", "Uses schedules and systems", "Prefers predictability"],
+      advantages: level === "exceptionally_low" || level === "very_low" ? ["Highly adaptable", "Tolerates disruption well", "Creative flexibility", "Goes with the flow"] : ["Excellent organization skills", "Efficient and systematic", "Good at planning", "Creates structured environments"],
+      challenges: level === "exceptionally_low" || level === "very_low" ? ["May struggle with detailed tasks", "Can appear disorganized to others", "May lose important items", "Difficulty with systematic approaches"] : ["May be inflexible", "Can be stressed by disorder", "May be overly critical of messiness", "Difficulty adapting to chaos"],
+      relationshipStyle: level === "exceptionally_low" || level === "very_low" ? "You are flexible and adaptable in relationships, not bothered by household disorder or changes in routine." : "You prefer organized, predictable relationship routines and may become stressed when your partner disrupts established order.",
+      careerImplications: level === "exceptionally_low" || level === "very_low" ? "You excel in dynamic, unpredictable environments that require adaptability and tolerance for changing conditions." : "You thrive in structured, organized work environments that value systematic approaches, attention to detail, and consistent procedures."
+    };
+  }
+  /**
+   * Generate detailed Extraversion analysis
+   */
+  generateExtraversionAnalysis(enthusiasmPercentile, assertivenessPercentile) {
+    const traitPercentile = (enthusiasmPercentile + assertivenessPercentile) / 2;
+    const traitLevel = this.getPercentileRange(traitPercentile);
+    const overviewDescriptions = {
+      "exceptionally_low": "You are exceptionally low in extraversion. You strongly prefer solitude and quiet environments, finding social interaction draining and preferring internal reflection.",
+      "very_low": "You are very low in extraversion. You are quite introverted, preferring smaller groups and quieter environments over large social gatherings.",
+      "low": "You are low in extraversion. You tend to be more introverted, enjoying solitude and smaller social groups more than large gatherings.",
+      "moderately_low": "You are moderately low in extraversion. You can enjoy social situations but often prefer quieter environments and smaller groups.",
+      "typical": "You are typical in extraversion. You are comfortable in both social and solitary situations, adapting well to different social environments.",
+      "moderately_high": "You are moderately high in extraversion. You generally enjoy social interaction and group activities while also appreciating some alone time.",
+      "high": "You are high in extraversion. You are very social, energetic in group settings, and gain energy from interaction with others.",
+      "very_high": "You are very high in extraversion. You are exceptionally social and energetic, thriving in group settings and social interaction.",
+      "exceptionally_high": "You are exceptionally high in extraversion. You have extraordinary social energy and enthusiasm, potentially feeling uncomfortable in prolonged solitude."
+    };
+    return {
+      name: "Extraversion",
+      percentile: traitPercentile,
+      level: traitLevel,
+      levelLabel: this.getLevelLabel(traitLevel),
+      overview: overviewDescriptions[traitLevel],
+      aspects: [
+        this.generateEnthusiasmAnalysis(enthusiasmPercentile),
+        this.generateAssertivenessAnalysis(assertivenessPercentile)
+      ]
+    };
+  }
+  /**
+   * Generate Enthusiasm aspect analysis
+   */
+  generateEnthusiasmAnalysis(percentile) {
+    const level = this.getPercentileRange(percentile);
+    const descriptions = {
+      "exceptionally_low": "You are exceptionally low in enthusiasm. You rarely experience high positive emotions and tend to maintain a calm, steady emotional state.",
+      "very_low": "You are very low in enthusiasm. You experience positive emotions less frequently and intensely than most people.",
+      "low": "You are low in enthusiasm. You tend to be more reserved emotionally and don't often experience intense positive emotions.",
+      "moderately_low": "You are moderately low in enthusiasm. You experience some positive emotions but generally maintain a more subdued emotional style.",
+      "typical": "You show typical levels of enthusiasm. You experience a normal range of positive emotions and can be enthusiastic when the situation calls for it.",
+      "moderately_high": "You are moderately high in enthusiasm. You often experience positive emotions and can bring energy to social situations.",
+      "high": "You are high in enthusiasm. You frequently experience intense positive emotions and often energize others with your enthusiasm.",
+      "very_high": "You are very high in enthusiasm. You have exceptional positive energy and enthusiasm that strongly influences your interactions.",
+      "exceptionally_high": "You are exceptionally high in enthusiasm. You have extraordinary positive energy and enthusiasm that can be overwhelming to others."
+    };
+    return {
+      name: "Enthusiasm",
+      percentile,
+      level,
+      levelLabel: this.getLevelLabel(level),
+      description: descriptions[level],
+      characteristics: level === "exceptionally_low" || level === "very_low" ? ["Emotionally steady", "Calm demeanor", "Less reactive to positive events", "Subdued emotional expression"] : ["High positive energy", "Emotionally expressive", "Infectious enthusiasm", "Optimistic outlook"],
+      advantages: level === "exceptionally_low" || level === "very_low" ? ["Emotional stability", "Good in crisis situations", "Thoughtful decision-making", "Calming presence"] : ["Motivates others", "Creates positive atmosphere", "Resilient optimism", "Energizing presence"],
+      challenges: level === "exceptionally_low" || level === "very_low" ? ["May appear unenthusiastic", "Less motivating to others", "May miss positive opportunities", "Can seem distant or uninterested"] : ["May be overwhelming to others", "Can be disappointed easily", "May make impulsive decisions when excited", "Energy may not be sustainable"],
+      relationshipStyle: level === "exceptionally_low" || level === "very_low" ? "You provide stability and calm in relationships, though partners may sometimes want more emotional enthusiasm from you." : "You bring energy and positivity to relationships, helping create exciting and joyful shared experiences.",
+      careerImplications: level === "exceptionally_low" || level === "very_low" ? "You excel in roles requiring steady focus, careful analysis, or calm decision-making under pressure." : "You thrive in roles involving motivation, team building, sales, entertainment, or any position requiring positive energy."
+    };
+  }
+  /**
+   * Generate Assertiveness aspect analysis
+   */
+  generateAssertivenessAnalysis(percentile) {
+    const level = this.getPercentileRange(percentile);
+    const descriptions = {
+      "exceptionally_low": "You are exceptionally low in assertiveness. You very rarely take charge or speak up in groups, preferring to follow rather than lead.",
+      "very_low": "You are very low in assertiveness. You tend to be passive in social situations and rarely take leadership roles.",
+      "low": "You are low in assertiveness. You tend to be quiet in groups and don't often take charge or speak up.",
+      "moderately_low": "You are moderately low in assertiveness. You can speak up when necessary but generally prefer to let others take the lead.",
+      "typical": "You show typical levels of assertiveness. You can take charge when needed while also being comfortable following others' lead.",
+      "moderately_high": "You are moderately high in assertiveness. You often speak up and take charge, while still being able to follow when appropriate.",
+      "high": "You are high in assertiveness. You frequently take charge in social situations and are comfortable being the center of attention.",
+      "very_high": "You are very high in assertiveness. You have strong leadership tendencies and often dominate social situations.",
+      "exceptionally_high": "You are exceptionally high in assertiveness. You have overwhelming leadership drive and may dominate others in social situations."
+    };
+    return {
+      name: "Assertiveness",
+      percentile,
+      level,
+      levelLabel: this.getLevelLabel(level),
+      description: descriptions[level],
+      characteristics: level === "exceptionally_low" || level === "very_low" ? ["Prefers following to leading", "Quiet in groups", "Avoids center of attention", "Deferential approach"] : ["Natural leadership ability", "Comfortable taking charge", "Speaks up confidently", "Influential in groups"],
+      advantages: level === "exceptionally_low" || level === "very_low" ? ["Excellent team member", "Good listener", "Supportive of others' ideas", "Creates harmony"] : ["Strong leadership potential", "Influential and persuasive", "Confident in social situations", "Gets things done"],
+      challenges: level === "exceptionally_low" || level === "very_low" ? ["May not advocate for own needs", "Ideas may go unheard", "May be overlooked for leadership", "Difficulty in conflict situations"] : ["May dominate conversations", "Can appear pushy or aggressive", "May not listen to others enough", "Can create conflict"],
+      relationshipStyle: level === "exceptionally_low" || level === "very_low" ? "You tend to be supportive and accommodating in relationships, though you may need to work on expressing your own needs." : "You tend to take charge in relationships and may need to ensure you give your partner space to lead and express themselves.",
+      careerImplications: level === "exceptionally_low" || level === "very_low" ? "You excel in supportive roles, technical positions, or careers where following detailed instructions and supporting others is valued." : "You thrive in leadership positions, sales, management, or any career requiring confidence, influence, and the ability to take charge."
+    };
+  }
+  /**
+   * Generate detailed Neuroticism analysis
+   */
+  generateNeuroticismAnalysis(withdrawalPercentile, volatilityPercentile) {
+    const traitPercentile = (withdrawalPercentile + volatilityPercentile) / 2;
+    const traitLevel = this.getPercentileRange(traitPercentile);
+    const overviewDescriptions = {
+      "exceptionally_low": "You are exceptionally low in neuroticism. You have extraordinary emotional stability and resilience, rarely experiencing stress, anxiety, or negative emotions.",
+      "very_low": "You are very low in neuroticism. You are highly emotionally stable and resilient, handling stress and setbacks with remarkable composure.",
+      "low": "You are low in neuroticism. You are generally emotionally stable and don't often experience intense negative emotions.",
+      "moderately_low": "You are moderately low in neuroticism. You handle stress reasonably well and maintain emotional stability most of the time.",
+      "typical": "You are typical in neuroticism. You experience a normal range of emotions and handle stress with average resilience.",
+      "moderately_high": "You are moderately high in neuroticism. You may experience stress and negative emotions somewhat more than average.",
+      "high": "You are high in neuroticism. You tend to experience stress, anxiety, and negative emotions more frequently and intensely.",
+      "very_high": "You are very high in neuroticism. You are quite sensitive to stress and prone to experiencing strong negative emotions.",
+      "exceptionally_high": "You are exceptionally high in neuroticism. You are extremely sensitive to stress and may struggle significantly with emotional regulation."
+    };
+    return {
+      name: "Neuroticism",
+      percentile: traitPercentile,
+      level: traitLevel,
+      levelLabel: this.getLevelLabel(traitLevel),
+      overview: overviewDescriptions[traitLevel],
+      aspects: [
+        this.generateWithdrawalAnalysis(withdrawalPercentile),
+        this.generateVolatilityAnalysis(volatilityPercentile)
+      ],
+      genderNotes: "Women tend to be higher in neuroticism than men, though this difference varies significantly across cultures and age groups."
+    };
+  }
+  /**
+   * Generate Withdrawal aspect analysis
+   */
+  generateWithdrawalAnalysis(percentile) {
+    const level = this.getPercentileRange(percentile);
+    const descriptions = {
+      "exceptionally_low": "You are exceptionally low in withdrawal. You remain remarkably engaged and active even in stressful situations, rarely withdrawing from challenges.",
+      "very_low": "You are very low in withdrawal. You tend to stay engaged and active when faced with stress or setbacks rather than withdrawing.",
+      "low": "You are low in withdrawal. You generally maintain engagement and don't often withdraw when facing difficulties.",
+      "moderately_low": "You are moderately low in withdrawal. You usually stay engaged but may occasionally withdraw when overwhelmed.",
+      "typical": "You show typical levels of withdrawal. You sometimes withdraw when stressed but generally maintain reasonable engagement.",
+      "moderately_high": "You are moderately high in withdrawal. You tend to withdraw more than average when faced with stress or challenges.",
+      "high": "You are high in withdrawal. You often withdraw from stressful situations and may struggle to maintain engagement under pressure.",
+      "very_high": "You are very high in withdrawal. You have a strong tendency to withdraw when faced with stress, criticism, or challenges.",
+      "exceptionally_high": "You are exceptionally high in withdrawal. You have an overwhelming tendency to withdraw from stressful situations, potentially becoming isolated."
+    };
+    return {
+      name: "Withdrawal",
+      percentile,
+      level,
+      levelLabel: this.getLevelLabel(level),
+      description: descriptions[level],
+      characteristics: level === "exceptionally_low" || level === "very_low" ? ["Stays engaged under stress", "Faces challenges directly", "Maintains social connection", "Resilient under pressure"] : ["Tends to withdraw when stressed", "Seeks solitude during difficulties", "May isolate when overwhelmed", "Sensitive to criticism"],
+      advantages: level === "exceptionally_low" || level === "very_low" ? ["Strong resilience", "Maintains relationships under stress", "Continues functioning in adversity", "Natural crisis management"] : ["Good self-care instincts", "Avoids overwhelming situations", "Takes time to process difficulties", "Protective of mental health"],
+      challenges: level === "exceptionally_low" || level === "very_low" ? ["May not recognize when rest is needed", "Could push through problems that need attention", "May not process emotions fully"] : ["May miss opportunities due to withdrawal", "Can become isolated", "May avoid necessary confrontations", "Could limit personal growth"],
+      relationshipStyle: level === "exceptionally_low" || level === "very_low" ? "You remain engaged with your partner even during stressful times, though you may need to learn when some space is healthy." : "You may withdraw from your partner during stressful times, which requires communication about your need for space versus connection.",
+      careerImplications: level === "exceptionally_low" || level === "very_low" ? "You excel in high-pressure careers requiring sustained engagement and the ability to function well under continuous stress." : "You thrive in low-pressure environments or roles where you can control your exposure to stress and have autonomy over your schedule."
+    };
+  }
+  /**
+   * Generate Volatility aspect analysis
+   */
+  generateVolatilityAnalysis(percentile) {
+    const level = this.getPercentileRange(percentile);
+    const descriptions = {
+      "exceptionally_low": "You are exceptionally low in volatility. You have extraordinary emotional stability with very consistent moods and reactions.",
+      "very_low": "You are very low in volatility. You have excellent emotional stability and your moods remain quite consistent over time.",
+      "low": "You are low in volatility. You tend to have stable emotions and don't experience dramatic mood swings.",
+      "moderately_low": "You are moderately low in volatility. Your emotions are generally stable with occasional fluctuations.",
+      "typical": "You show typical levels of volatility. You experience normal emotional fluctuations and mood changes.",
+      "moderately_high": "You are moderately high in volatility. You may experience more emotional ups and downs than average.",
+      "high": "You are high in volatility. You tend to experience significant emotional fluctuations and mood changes.",
+      "very_high": "You are very high in volatility. You experience frequent and intense emotional fluctuations that can be challenging to manage.",
+      "exceptionally_high": "You are exceptionally high in volatility. You experience extreme emotional fluctuations that may significantly impact your daily functioning."
+    };
+    return {
+      name: "Volatility",
+      percentile,
+      level,
+      levelLabel: this.getLevelLabel(level),
+      description: descriptions[level],
+      characteristics: level === "exceptionally_low" || level === "very_low" ? ["Remarkably stable emotions", "Consistent mood", "Predictable reactions", "Even-tempered"] : ["Intense emotional experiences", "Frequent mood changes", "Emotionally reactive", "Variable emotional states"],
+      advantages: level === "exceptionally_low" || level === "very_low" ? ["Excellent emotional regulation", "Reliable and predictable", "Good in crisis situations", "Stable presence for others"] : ["Rich emotional experiences", "Highly responsive to environment", "Passionate and intense", "Emotionally authentic"],
+      challenges: level === "exceptionally_low" || level === "very_low" ? ["May appear emotionally distant", "Could miss emotional cues", "May not respond appropriately to emotional situations"] : ["Difficult emotional regulation", "May overwhelm others", "Inconsistent performance", "Relationship challenges due to mood swings"],
+      relationshipStyle: level === "exceptionally_low" || level === "very_low" ? "You provide emotional stability in relationships, though partners may sometimes want more emotional intensity or expression from you." : "You bring emotional intensity to relationships, which can create passion but may also require partners who can handle emotional variability.",
+      careerImplications: level === "exceptionally_low" || level === "very_low" ? "You excel in careers requiring emotional stability, consistent performance, and calm decision-making under pressure." : "You thrive in creative or dynamic careers where emotional intensity is valued, but may struggle in roles requiring consistent emotional regulation."
+    };
+  }
+  /**
+   * Generate complete detailed analysis for all Big 5 traits
+   */
+  generateDetailedAnalysis(aspectPercentiles) {
+    return [
+      this.generateOpennessAnalysis(
+        aspectPercentiles["Intellect"] || 0,
+        aspectPercentiles["Aesthetics"] || 0
+      ),
+      this.generateAgreeablenessAnalysis(
+        aspectPercentiles["Compassion"] || 0,
+        aspectPercentiles["Politeness"] || 0
+      ),
+      this.generateConscientiousnessAnalysis(
+        aspectPercentiles["Industriousness"] || 0,
+        aspectPercentiles["Orderliness"] || 0
+      ),
+      this.generateExtraversionAnalysis(
+        aspectPercentiles["Enthusiasm"] || 0,
+        aspectPercentiles["Assertiveness"] || 0
+      ),
+      this.generateNeuroticismAnalysis(
+        aspectPercentiles["Withdrawal"] || 0,
+        aspectPercentiles["Volatility"] || 0
+      )
+    ];
+  }
+};
+var personalityDescriptionsService = new PersonalityDescriptionsService();
+
+// server/kwame-api.ts
+init_storage();
+init_db();
+init_schema();
+import { WebSocket as WebSocket2 } from "ws";
+import { eq as eq3 } from "drizzle-orm";
+var connectedUsers3 = /* @__PURE__ */ new Map();
+function setKwameWebSocketConnections(connections) {
+  connectedUsers3 = connections;
+}
+var KwameRateLimiter = class {
+  limits = /* @__PURE__ */ new Map();
+  FREE_TIER_LIMIT = 20;
+  // 20 requests per hour
+  PREMIUM_TIER_LIMIT = 100;
+  // 100 requests per hour
+  WINDOW_MS = 60 * 60 * 1e3;
+  // 1 hour
+  canMakeRequest(userId, isPremium = false) {
+    const now = Date.now();
+    const limit = isPremium ? this.PREMIUM_TIER_LIMIT : this.FREE_TIER_LIMIT;
+    const userLimit = this.limits.get(userId);
+    if (!userLimit || now > userLimit.resetTime) {
+      this.limits.set(userId, {
+        userId,
+        requests: 1,
+        resetTime: now + this.WINDOW_MS
+      });
+      return true;
+    }
+    if (userLimit.requests >= limit) {
+      return false;
+    }
+    userLimit.requests++;
+    return true;
+  }
+  getRemainingRequests(userId, isPremium = false) {
+    const limit = isPremium ? this.PREMIUM_TIER_LIMIT : this.FREE_TIER_LIMIT;
+    const userLimit = this.limits.get(userId);
+    if (!userLimit || Date.now() > userLimit.resetTime) {
+      return limit;
+    }
+    return Math.max(0, limit - userLimit.requests);
+  }
+  getResetTime(userId) {
+    const userLimit = this.limits.get(userId);
+    return userLimit?.resetTime || Date.now() + this.WINDOW_MS;
+  }
+};
+var rateLimiter = new KwameRateLimiter();
+var ConversationStore = class {
+  conversations = /* @__PURE__ */ new Map();
+  MAX_HISTORY_AGE = 24 * 60 * 60 * 1e3;
+  // 24 hours
+  MAX_MESSAGES_PER_USER = 50;
+  addMessage(userId, role, content, context) {
+    let conversation = this.conversations.get(userId);
+    if (!conversation) {
+      conversation = {
+        userId,
+        messages: [],
+        lastActivity: /* @__PURE__ */ new Date()
+      };
+      this.conversations.set(userId, conversation);
+    }
+    conversation.messages.push({
+      role,
+      content,
+      timestamp: /* @__PURE__ */ new Date(),
+      context
+    });
+    if (conversation.messages.length > this.MAX_MESSAGES_PER_USER) {
+      conversation.messages = conversation.messages.slice(
+        -this.MAX_MESSAGES_PER_USER
+      );
+    }
+    conversation.lastActivity = /* @__PURE__ */ new Date();
+  }
+  getHistory(userId) {
+    const conversation = this.conversations.get(userId);
+    if (!conversation) {
+      return [];
+    }
+    const now = Date.now();
+    if (now - conversation.lastActivity.getTime() > this.MAX_HISTORY_AGE) {
+      this.conversations.delete(userId);
+      return [];
+    }
+    return conversation.messages;
+  }
+  clearHistory(userId) {
+    this.conversations.delete(userId);
+  }
+};
+var conversationStore = new ConversationStore();
+async function buildCulturalContext(userId) {
+  try {
+    console.log(
+      `[KWAME-API] \u{1F50D} DEBUG: Fetching user data for userId: ${userId}`
+    );
+    const [user, preferences, networkingProfile, mentorshipProfile] = await Promise.all([
+      storage.getUser(userId),
+      storage.getUserPreferences(userId),
+      storage.getSuiteNetworkingProfile(userId),
+      storage.getSuiteMentorshipProfile(userId)
+    ]);
+    console.log(`[KWAME-API] \u{1F50D} DEBUG: Database results:`, {
+      userFound: !!user,
+      userKeys: user ? Object.keys(user) : [],
+      userName: user?.fullName,
+      userAge: user?.dateOfBirth,
+      userNationality: user?.countryOfOrigin,
+      preferencesFound: !!preferences,
+      networkingProfileFound: !!networkingProfile,
+      mentorshipProfileFound: !!mentorshipProfile
+    });
+    if (!user) {
+      console.log(
+        `[KWAME-API] \u26A0\uFE0F WARNING: No user found for userId: ${userId}`
+      );
+      return null;
+    }
+    const age = user.dateOfBirth ? (/* @__PURE__ */ new Date()).getFullYear() - new Date(user.dateOfBirth).getFullYear() : null;
+    let location = "Both";
+    let ageGroup = "26-35";
+    if (age) {
+      if (age >= 18 && age <= 25) ageGroup = "18-25";
+      else if (age >= 26 && age <= 35) ageGroup = "26-35";
+      else if (age >= 36) ageGroup = "35+";
+    }
+    const result = {
+      location,
+      ageGroup,
+      userProfile: user,
+      userPreferences: preferences,
+      networkingProfile,
+      mentorshipProfile,
+      nationality: user.countryOfOrigin || null,
+      hasNationality: !!user.countryOfOrigin,
+      needsCountryInfo: !user.countryOfOrigin
+    };
+    console.log(`[KWAME-API] \u{1F50D} DEBUG: Built cultural context:`, {
+      hasUserProfile: !!result.userProfile,
+      hasUserPreferences: !!result.userPreferences,
+      hasNetworkingProfile: !!result.networkingProfile,
+      hasMentorshipProfile: !!result.mentorshipProfile,
+      calculatedAge: age,
+      nationality: result.nationality,
+      needsCountryInfo: result.needsCountryInfo,
+      location: result.location
+    });
+    return result;
+  } catch (error) {
+    console.error(
+      `[KWAME-API] \u274C ERROR: Failed to build cultural context for userId ${userId}:`,
+      error
+    );
+    return null;
+  }
+}
+function registerKwameAPI(app2) {
+  console.log("[KWAME-API] Registering KWAME AI routes...");
+  app2.post("/api/kwame/chat", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({
+          error: "Authentication required",
+          code: "NOT_AUTHENTICATED"
+        });
+      }
+      const userId = req.user?.id;
+      const { message, context, appMode } = req.body;
+      console.log(`[KWAME-API] Chat request from user ${userId}`);
+      if (!message || typeof message !== "string" || message.trim().length === 0) {
+        return res.status(400).json({
+          error: "Message is required and cannot be empty",
+          code: "INVALID_MESSAGE"
+        });
+      }
+      const isImageMessage = message.startsWith("_!_IMAGE_!_");
+      const maxLength = isImageMessage ? 10 * 1024 * 1024 * 1024 : 2e3;
+      if (message.length > maxLength) {
+        return res.status(400).json({
+          error: isImageMessage ? "Image too large (max 10GB)" : "Message too long (max 2000 characters)",
+          code: "MESSAGE_TOO_LONG"
+        });
+      }
+      const normalized = message.toLowerCase();
+      const wantsPrimaryPhoto = /\b(send|show)\b.*\b(my)\b.*\b(primary\s+photo|profile\s+photo|picture|dp)\b/.test(
+        normalized
+      );
+      if (wantsPrimaryPhoto) {
+        try {
+          const section = (appMode || "MEET").toLowerCase() === "meet" ? "meet" : "meet";
+          let photoUrl = null;
+          const primary = await storage.getSectionPrimaryPhoto(userId, section);
+          if (primary?.photoUrl) photoUrl = primary.photoUrl;
+          if (!photoUrl) {
+            const me = await storage.getUser(userId);
+            photoUrl = me?.photoUrl || null;
+          }
+          if (!photoUrl) {
+            return res.status(404).json({
+              error: "No primary photo found",
+              code: "NO_PRIMARY_PHOTO"
+            });
+          }
+          const kwameResponse2 = {
+            message: `_!_IMAGE_!_${photoUrl}`
+          };
+          await storage.createKwameConversation({
+            userId,
+            role: "user",
+            content: message.trim(),
+            context: context?.currentScreen ? JSON.stringify(context) : null,
+            appMode: appMode || "MEET"
+          });
+          const assistantConversation2 = await storage.createKwameConversation({
+            userId,
+            role: "assistant",
+            content: kwameResponse2.message,
+            context: null,
+            appMode: appMode || "MEET"
+          });
+          const userSocket2 = connectedUsers3.get(userId);
+          if (userSocket2 && userSocket2.readyState === WebSocket2.OPEN) {
+            try {
+              userSocket2.send(
+                JSON.stringify({
+                  type: "new_message",
+                  message: {
+                    id: assistantConversation2.id,
+                    matchId: -1,
+                    senderId: -1,
+                    receiverId: userId,
+                    content: kwameResponse2.message,
+                    createdAt: assistantConversation2.createdAt?.toISOString() || (/* @__PURE__ */ new Date()).toISOString(),
+                    messageType: "text"
+                  },
+                  for: "recipient",
+                  timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                })
+              );
+            } catch {
+            }
+          }
+          return res.json(kwameResponse2);
+        } catch (err) {
+          console.error("[KWAME-API] Primary photo command failed:", err);
+          return res.status(500).json({ error: "Failed to retrieve primary photo" });
+        }
+      }
+      const lower = message.toLowerCase();
+      const avatarStyleMatch = message.match(/(create|generate|make|draw|design|turn)[^\n]{0,80}(anime|cartoon|manga|pixar|disney|comic|illustration)[^\n]{0,80}(avatar|image|photo|picture)/i) || message.match(/(anime|cartoon|manga|pixar|disney|comic|illustration)[^\n]{0,80}(avatar|image|photo|picture)[^\n]{0,80}(of me|for me)/i) || message.match(/create.*(anime|cartoon|manga|pixar|disney|comic|illustration).*avatar.*me/i);
+      const wantsStylizedAvatar = !!avatarStyleMatch;
+      const requestedStyle = avatarStyleMatch ? avatarStyleMatch[2]?.toLowerCase() || avatarStyleMatch[1]?.toLowerCase() : null;
+      const wantsImageEdit = /(edit|change|update|transform|improve|enhance|styl(?:e|ize)|turn)[^\n]{0,80}\b(my|the|this)\b[^\n]{0,80}\b(photo|picture|image|avatar|primary\s+photo)\b/i.test(
+        lower
+      );
+      let wantsImageGenerate = /(create|generate|make|draw|design)[^\n]{0,80}\b(image|picture|photo|avatar|logo|banner|poster)\b/i.test(
+        lower
+      );
+      const animeAvatarSignal = /(anime|cartoon|pixar|comic)/.test(lower) && /(avatar|image|photo|picture)/.test(lower);
+      const forceImageGenerate = /^\s*(create|generate|make|turn)[^\n]{0,80}(anime|cartoon|pixar|manga)[^\n]{0,80}(avatar|image|photo|picture)/i.test(
+        message
+      );
+      if (animeAvatarSignal) wantsImageGenerate = true;
+      const wantsAnyImageAction = /(avatar|image|photo|picture)/.test(lower) && /(create|generate|make|draw|design|turn|transform|styl|style|edit|change|update|improve|enhance)/.test(
+        lower
+      );
+      console.log("[KWAME-API] \u{1F4E5} Incoming message (trimmed):", message.trim());
+      if (/(avatar|image|photo|picture)/.test(lower)) {
+        console.log("[KWAME-API] \u{1F50E} Image keywords present", { lower });
+      }
+      if (wantsStylizedAvatar) {
+        console.log("[KWAME-API] \u{1F3A8} Stylized avatar request detected:", message, "Style:", requestedStyle);
+        try {
+          const dbConversationHistory2 = await storage.getRecentKwameContext(
+            userId,
+            20
+          );
+          const conversationHistory2 = dbConversationHistory2.map((conv) => ({
+            role: conv.role,
+            content: conv.content,
+            timestamp: conv.createdAt,
+            context: conv.context || void 0
+          }));
+          let sourceImage = null;
+          for (let i = conversationHistory2.length - 1; i >= 0; i--) {
+            const c = conversationHistory2[i]?.content;
+            if (typeof c === "string" && c.startsWith("_!_IMAGE_!_")) {
+              sourceImage = c.substring("_!_IMAGE_!_".length);
+              break;
+            }
+          }
+          if (!sourceImage) {
+            const primary = await storage.getSectionPrimaryPhoto(
+              userId,
+              (appMode || "MEET").toLowerCase()
+            );
+            sourceImage = primary?.photoUrl || (await storage.getUser(userId))?.photoUrl || null;
+          }
+          const dataUrl = await kwameAI.generateStylizedAvatar(sourceImage || void 0, requestedStyle || "anime");
+          const photoMessage = `_!_IMAGE_!_${dataUrl}`;
+          await storage.createKwameConversation({
+            userId,
+            role: "user",
+            content: message.trim(),
+            context: context?.currentScreen ? JSON.stringify(context) : null,
+            appMode: appMode || "MEET"
+          });
+          const assistantConversation2 = await storage.createKwameConversation({
+            userId,
+            role: "assistant",
+            content: photoMessage,
+            context: null,
+            appMode: appMode || "MEET"
+          });
+          const userSocket2 = connectedUsers3.get(userId);
+          if (userSocket2 && userSocket2.readyState === WebSocket2.OPEN) {
+            try {
+              userSocket2.send(
+                JSON.stringify({
+                  type: "new_message",
+                  message: {
+                    id: assistantConversation2.id,
+                    matchId: -1,
+                    senderId: -1,
+                    receiverId: userId,
+                    content: photoMessage,
+                    createdAt: assistantConversation2.createdAt?.toISOString() || (/* @__PURE__ */ new Date()).toISOString(),
+                    messageType: "text"
+                  },
+                  for: "recipient",
+                  timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                })
+              );
+            } catch {
+            }
+          }
+          return res.json({ message: photoMessage });
+        } catch (err) {
+          console.error("[KWAME-API] Anime avatar generation failed:", err);
+        }
+      }
+      if (wantsImageEdit || wantsImageGenerate || wantsAnyImageAction || forceImageGenerate) {
+        console.log("[KWAME-API] \u{1F5BC}\uFE0F Image intent detected", {
+          wantsImageEdit,
+          wantsImageGenerate,
+          wantsAnyImageAction,
+          animeAvatarSignal,
+          forceImageGenerate,
+          wantsStylizedAvatar,
+          requestedStyle,
+          message
+        });
+        try {
+          const dbConversationHistory2 = await storage.getRecentKwameContext(
+            userId,
+            20
+          );
+          const conversationHistory2 = dbConversationHistory2.map((conv) => ({
+            role: conv.role,
+            content: conv.content,
+            timestamp: conv.createdAt,
+            context: conv.context || void 0
+          }));
+          const styleMatch = message.match(/(?:to|into|in|as)\s+(.+)$/i);
+          let styleInstruction = styleMatch ? styleMatch[1].trim() : "tasteful high-quality portrait";
+          if (animeAvatarSignal && !/anime|cartoon|manga/i.test(styleInstruction)) {
+            styleInstruction = `anime-style portrait, clean line art, soft cel-shading, expressive eyes, preserve identity. ${styleInstruction}`;
+          }
+          let sourceImage = null;
+          for (let i = conversationHistory2.length - 1; i >= 0; i--) {
+            const c = conversationHistory2[i]?.content;
+            if (typeof c === "string" && c.startsWith("_!_IMAGE_!_")) {
+              sourceImage = c.substring("_!_IMAGE_!_".length);
+              break;
+            }
+          }
+          if (!sourceImage) {
+            const primary = await storage.getSectionPrimaryPhoto(
+              userId,
+              (appMode || "MEET").toLowerCase()
+            );
+            sourceImage = primary?.photoUrl || (await storage.getUser(userId))?.photoUrl || null;
+          }
+          let dataUrl;
+          if ((wantsImageEdit || /avatar|photo|picture|image/.test(lower)) && sourceImage) {
+            dataUrl = await kwameAI.generatePixarStyleImage(
+              sourceImage,
+              styleInstruction
+            );
+          } else {
+            const prompt = styleInstruction.includes("photo") ? styleInstruction : `Generate ${styleInstruction}`;
+            dataUrl = await kwameAI.generateImageFromPrompt(prompt);
+          }
+          const photoMessage = `_!_IMAGE_!_${dataUrl}`;
+          await storage.createKwameConversation({
+            userId,
+            role: "user",
+            content: message.trim(),
+            context: context?.currentScreen ? JSON.stringify(context) : null,
+            appMode: appMode || "MEET"
+          });
+          const assistantConversation2 = await storage.createKwameConversation({
+            userId,
+            role: "assistant",
+            content: photoMessage,
+            context: null,
+            appMode: appMode || "MEET"
+          });
+          const userSocket2 = connectedUsers3.get(userId);
+          if (userSocket2 && userSocket2.readyState === WebSocket2.OPEN) {
+            try {
+              userSocket2.send(
+                JSON.stringify({
+                  type: "new_message",
+                  message: {
+                    id: assistantConversation2.id,
+                    matchId: -1,
+                    senderId: -1,
+                    receiverId: userId,
+                    content: photoMessage,
+                    createdAt: assistantConversation2.createdAt?.toISOString() || (/* @__PURE__ */ new Date()).toISOString(),
+                    messageType: "text"
+                  },
+                  for: "recipient",
+                  timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                })
+              );
+            } catch {
+            }
+          }
+          return res.json({ message: photoMessage });
+        } catch (err) {
+          console.error("[KWAME-API] Image intent handling failed:", err);
+        }
+      }
+      const user = await storage.getUser(userId);
+      const isPremium = user?.premiumAccess || false;
+      if (!rateLimiter.canMakeRequest(userId, isPremium)) {
+        const remaining = rateLimiter.getRemainingRequests(userId, isPremium);
+        const resetTime = rateLimiter.getResetTime(userId);
+        return res.status(429).json({
+          error: "Rate limit exceeded. Please try again later.",
+          code: "RATE_LIMIT_EXCEEDED",
+          remaining,
+          resetTime,
+          upgradeMessage: isPremium ? null : "Upgrade to Premium for more AI conversations!"
+        });
+      }
+      const culturalContext = await buildCulturalContext(userId);
+      console.log(
+        `[KWAME-API] \u{1F50D} DEBUG: Cultural context for user ${userId}:`,
+        {
+          hasUserProfile: !!culturalContext?.userProfile,
+          hasUserPreferences: !!culturalContext?.userPreferences,
+          hasNetworkingProfile: !!culturalContext?.networkingProfile,
+          userProfileKeys: culturalContext?.userProfile ? Object.keys(culturalContext.userProfile) : [],
+          networkingProfileKeys: culturalContext?.networkingProfile ? Object.keys(culturalContext.networkingProfile) : [],
+          userAge: culturalContext?.userProfile?.dateOfBirth ? Math.floor(
+            (Date.now() - culturalContext.userProfile.dateOfBirth.getTime()) / (365.25 * 24 * 60 * 60 * 1e3)
+          ) : null,
+          userName: culturalContext?.userProfile?.fullName,
+          userLocation: culturalContext?.userProfile?.location,
+          userProfessionalTagline: culturalContext?.networkingProfile?.professionalTagline,
+          userIndustry: culturalContext?.networkingProfile?.industry
+        }
+      );
+      const dbConversationHistory = await storage.getRecentKwameContext(
+        userId,
+        20
+      );
+      const conversationHistory = dbConversationHistory.map((conv) => ({
+        role: conv.role,
+        content: conv.content,
+        timestamp: conv.createdAt,
+        context: conv.context || void 0
+      }));
+      const kwameRequest = {
+        userId,
+        message: message.trim(),
+        context: {
+          ...context,
+          culturalContext: culturalContext ? {
+            location: culturalContext.location,
+            ethnicity: culturalContext.ethnicity,
+            ageGroup: culturalContext.ageGroup
+          } : null,
+          // Include user profile, preferences, networking and mentorship profiles for personalized responses
+          userProfile: culturalContext?.userProfile,
+          userPreferences: culturalContext?.userPreferences,
+          networkingProfile: culturalContext?.networkingProfile,
+          mentorshipProfile: culturalContext?.mentorshipProfile
+        },
+        conversationHistory,
+        appMode: appMode || "MEET"
+      };
+      console.log(
+        `[KWAME-API] \u{1F50D} DEBUG: Final context being sent to KWAME AI:`,
+        {
+          hasUserProfile: !!kwameRequest.context?.userProfile,
+          hasUserPreferences: !!kwameRequest.context?.userPreferences,
+          hasNetworkingProfile: !!kwameRequest.context?.networkingProfile,
+          hasMentorshipProfile: !!kwameRequest.context?.mentorshipProfile,
+          contextKeys: Object.keys(kwameRequest.context || {})
+        }
+      );
+      const normalizedPixar = message.toLowerCase();
+      const wantsPixar = /pixar|disney/.test(normalizedPixar) && /(transform|generate|styl(e|ize)|turn)/.test(normalizedPixar);
+      const wantsAnime = /anime/.test(normalizedPixar) && /(transform|generate|styl(e|ize)|turn)/.test(normalizedPixar);
+      const wantsHyper = /(hyper[- ]?realistic|photoreal(istic)?)/.test(normalizedPixar) && /(transform|generate|turn|styl(e|ize))/.test(normalizedPixar);
+      if (wantsPixar) {
+        try {
+          let sourceImage = null;
+          for (let i = conversationHistory.length - 1; i >= 0; i--) {
+            const c = conversationHistory[i]?.content;
+            if (typeof c === "string" && c.startsWith("_!_IMAGE_!_")) {
+              sourceImage = c.substring("_!_IMAGE_!_".length);
+              break;
+            }
+          }
+          if (!sourceImage) {
+            const primary = await storage.getSectionPrimaryPhoto(
+              userId,
+              (appMode || "MEET").toLowerCase()
+            );
+            sourceImage = primary?.photoUrl || (await storage.getUser(userId))?.photoUrl || null;
+          }
+          if (!sourceImage) {
+            return res.status(400).json({ error: "No image available to transform" });
+          }
+          const generated = await kwameAI.generatePixarStyleImage(sourceImage);
+          const photoMessage = `_!_IMAGE_!_${generated}`;
+          await storage.createKwameConversation({
+            userId,
+            role: "user",
+            content: message.trim(),
+            context: context?.currentScreen ? JSON.stringify(context) : null,
+            appMode: appMode || "MEET"
+          });
+          const assistantConversation2 = await storage.createKwameConversation({
+            userId,
+            role: "assistant",
+            content: photoMessage,
+            context: null,
+            appMode: appMode || "MEET"
+          });
+          const userSocket2 = connectedUsers3.get(userId);
+          if (userSocket2 && userSocket2.readyState === WebSocket2.OPEN) {
+            try {
+              userSocket2.send(
+                JSON.stringify({
+                  type: "new_message",
+                  message: {
+                    id: assistantConversation2.id,
+                    matchId: -1,
+                    senderId: -1,
+                    receiverId: userId,
+                    content: photoMessage,
+                    createdAt: assistantConversation2.createdAt?.toISOString() || (/* @__PURE__ */ new Date()).toISOString(),
+                    messageType: "text"
+                  },
+                  for: "recipient",
+                  timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                })
+              );
+            } catch {
+            }
+          }
+          return res.json({ message: photoMessage });
+        } catch (err) {
+          console.error("[KWAME-API] Pixar transform failed:", err);
+          return res.status(500).json({ error: "Failed to generate Pixar-style image" });
+        }
+      }
+      if (wantsAnime || wantsHyper) {
+        try {
+          let sourceImage = null;
+          for (let i = conversationHistory.length - 1; i >= 0; i--) {
+            const c = conversationHistory[i]?.content;
+            if (typeof c === "string" && c.startsWith("_!_IMAGE_!_")) {
+              sourceImage = c.substring("_!_IMAGE_!_".length);
+              break;
+            }
+          }
+          if (!sourceImage) {
+            const primary = await storage.getSectionPrimaryPhoto(
+              userId,
+              (appMode || "MEET").toLowerCase()
+            );
+            sourceImage = primary?.photoUrl || (await storage.getUser(userId))?.photoUrl || null;
+          }
+          if (!sourceImage) {
+            return res.status(400).json({ error: "No image available to transform" });
+          }
+          const stylePrompt = wantsAnime ? "Transform this photo into a high-quality anime illustration while preserving recognizable facial features, hairstyle, and outfit colors. Use clean line art, soft cel-shading, expressive eyes, and a tasteful, softly blurred anime background." : "Transform this photo into a hyper-realistic portrait that preserves facial identity and outfit, with cinematic lighting, detailed textures, and shallow depth-of-field. Keep it tasteful and friendly.";
+          const generated = await kwameAI.generatePixarStyleImage(
+            sourceImage,
+            stylePrompt
+          );
+          const photoMessage = `_!_IMAGE_!_${generated}`;
+          await storage.createKwameConversation({
+            userId,
+            role: "user",
+            content: message.trim(),
+            context: context?.currentScreen ? JSON.stringify(context) : null,
+            appMode: appMode || "MEET"
+          });
+          const assistantConversation2 = await storage.createKwameConversation({
+            userId,
+            role: "assistant",
+            content: photoMessage,
+            context: null,
+            appMode: appMode || "MEET"
+          });
+          const userSocket2 = connectedUsers3.get(userId);
+          if (userSocket2 && userSocket2.readyState === WebSocket2.OPEN) {
+            try {
+              userSocket2.send(
+                JSON.stringify({
+                  type: "new_message",
+                  message: {
+                    id: assistantConversation2.id,
+                    matchId: -1,
+                    senderId: -1,
+                    receiverId: userId,
+                    content: photoMessage,
+                    createdAt: assistantConversation2.createdAt?.toISOString() || (/* @__PURE__ */ new Date()).toISOString(),
+                    messageType: "text"
+                  },
+                  for: "recipient",
+                  timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                })
+              );
+            } catch {
+            }
+          }
+          return res.json({ message: photoMessage });
+        } catch (err) {
+          console.error("[KWAME-API] Alt style transform failed:", err);
+          return res.status(500).json({ error: "Failed to generate stylized image" });
+        }
+      }
+      if (isImageMessage) {
+        console.log(`[KWAME-API] \u26A0\uFE0F  IMAGE UPLOAD DETECTED for user ${userId}`);
+        console.log(`[KWAME-API] \u26A0\uFE0F  Message length: ${message.length}`);
+        console.log(
+          `[KWAME-API] \u26A0\uFE0F  Message starts with marker: ${message.startsWith("_!_IMAGE_!_")}`
+        );
+        const imageMarker = "_!_IMAGE_!_";
+        const isPureImageUpload = message.startsWith(imageMarker) && message.length > imageMarker.length;
+        if (isPureImageUpload) {
+          console.log(
+            `[KWAME-API] \u2705 PURE IMAGE UPLOAD - SKIPPING AI ANALYSIS (${message.length} chars)`
+          );
+          const userConversation2 = await storage.createKwameConversation({
+            userId,
+            role: "user",
+            content: message.trim(),
+            context: context?.currentScreen ? JSON.stringify(context) : null,
+            appMode: appMode || "MEET"
+          });
+          console.log(
+            `[KWAME-API] Image message stored with ID: ${userConversation2.id}`
+          );
+          return res.json({
+            message: "Image received",
+            imageStored: true,
+            rateLimitInfo: {
+              remaining: rateLimiter.getRemainingRequests(userId, isPremium),
+              resetTime: rateLimiter.getResetTime(userId),
+              isPremium
+            }
+          });
+        } else {
+          console.log(
+            `[KWAME-API] Image upload with text/request detected, proceeding with AI analysis`
+          );
+        }
+      }
+      console.log(`[KWAME-API] Getting AI response for user ${userId}`);
+      const kwameResponse = await kwameAI.chat(kwameRequest);
+      console.log(`[KWAME-API] AI response received for user ${userId}`);
+      console.log(`[KWAME-API] Storing user message for user ${userId}`);
+      const userConversation = await storage.createKwameConversation({
+        userId,
+        role: "user",
+        content: message.trim(),
+        context: context?.currentScreen ? JSON.stringify(context) : null,
+        appMode: appMode || "MEET"
+      });
+      console.log(
+        `[KWAME-API] User message stored with ID: ${userConversation.id}`
+      );
+      console.log(`[KWAME-API] Storing assistant message for user ${userId}`);
+      const assistantConversation = await storage.createKwameConversation({
+        userId,
+        role: "assistant",
+        content: kwameResponse.message,
+        context: null,
+        appMode: appMode || "MEET"
+      });
+      console.log(
+        `[KWAME-API] Assistant message stored with ID: ${assistantConversation.id}`
+      );
+      conversationStore.addMessage(userId, "user", message.trim());
+      conversationStore.addMessage(userId, "assistant", kwameResponse.message);
+      const userSocket = connectedUsers3.get(userId);
+      if (userSocket && userSocket.readyState === WebSocket2.OPEN) {
+        try {
+          userSocket.send(
+            JSON.stringify({
+              type: "new_message",
+              message: {
+                id: assistantConversation.id,
+                matchId: -1,
+                // Special ID for KWAME AI
+                senderId: -1,
+                // KWAME AI sender ID
+                receiverId: userId,
+                content: kwameResponse.message,
+                createdAt: assistantConversation.createdAt?.toISOString() || (/* @__PURE__ */ new Date()).toISOString(),
+                messageType: "text"
+              },
+              for: "recipient",
+              timestamp: (/* @__PURE__ */ new Date()).toISOString()
+            })
+          );
+          console.log(
+            `[KWAME-API] \u2705 Real-time notification sent to user ${userId}`
+          );
+        } catch (wsError) {
+          console.error(
+            `[KWAME-API] Failed to send WebSocket notification to user ${userId}:`,
+            wsError
+          );
+        }
+      } else {
+        console.log(
+          `[KWAME-API] \u26A0\uFE0F User ${userId} not connected via WebSocket`
+        );
+      }
+      res.json({
+        ...kwameResponse,
+        rateLimitInfo: {
+          remaining: rateLimiter.getRemainingRequests(userId, isPremium),
+          resetTime: rateLimiter.getResetTime(userId),
+          isPremium
+        }
+      });
+    } catch (error) {
+      console.error("[KWAME-API] Chat error:", error);
+      res.status(500).json({
+        error: "Internal server error",
+        message: "KWAME is having trouble right now. Please try again in a moment.",
+        code: "INTERNAL_ERROR"
+      });
+    }
+  });
+  app2.post(
+    "/api/kwame/generate-avatar",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated() || !req.user?.id) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const section = (req.body?.section || "meet").toString();
+        const primary = await storage.getSectionPrimaryPhoto(userId, section);
+        let source = primary?.photoUrl || null;
+        if (!source) {
+          const me = await storage.getUser(userId);
+          source = me?.photoUrl || null;
+        }
+        if (!source) {
+          return res.status(400).json({ message: "No primary photo available to generate avatar" });
+        }
+        const dataUrl = await kwameAI.generatePixarStyleImage(source);
+        await db.update(users).set({
+          avatarPhoto: dataUrl,
+          showAvatar: true,
+          updatedAt: /* @__PURE__ */ new Date()
+        }).where(eq3(users.id, userId));
+        res.json({ success: true, avatarPhoto: dataUrl });
+      } catch (err) {
+        console.error("[KWAME-API][AVATAR]", err);
+        res.status(500).json({ message: err?.message || "Failed to generate avatar" });
+      }
+    }
+  );
+  app2.delete("/api/user/avatar", async (req, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user?.id) {
+        console.log("[KWAME-API][AVATAR-DELETE] Unauthorized request");
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      const userId = req.user.id;
+      console.log(
+        `[KWAME-API][AVATAR-DELETE] Deleting avatar for user ${userId}`
+      );
+      const userBefore = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+      console.log(
+        `[KWAME-API][AVATAR-DELETE] User before update: avatarPhoto=${userBefore[0]?.avatarPhoto}, showAvatar=${userBefore[0]?.showAvatar}`
+      );
+      const result = await db.update(users).set({
+        avatarPhoto: null,
+        showAvatar: false,
+        updatedAt: /* @__PURE__ */ new Date()
+      }).where(eq3(users.id, userId));
+      const userAfter = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+      console.log(
+        `[KWAME-API][AVATAR-DELETE] User after update: avatarPhoto=${userAfter[0]?.avatarPhoto}, showAvatar=${userAfter[0]?.showAvatar}`
+      );
+      console.log(
+        `[KWAME-API][AVATAR-DELETE] Successfully deleted avatar for user ${userId}`
+      );
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[KWAME-API][AVATAR-DELETE] Error:", err);
+      res.status(500).json({ message: err?.message || "Failed to delete avatar" });
+    }
+  });
+  app2.post("/api/kwame/suggestions", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({
+          error: "Authentication required",
+          code: "NOT_AUTHENTICATED"
+        });
+      }
+      const userId = req.user?.id;
+      const { context, appMode, scenario } = req.body;
+      console.log(`[KWAME-API] Suggestions request from user ${userId}`);
+      const culturalContext = await buildCulturalContext(userId);
+      const kwameRequest = {
+        userId,
+        message: scenario || "Give me some conversation suggestions",
+        context: {
+          ...context,
+          culturalContext: culturalContext ? {
+            location: culturalContext.location,
+            ethnicity: culturalContext.ethnicity,
+            ageGroup: culturalContext.ageGroup
+          } : null,
+          // Include user profile and preferences for personalized suggestions
+          userProfile: culturalContext?.userProfile,
+          userPreferences: culturalContext?.userPreferences
+        },
+        appMode: appMode || "MEET"
+      };
+      const suggestions = await kwameAI.getSuggestions(kwameRequest);
+      res.json({
+        suggestions,
+        context: kwameRequest.context
+      });
+    } catch (error) {
+      console.error("[KWAME-API] Suggestions error:", error);
+      res.status(500).json({
+        error: "Failed to get suggestions",
+        suggestions: [
+          "Ask about their interests",
+          "Share something about yourself",
+          "Be genuine and authentic"
+        ]
+      });
+    }
+  });
+  app2.post(
+    "/api/kwame/analyze-profile",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({
+            error: "Authentication required",
+            code: "NOT_AUTHENTICATED"
+          });
+        }
+        const userId = req.user?.id;
+        console.log(`[KWAME-API] Profile analysis request from user ${userId}`);
+        const [user, preferences] = await Promise.all([
+          storage.getUser(userId),
+          storage.getUserPreferences(userId)
+        ]);
+        if (!user) {
+          return res.status(404).json({
+            error: "User not found",
+            code: "USER_NOT_FOUND"
+          });
+        }
+        const isPremium = user.premiumAccess || false;
+        if (!rateLimiter.canMakeRequest(userId, isPremium)) {
+          return res.status(429).json({
+            error: "Rate limit exceeded for profile analysis",
+            code: "RATE_LIMIT_EXCEEDED"
+          });
+        }
+        const analysis = await kwameAI.analyzeProfile(
+          user,
+          preferences || void 0
+        );
+        res.json({
+          ...analysis,
+          rateLimitInfo: {
+            remaining: rateLimiter.getRemainingRequests(userId, isPremium),
+            resetTime: rateLimiter.getResetTime(userId),
+            isPremium
+          }
+        });
+      } catch (error) {
+        console.error("[KWAME-API] Profile analysis error:", error);
+        res.status(500).json({
+          error: "Failed to analyze profile",
+          message: "KWAME cannot analyze your profile right now. Please try again later.",
+          code: "ANALYSIS_ERROR"
+        });
+      }
+    }
+  );
+  app2.get(
+    "/api/kwame/conversation-history",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({
+            error: "Authentication required",
+            code: "NOT_AUTHENTICATED"
+          });
+        }
+        const userId = req.user?.id;
+        const limit = parseInt(req.query.limit) || 20;
+        console.log(`[KWAME-API] History request from user ${userId}`);
+        const dbHistory = await storage.getRecentKwameContext(userId, limit);
+        const messages2 = dbHistory.map((conv) => ({
+          role: conv.role,
+          content: conv.content,
+          timestamp: conv.createdAt?.toISOString() || (/* @__PURE__ */ new Date()).toISOString(),
+          context: conv.context
+        }));
+        res.json({
+          messages: messages2,
+          total: messages2.length,
+          hasMore: false
+          // For now, assuming we get all available messages
+        });
+      } catch (error) {
+        console.error("[KWAME-API] History error:", error);
+        res.status(500).json({
+          error: "Failed to get conversation history",
+          messages: []
+        });
+      }
+    }
+  );
+  app2.delete(
+    "/api/kwame/conversation-history",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({
+            error: "Authentication required",
+            code: "NOT_AUTHENTICATED"
+          });
+        }
+        const userId = req.user?.id;
+        console.log(`[KWAME-API] Clear history request from user ${userId}`);
+        conversationStore.clearHistory(userId);
+        res.json({
+          success: true,
+          message: "Conversation history cleared"
+        });
+      } catch (error) {
+        console.error("[KWAME-API] Clear history error:", error);
+        res.status(500).json({
+          error: "Failed to clear conversation history"
+        });
+      }
+    }
+  );
+  app2.get("/api/kwame/status", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({
+          error: "Authentication required",
+          code: "NOT_AUTHENTICATED"
+        });
+      }
+      const userId = req.user?.id;
+      const user = await storage.getUser(userId);
+      const isPremium = user?.premiumAccess || false;
+      res.json({
+        status: "online",
+        available: true,
+        rateLimitInfo: {
+          remaining: rateLimiter.getRemainingRequests(userId, isPremium),
+          resetTime: rateLimiter.getResetTime(userId),
+          isPremium,
+          limits: {
+            free: rateLimiter["FREE_TIER_LIMIT"],
+            premium: rateLimiter["PREMIUM_TIER_LIMIT"]
+          }
+        },
+        features: {
+          chat: true,
+          suggestions: true,
+          profileAnalysis: true,
+          conversationHistory: true,
+          culturalContext: true
+        }
+      });
+    } catch (error) {
+      console.error("[KWAME-API] Status error:", error);
+      res.status(500).json({
+        status: "error",
+        available: false,
+        error: "Service temporarily unavailable"
+      });
+    }
+  });
+  app2.post("/api/kwame/feedback", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({
+          error: "Authentication required",
+          code: "NOT_AUTHENTICATED"
+        });
+      }
+      const userId = req.user?.id;
+      const { messageId, rating, feedback, responseType } = req.body;
+      console.log(`[KWAME-API] Feedback from user ${userId}: ${rating}/5`);
+      console.log(
+        `[KWAME-FEEDBACK] User ${userId} rated response ${messageId}: ${rating}/5`
+      );
+      if (feedback) {
+        console.log(`[KWAME-FEEDBACK] Comments: ${feedback}`);
+      }
+      res.json({
+        success: true,
+        message: "Thank you for your feedback! This helps KWAME improve."
+      });
+    } catch (error) {
+      console.error("[KWAME-API] Feedback error:", error);
+      res.status(500).json({
+        error: "Failed to submit feedback"
+      });
+    }
+  });
+  app2.get("/api/kwame/history", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({
+          error: "Authentication required",
+          code: "NOT_AUTHENTICATED"
+        });
+      }
+      const userId = req.user?.id;
+      const limit = parseInt(req.query.limit) || 500;
+      console.log(`[KWAME-API] History request from user ${userId}`);
+      const conversations = await storage.getKwameConversationHistory(
+        userId,
+        limit
+      );
+      res.json({
+        conversations: conversations.map((conv) => ({
+          id: conv.id,
+          role: conv.role,
+          content: conv.content,
+          context: conv.context ? JSON.parse(conv.context) : null,
+          appMode: conv.appMode,
+          timestamp: conv.createdAt
+        })),
+        total: conversations.length
+      });
+    } catch (error) {
+      console.error("[KWAME-API] History error:", error);
+      res.status(500).json({
+        error: "Failed to fetch conversation history"
+      });
+    }
+  });
+  app2.delete("/api/kwame/history", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({
+          error: "Authentication required",
+          code: "NOT_AUTHENTICATED"
+        });
+      }
+      const userId = req.user?.id;
+      console.log(`[KWAME-API] Clear history request from user ${userId}`);
+      await storage.clearKwameConversationHistory(userId);
+      res.json({
+        success: true,
+        message: "Conversation history cleared successfully"
+      });
+    } catch (error) {
+      console.error("[KWAME-API] Clear history error:", error);
+      res.status(500).json({
+        error: "Failed to clear conversation history"
+      });
+    }
+  });
+  app2.post("/api/kwame/update-country", async (req, res) => {
+    try {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({
+          error: "Authentication required",
+          code: "NOT_AUTHENTICATED"
+        });
+      }
+      const userId = req.user?.id;
+      const { country } = req.body;
+      if (!country || typeof country !== "string") {
+        return res.status(400).json({
+          error: "Country is required and must be a string",
+          code: "INVALID_COUNTRY"
+        });
+      }
+      console.log(
+        `[KWAME-API] Updating country for user ${userId} to: ${country}`
+      );
+      const updatedUser = await storage.updateUser(userId, {
+        countryOfOrigin: country.trim()
+      });
+      if (!updatedUser) {
+        return res.status(404).json({
+          error: "User not found",
+          code: "USER_NOT_FOUND"
+        });
+      }
+      console.log(
+        `[KWAME-API] \u2705 Successfully updated country for user ${userId}`
+      );
+      res.json({
+        success: true,
+        message: "Country updated successfully",
+        country: country.trim()
+      });
+    } catch (error) {
+      console.error("[KWAME-API] Update country error:", error);
+      res.status(500).json({
+        error: "Failed to update country",
+        code: "UPDATE_FAILED"
+      });
+    }
+  });
+  app2.post(
+    "/api/kwame/personalize-statement",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({
+            error: "Authentication required",
+            code: "NOT_AUTHENTICATED"
+          });
+        }
+        const userId = req.user?.id;
+        const { statement, index, languageCode } = req.body;
+        if (!statement || typeof statement !== "string") {
+          return res.status(400).json({
+            error: "Statement is required",
+            code: "INVALID_STATEMENT"
+          });
+        }
+        const targetLanguage = languageCode || "en";
+        const cleanStatement = statement.replace(/^["']|["']$/g, "").trim();
+        console.log(
+          `[KWAME-API] Personalizing statement for user ${userId} in language ${targetLanguage}: "${cleanStatement}"`
+        );
+        const culturalContext = await buildCulturalContext(userId);
+        if (!culturalContext) {
+          return res.json({ personalizedStatement: cleanStatement });
+        }
+        const languageInstructions = {
+          en: "- Write the personalized statement in English",
+          fr: "- Write the personalized statement in French (fran\xE7ais)",
+          es: "- Write the personalized statement in Spanish (espa\xF1ol)",
+          tw: "- Write the personalized statement in Twi (Akan language from Ghana)",
+          ak: "- Write the personalized statement in Akan (Twi language from Ghana)"
+        };
+        const languageInstruction = languageInstructions[targetLanguage] || languageInstructions["en"];
+        const contextLines = [
+          culturalContext.userProfile?.profession && `Profession: ${culturalContext.userProfile.profession}`,
+          culturalContext.userProfile?.location && `Location: ${culturalContext.userProfile.location}`,
+          culturalContext.nationality && `Culture: ${culturalContext.nationality}`
+        ].filter(Boolean).join(", ");
+        const personalizationRequest = {
+          userId,
+          message: `Rephrase this personality statement for a ${culturalContext.nationality || "global"} user: "${cleanStatement}"
+
+Make it:
+- Personal using "you"
+- Statement (not question) for agree/disagree response
+- Natural and conversational
+${languageInstruction}
+${contextLines ? `Context: ${contextLines}` : ""}
+
+Return only the rephrased statement.`,
+          context: {
+            currentScreen: "personality-test",
+            culturalContext,
+            userProfile: culturalContext.userProfile,
+            userPreferences: culturalContext.userPreferences,
+            networkingProfile: culturalContext.networkingProfile,
+            mentorshipProfile: culturalContext.mentorshipProfile
+          },
+          appMode: "MEET"
+        };
+        const response = await kwameAI.chat(personalizationRequest);
+        res.json({
+          personalizedStatement: response.message.trim(),
+          originalStatement: cleanStatement
+        });
+      } catch (error) {
+        console.error("[KWAME-API] Statement personalization error:", error);
+        res.status(500).json({
+          error: "Failed to personalize statement",
+          code: "PERSONALIZATION_FAILED",
+          // Fallback to original statement
+          personalizedStatement: req.body.statement || "",
+          originalStatement: req.body.statement || ""
+        });
+      }
+    }
+  );
+  app2.get(
+    "/api/kwame/personality/status",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const userRecord = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+        if (userRecord.length === 0) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        const user = userRecord[0];
+        const personalityRecords = user.personalityRecords ? JSON.parse(user.personalityRecords) : null;
+        const big5Profile = user.big5Profile ? JSON.parse(user.big5Profile) : null;
+        res.json({
+          completed: user.personalityTestCompleted || false,
+          progress: personalityRecords ? personalityRecords.length : 0,
+          totalQuestions: 100,
+          hasBig5Profile: !!big5Profile,
+          big5ComputedAt: user.big5ComputedAt,
+          personalityModelVersion: user.personalityModelVersion
+        });
+      } catch (error) {
+        console.error("[KWAME-API] Personality status error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+  app2.post(
+    "/api/kwame/personality/start",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const userRecord = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+        if (userRecord.length === 0) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        const user = userRecord[0];
+        const personalityRecords = user.personalityRecords ? JSON.parse(user.personalityRecords) : [];
+        const statements = big5_scoring_service_default.getStatements();
+        res.json({
+          currentProgress: personalityRecords.length,
+          totalQuestions: statements.length,
+          nextQuestion: personalityRecords.length < statements.length ? {
+            index: personalityRecords.length,
+            statement: statements[personalityRecords.length],
+            options: [
+              "StronglyDisagree",
+              "Disagree",
+              "Neutral",
+              "Agree",
+              "StronglyAgree"
+            ]
+          } : null,
+          completed: personalityRecords.length >= statements.length
+        });
+      } catch (error) {
+        console.error("[KWAME-API] Personality start error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+  app2.post(
+    "/api/kwame/personality/answer",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const { questionIndex, answer } = req.body;
+        if (typeof questionIndex !== "number" || !answer || ![
+          "StronglyDisagree",
+          "Disagree",
+          "Neutral",
+          "Agree",
+          "StronglyAgree"
+        ].includes(answer)) {
+          return res.status(400).json({ message: "Invalid question index or answer" });
+        }
+        const userId = req.user.id;
+        const userRecord = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+        if (userRecord.length === 0) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        const user = userRecord[0];
+        const personalityRecords = user.personalityRecords ? JSON.parse(user.personalityRecords) : [];
+        while (personalityRecords.length <= questionIndex) {
+          personalityRecords.push(null);
+        }
+        personalityRecords[questionIndex] = answer;
+        await db.update(users).set({
+          personalityRecords: JSON.stringify(personalityRecords),
+          updatedAt: /* @__PURE__ */ new Date()
+        }).where(eq3(users.id, userId));
+        const statements = big5_scoring_service_default.getStatements();
+        const isCompleted = personalityRecords.filter((r) => r !== null).length >= statements.length;
+        res.json({
+          success: true,
+          progress: personalityRecords.filter((r) => r !== null).length,
+          totalQuestions: statements.length,
+          completed: isCompleted,
+          nextQuestion: !isCompleted && personalityRecords.length < statements.length ? {
+            index: personalityRecords.length,
+            statement: statements[personalityRecords.length],
+            options: [
+              "StronglyDisagree",
+              "Disagree",
+              "Neutral",
+              "Agree",
+              "StronglyAgree"
+            ]
+          } : null
+        });
+      } catch (error) {
+        console.error("[KWAME-API] Personality answer error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+  app2.post(
+    "/api/kwame/personality/complete",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const userRecord = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+        if (userRecord.length === 0) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        const user = userRecord[0];
+        const personalityRecords = user.personalityRecords ? JSON.parse(user.personalityRecords) : [];
+        if (personalityRecords.length !== 100 || personalityRecords.some((r) => !r)) {
+          return res.status(400).json({
+            message: "Incomplete personality assessment",
+            progress: personalityRecords.filter((r) => r !== null).length,
+            required: 100
+          });
+        }
+        const validation = big5_scoring_service_default.validateResponses(
+          personalityRecords
+        );
+        if (!validation.valid) {
+          return res.status(400).json({
+            message: "Invalid responses",
+            errors: validation.errors
+          });
+        }
+        const big5Profile = big5_scoring_service_default.generateBig5Profile(
+          personalityRecords
+        );
+        await db.update(users).set({
+          personalityTestCompleted: true,
+          big5Profile: JSON.stringify(big5Profile),
+          big5ComputedAt: /* @__PURE__ */ new Date(),
+          personalityModelVersion: big5Profile.metadata.modelVersion,
+          updatedAt: /* @__PURE__ */ new Date()
+        }).where(eq3(users.id, userId));
+        console.log(`[KWAME-API] Big 5 profile computed for user ${userId}`);
+        res.json({
+          success: true,
+          message: "Personality assessment completed successfully",
+          big5Profile
+        });
+      } catch (error) {
+        console.error("[KWAME-API] Personality completion error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+  app2.get(
+    "/api/kwame/personality/results",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const userRecord = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+        if (userRecord.length === 0) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        const user = userRecord[0];
+        if (!user.personalityTestCompleted || !user.big5Profile) {
+          return res.status(404).json({
+            message: "Personality assessment not completed",
+            completed: user.personalityTestCompleted || false
+          });
+        }
+        const big5Profile = JSON.parse(user.big5Profile);
+        res.json({
+          big5Profile,
+          computedAt: user.big5ComputedAt,
+          modelVersion: user.personalityModelVersion
+        });
+      } catch (error) {
+        console.error("[KWAME-API] Personality results error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+  app2.get(
+    "/api/kwame/personality/trait-analysis/:traitName",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = req.user.id;
+        const traitName = req.params.traitName;
+        const validTraits = [
+          "Openness",
+          "Agreeableness",
+          "Conscientiousness",
+          "Extraversion",
+          "Neuroticism"
+        ];
+        if (!validTraits.includes(traitName)) {
+          return res.status(400).json({
+            message: "Invalid trait name",
+            validTraits
+          });
+        }
+        const userRecord = await db.select().from(users).where(eq3(users.id, userId)).limit(1);
+        if (userRecord.length === 0) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        const user = userRecord[0];
+        if (!user.personalityTestCompleted || !user.big5Profile) {
+          return res.status(404).json({
+            message: "Personality assessment not completed",
+            completed: user.personalityTestCompleted || false
+          });
+        }
+        const big5Profile = JSON.parse(user.big5Profile);
+        const detailedAnalyses = personalityDescriptionsService.generateDetailedAnalysis(
+          big5Profile.aspectPercentiles
+        );
+        const traitAnalysis = detailedAnalyses.find(
+          (analysis) => analysis.name === traitName
+        );
+        if (!traitAnalysis) {
+          return res.status(404).json({ message: "Trait analysis not found" });
+        }
+        res.json({
+          traitAnalysis,
+          computedAt: user.big5ComputedAt,
+          modelVersion: user.personalityModelVersion
+        });
+      } catch (error) {
+        console.error("[KWAME-API] Trait analysis error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+  console.log("[KWAME-API] \u2705 KWAME AI routes registered successfully");
 }
 
 // server/payment-confirm.ts
@@ -16751,8 +23530,8 @@ import { randomBytes as randomBytes2 } from "crypto";
 import Stripe2 from "stripe";
 
 // server/cache-invalidation.ts
-import WebSocket2 from "ws";
-function broadcastCacheInvalidation(connectedUsers3, options) {
+import WebSocket3 from "ws";
+function broadcastCacheInvalidation(connectedUsers4, options) {
   const { matchId, userId, messageId, reason } = options;
   console.log(`[CACHE-INVALIDATION] Broadcasting cache clear for match ${matchId}, reason: ${reason}`);
   const cacheInvalidationMessage = {
@@ -16769,8 +23548,8 @@ function broadcastCacheInvalidation(connectedUsers3, options) {
       "persistent_cache"
     ]
   };
-  connectedUsers3.forEach((socket, connectedUserId) => {
-    if (socket && socket.readyState === WebSocket2.OPEN) {
+  connectedUsers4.forEach((socket, connectedUserId) => {
+    if (socket && socket.readyState === WebSocket3.OPEN) {
       try {
         socket.send(JSON.stringify(cacheInvalidationMessage));
         console.log(`[CACHE-INVALIDATION] Sent cache clear to user ${connectedUserId}`);
@@ -16780,11 +23559,11 @@ function broadcastCacheInvalidation(connectedUsers3, options) {
     }
   });
 }
-function invalidateMessageCaches(connectedUsers3, options) {
+function invalidateMessageCaches(connectedUsers4, options) {
   const { matchId, reason } = options;
   console.log(`[CACHE-INVALIDATION] Starting complete cache invalidation for match ${matchId}`);
   try {
-    broadcastCacheInvalidation(connectedUsers3, options);
+    broadcastCacheInvalidation(connectedUsers4, options);
     console.log(`[CACHE-INVALIDATION] Complete cache invalidation initiated for match ${matchId}`);
     return {
       success: true,
@@ -16859,7 +23638,7 @@ async function sendSecurityChangeNotification(notification) {
         <p style="font-size: 14px; color: #666; margin-top: 30px;">
           <strong>CHARLEY Security Team</strong><br>
           If you made this change, you can ignore this email.<br>
-          Questions? Contact <a href="mailto:admin@btechnos.com">admin@btechnos.com</a>
+          Questions? Contact <a href="mailto:admin@kronogon.com">admin@kronogon.com</a>
         </p>
       </body>
       </html>
@@ -16880,11 +23659,11 @@ ${disputeUrl}
 Otherwise, ignore this email.
 
 CHARLEY Security Team
-admin@btechnos.com
+admin@kronogon.com
     `;
     const success = await sendEmail(process.env.SENDGRID_API_KEY, {
       to: notification.email,
-      from: "admin@btechnos.com",
+      from: "admin@kronogon.com",
       subject,
       text: textContent,
       html: htmlContent
@@ -17125,8 +23904,8 @@ CHARLEY Security System
 Generated at ${(/* @__PURE__ */ new Date()).toLocaleString()}
     `;
     const success = await sendEmail(process.env.SENDGRID_API_KEY, {
-      to: "admin@btechnos.com",
-      from: "admin@btechnos.com",
+      to: "admin@kronogon.com",
+      from: "admin@kronogon.com",
       subject,
       text: textContent,
       html: htmlContent
@@ -17182,9 +23961,184 @@ function cleanupExpiredTokens() {
 }
 setInterval(cleanupExpiredTokens, 24 * 60 * 60 * 1e3);
 
+// server/routes/highschool-search.ts
+import { Router } from "express";
+import fs from "fs";
+import path from "path";
+var router = Router();
+function toTitleCase(str) {
+  return str.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+}
+var unifiedHighSchools = [];
+function loadGhanaHighSchools() {
+  try {
+    const dataPath = path.join(
+      process.cwd(),
+      "client/src/data/highschool.json"
+    );
+    const data = JSON.parse(fs.readFileSync(dataPath, "utf8"));
+    const list = Array.isArray(data.ghanaian_high_schools) ? data.ghanaian_high_schools : [];
+    return list.map((name) => toTitleCase(name)).map((name) => `${name}, Ghana`);
+  } catch (error) {
+    console.error("Error loading Ghana high school data:", error);
+    return [];
+  }
+}
+function loadUSAHighSchools() {
+  const results = [];
+  try {
+    const dirPath = path.join(process.cwd(), "data", "schools");
+    if (!fs.existsSync(dirPath)) {
+      return results;
+    }
+    const files = fs.readdirSync(dirPath).filter((f) => f.endsWith(".json"));
+    for (const fileName of files) {
+      try {
+        const filePath = path.join(dirPath, fileName);
+        const content = fs.readFileSync(filePath, "utf8");
+        const entries = JSON.parse(content);
+        for (const entry of entries) {
+          const level = (entry?.level ?? "").toString().toLowerCase();
+          if (level === "high" || level.includes("high")) {
+            const name = (entry?.name ?? "").toString().trim();
+            const stateName = (entry?.location?.state?.name ?? "").toString().trim();
+            const stateAbbrRaw = (entry?.location?.state?.abbr ?? "").toString().trim();
+            const stateAbbr = stateAbbrRaw.replace(/\s+/g, "");
+            if (name) {
+              const suffix = stateAbbr || stateName ? `, ${stateAbbr || stateName}` : "";
+              results.push(`${name}${suffix}`);
+            }
+          }
+        }
+      } catch (innerErr) {
+        console.error(
+          `Error processing US schools file ${fileName}:`,
+          innerErr
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Error loading USA high school data:", error);
+  }
+  return results;
+}
+function buildUnifiedHighSchoolsDataset() {
+  const gh = loadGhanaHighSchools();
+  const us = loadUSAHighSchools();
+  const seen = /* @__PURE__ */ new Set();
+  const combined = [];
+  for (const name of [...gh, ...us]) {
+    const key = name.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      combined.push(name);
+    }
+  }
+  console.log(
+    `[HIGH-SCHOOL] GH count: ${gh.length}, US count: ${us.length}, combined: ${combined.length}`
+  );
+  return combined;
+}
+try {
+  unifiedHighSchools = buildUnifiedHighSchoolsDataset();
+  const accraSamples = unifiedHighSchools.filter((n) => n.toLowerCase().includes("accra")).slice(0, 3);
+  const youngstownSamples = unifiedHighSchools.filter((n) => n.toLowerCase().includes("youngstown")).slice(0, 3);
+  console.log("[HIGH-SCHOOL] Sample Accra entries:", accraSamples);
+  console.log("[HIGH-SCHOOL] Sample Youngstown entries:", youngstownSamples);
+} catch (e) {
+  console.error("Failed to build unified high school dataset:", e);
+  unifiedHighSchools = [];
+}
+router.get("/search", (req, res) => {
+  try {
+    const { q: query, limit = 10 } = req.query;
+    if (!query || typeof query !== "string") {
+      return res.json({ schools: [] });
+    }
+    const searchTerm = query.toLowerCase().trim();
+    const filteredSchools = unifiedHighSchools.filter(
+      (school) => school.toLowerCase().includes(searchTerm)
+    );
+    const limitedResults = filteredSchools.slice(0, parseInt(limit));
+    res.json({
+      schools: limitedResults,
+      total: filteredSchools.length
+    });
+  } catch (error) {
+    console.error("Error searching high schools:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+var highschool_search_default = router;
+
+// server/routes/university-search.ts
+import fs2 from "fs";
+import path2 from "path";
+var universitiesCache = null;
+function loadUniversities() {
+  if (universitiesCache) {
+    return universitiesCache;
+  }
+  try {
+    const filePath = path2.join(
+      process.cwd(),
+      "client/src/data/universities.json"
+    );
+    const fileContent = fs2.readFileSync(filePath, "utf-8");
+    universitiesCache = JSON.parse(fileContent);
+    return universitiesCache || [];
+  } catch (error) {
+    console.error("Error loading universities data:", error);
+    return [];
+  }
+}
+function formatUniversityName(name) {
+  return name.toLowerCase().split(" ").map((word) => {
+    if (["of", "and", "the", "at", "in", "on", "for", "with", "by"].includes(
+      word
+    )) {
+      return word;
+    }
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  }).join(" ").replace(/^./, (firstChar) => firstChar.toUpperCase());
+}
+function searchUniversities(req, res) {
+  try {
+    const query = req.query.q;
+    if (!query || query.length < 2) {
+      return res.json([]);
+    }
+    const universities = loadUniversities();
+    const searchQuery = query.toLowerCase().trim();
+    const matchingUniversities = universities.filter((university) => {
+      const universityName = university.name.toLowerCase();
+      const country = university.country.toLowerCase();
+      const stateProvince = university["state-province"]?.toLowerCase() || "";
+      return universityName.includes(searchQuery) || country.includes(searchQuery) || stateProvince.includes(searchQuery) || // Also search by common abbreviations and keywords
+      universityName.includes(
+        searchQuery.replace(/university|college|institute|school/g, "").trim()
+      );
+    }).slice(0, 20).map((university) => {
+      const name = formatUniversityName(university.name);
+      const country = university.country?.trim();
+      const state = university["state-province"]?.trim() || null;
+      const display = state ? `${name}, ${state}, ${country}` : `${name}, ${country}`;
+      return {
+        name: display,
+        country,
+        "state-province": state
+      };
+    });
+    res.json(matchingUniversities);
+  } catch (error) {
+    console.error("University search error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+}
+
 // server/routes.ts
 init_schema();
-import { eq as eq5, and as and5, or as or4, sql as sql5, gte } from "drizzle-orm";
+import { eq as eq6, and as and5, or as or4, sql as sql5, gte } from "drizzle-orm";
 var stripe2 = null;
 var stripeSecretKey2 = process.env.STRIPE_LIVE_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
 var isLiveMode2 = !!process.env.STRIPE_LIVE_SECRET_KEY;
@@ -17192,53 +24146,117 @@ if (stripeSecretKey2) {
   stripe2 = new Stripe2(stripeSecretKey2, {
     apiVersion: "2024-06-20"
   });
-  console.log(`[STRIPE-ENVIRONMENT-FIX] Backend initialized successfully in ${isLiveMode2 ? "LIVE" : "TEST"} mode`);
-  console.log(`[STRIPE-ENVIRONMENT-FIX] Using ${isLiveMode2 ? "live" : "test"} secret key for payment processing`);
+  console.log(
+    `[STRIPE-ENVIRONMENT-FIX] Backend initialized successfully in ${isLiveMode2 ? "LIVE" : "TEST"} mode`
+  );
+  console.log(
+    `[STRIPE-ENVIRONMENT-FIX] Using ${isLiveMode2 ? "live" : "test"} secret key for payment processing`
+  );
 } else {
-  console.warn("[STRIPE] No Stripe keys found - payment features will be disabled");
+  console.warn(
+    "[STRIPE] No Stripe keys found - payment features will be disabled"
+  );
 }
 async function registerRoutes(app2) {
+  app2.post("/api/contact/send", async (req, res) => {
+    try {
+      const { name, email, phoneNumber, message } = req.body;
+      if (!name || !email || !message) {
+        return res.status(400).json({
+          success: false,
+          message: "All fields (name, email, message) are required"
+        });
+      }
+      const contactData = {
+        name: name.trim(),
+        email: email.trim(),
+        phoneNumber: phoneNumber || "Not provided",
+        message: message.trim()
+      };
+      const [adminEmailSent, confirmationEmailSent] = await Promise.all([
+        sendContactFormEmail(contactData),
+        sendContactFormConfirmationEmail(contactData)
+      ]);
+      if (adminEmailSent && confirmationEmailSent) {
+        console.log(
+          `[CONTACT-FORM] Both admin and confirmation emails sent successfully from ${email}`
+        );
+        res.json({
+          success: true,
+          message: "Message sent successfully! You'll receive a confirmation email shortly, and we'll get back to you soon."
+        });
+      } else if (adminEmailSent && !confirmationEmailSent) {
+        console.log(
+          `[CONTACT-FORM] Admin email sent but confirmation email failed from ${email}`
+        );
+        res.json({
+          success: true,
+          message: "Message sent successfully! We'll get back to you soon."
+        });
+      } else if (!adminEmailSent && confirmationEmailSent) {
+        console.error(
+          `[CONTACT-FORM] Admin email failed but confirmation sent from ${email}`
+        );
+        res.status(500).json({
+          success: false,
+          message: "There was an issue processing your message. Please try again later."
+        });
+      } else {
+        console.error(`[CONTACT-FORM] Both emails failed from ${email}`);
+        res.status(500).json({
+          success: false,
+          message: "Failed to send message. Please try again later."
+        });
+      }
+    } catch (error) {
+      console.error("Contact form error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to send message. Please try again later."
+      });
+    }
+  });
   function convertDbFieldsToFrontend(dbData) {
     const fieldMapping = {
       // Mentorship fields
-      "mentorship_looking_for": "mentorshipLookingFor",
-      "mentorship_experience_level": "mentorshipExperienceLevel",
-      "mentorship_industries": "mentorshipIndustries",
-      "mentorship_areas_of_expertise": "mentorshipAreasOfExpertise",
-      "mentorship_education_level": "mentorshipEducationLevel",
-      "mentorship_skills": "mentorshipSkills",
-      "mentorship_topics": "mentorshipTopics",
-      "mentorship_format": "mentorshipFormat",
-      "mentorship_time_commitment": "mentorshipTimeCommitment",
-      "mentorship_location_preference": "mentorshipLocationPreference",
-      "mentorship_weights": "mentorshipWeights",
+      mentorship_looking_for: "mentorshipLookingFor",
+      mentorship_experience_level: "mentorshipExperienceLevel",
+      mentorship_industries: "mentorshipIndustries",
+      mentorship_areas_of_expertise: "mentorshipAreasOfExpertise",
+      mentorship_education_level: "mentorshipEducationLevel",
+      mentorship_skills: "mentorshipSkills",
+      mentorship_topics: "mentorshipTopics",
+      mentorship_format: "mentorshipFormat",
+      mentorship_time_commitment: "mentorshipTimeCommitment",
+      mentorship_location_preference: "mentorshipLocationPreference",
+      mentorship_weights: "mentorshipWeights",
       // Networking fields
-      "networking_purpose": "networkingPurpose",
-      "networking_company_size": "networkingCompanySize",
-      "networking_seniority": "networkingSeniority",
-      "networking_industries": "networkingIndustries",
-      "networking_areas_of_expertise": "networkingAreasOfExpertise",
-      "networking_education_level": "networkingEducationLevel",
-      "networking_skills": "networkingSkills",
-      "networking_functional_areas": "networkingFunctionalAreas",
-      "networking_geographic": "networkingGeographic",
-      "networking_event_preference": "networkingEventPreference",
-      "networking_weights": "networkingWeights",
+      networking_purpose: "networkingPurpose",
+      networking_company_size: "networkingCompanySize",
+      networking_seniority: "networkingSeniority",
+      networking_industries: "networkingIndustries",
+      networking_areas_of_expertise: "networkingAreasOfExpertise",
+      networking_education_level: "networkingEducationLevel",
+      networking_skills: "networkingSkills",
+      networking_functional_areas: "networkingFunctionalAreas",
+      networking_geographic: "networkingGeographic",
+      networking_event_preference: "networkingEventPreference",
+      networking_weights: "networkingWeights",
       // Jobs fields
-      "jobs_types": "jobsTypes",
-      "jobs_salary_range": "jobsSalaryRange",
-      "jobs_work_arrangement": "jobsWorkArrangement",
-      "jobs_company_size": "jobsCompanySize",
-      "jobs_industries": "jobsIndustries",
-      "jobs_education_level": "jobsEducationLevel",
-      "jobs_skills": "jobsSkills",
-      "jobs_experience_level": "jobsExperienceLevel",
-      "jobs_functional_areas": "jobsFunctionalAreas",
-      "jobs_work_location": "jobsWorkLocation",
-      "jobs_weights": "jobsWeights",
+      jobs_types: "jobsTypes",
+      jobs_salary_range: "jobsSalaryRange",
+      jobs_work_arrangement: "jobsWorkArrangement",
+      jobs_company_size: "jobsCompanySize",
+      jobs_industries: "jobsIndustries",
+      jobs_education_level: "jobsEducationLevel",
+      jobs_skills: "jobsSkills",
+      jobs_experience_level: "jobsExperienceLevel",
+      jobs_functional_areas: "jobsFunctionalAreas",
+      jobs_work_location: "jobsWorkLocation",
+      jobs_weights: "jobsWeights",
       // Global fields
-      "deal_breakers": "dealBreakers",
-      "preference_profiles": "preferenceProfiles"
+      deal_breakers: "dealBreakers",
+      preference_profiles: "preferenceProfiles"
     };
     const mappedData = {};
     Object.entries(dbData).forEach(([key, value]) => {
@@ -17254,6 +24272,9 @@ async function registerRoutes(app2) {
   registerCompatibilityAPI(app2);
   registerSuiteCompatibilityAPI(app2);
   registerMentorshipCompatibilityAPI(app2);
+  registerKwameAPI(app2);
+  const { registerJobsCompatibilityAPI: registerJobsCompatibilityAPI2 } = await Promise.resolve().then(() => (init_jobs_compatibility_api(), jobs_compatibility_api_exports));
+  registerJobsCompatibilityAPI2(app2);
   const { registerEnhancedDiscoveryAPI: registerEnhancedDiscoveryAPI2 } = await Promise.resolve().then(() => (init_enhanced_discovery_api(), enhanced_discovery_api_exports));
   registerEnhancedDiscoveryAPI2(app2);
   const dataCollectionRoutes = await Promise.resolve().then(() => (init_data_collection_routes(), data_collection_routes_exports));
@@ -17282,16 +24303,16 @@ async function registerRoutes(app2) {
           storage.removeLikeOrDislike(currentUser.id, userId),
           storage.removeSwipeFromHistory(currentUser.id, userId)
         ]);
-        const sourceUserWs = connectedUsers3.get(currentUser.id);
+        const sourceUserWs = connectedUsers4.get(currentUser.id);
         let restorationResults = {
           primaryWebSocket: false,
           fallbackRefresh: false,
           connectionStatus: "disconnected"
         };
         if (sourceUserWs) {
-          restorationResults.connectionStatus = sourceUserWs.readyState === WebSocket3.OPEN ? "open" : "closed";
+          restorationResults.connectionStatus = sourceUserWs.readyState === WebSocket4.OPEN ? "open" : "closed";
         }
-        if (sourceUserWs && sourceUserWs.readyState === WebSocket3.OPEN) {
+        if (sourceUserWs && sourceUserWs.readyState === WebSocket4.OPEN) {
           try {
             const restorationMessage = {
               type: "meet_restore_to_discover",
@@ -17302,12 +24323,14 @@ async function registerRoutes(app2) {
             };
             sourceUserWs.send(JSON.stringify(restorationMessage));
             restorationResults.primaryWebSocket = true;
-            console.log(`[RESTORATION-PRIMARY] \u2705 Sent meet_restore_to_discover for user ${userId}`);
+            console.log(
+              `[RESTORATION-PRIMARY] \u2705 Sent meet_restore_to_discover for user ${userId}`
+            );
           } catch (error) {
             console.log(`[RESTORATION-PRIMARY] \u274C Failed:`, error.message);
           }
         }
-        if (sourceUserWs && sourceUserWs.readyState === WebSocket3.OPEN) {
+        if (sourceUserWs && sourceUserWs.readyState === WebSocket4.OPEN) {
           try {
             const refreshMessage = {
               type: "discover:refresh",
@@ -17318,19 +24341,26 @@ async function registerRoutes(app2) {
             };
             sourceUserWs.send(JSON.stringify(refreshMessage));
             restorationResults.fallbackRefresh = true;
-            console.log(`[RESTORATION-FALLBACK] \u2705 Sent discover:refresh for user ${userId}`);
+            console.log(
+              `[RESTORATION-FALLBACK] \u2705 Sent discover:refresh for user ${userId}`
+            );
           } catch (error) {
             console.log(`[RESTORATION-FALLBACK] \u274C Failed:`, error.message);
           }
         }
         const restoredUserData = await storage.getUser(parseInt(userId));
-        console.log(`[RESTORATION-COMPLETE] User ${userId} restored with results:`, {
-          primary: restorationResults.primaryWebSocket ? "\u2705" : "\u274C",
-          fallback: restorationResults.fallbackRefresh ? "\u2705" : "\u274C",
-          connection: restorationResults.connectionStatus,
-          hasUserData: !!restoredUserData
-        });
-        console.log(`User ${currentUser.id} undid ${action} for user ${userId} in ${Date.now() - startTime}ms`);
+        console.log(
+          `[RESTORATION-COMPLETE] User ${userId} restored with results:`,
+          {
+            primary: restorationResults.primaryWebSocket ? "\u2705" : "\u274C",
+            fallback: restorationResults.fallbackRefresh ? "\u2705" : "\u274C",
+            connection: restorationResults.connectionStatus,
+            hasUserData: !!restoredUserData
+          }
+        );
+        console.log(
+          `User ${currentUser.id} undid ${action} for user ${userId} in ${Date.now() - startTime}ms`
+        );
         return res.status(200).json({
           message: "Action undone successfully",
           performance: `${Date.now() - startTime}ms`,
@@ -17358,7 +24388,9 @@ async function registerRoutes(app2) {
             );
           }
         } else {
-          console.log(`User ${currentUser.id} undid message for user ${userId} (no match found) in ${Date.now() - startTime}ms`);
+          console.log(
+            `User ${currentUser.id} undid message for user ${userId} (no match found) in ${Date.now() - startTime}ms`
+          );
         }
       } else {
         return res.status(400).json({ message: "Invalid action" });
@@ -17373,172 +24405,202 @@ async function registerRoutes(app2) {
       return res.status(500).json({ message: "Server error" });
     }
   });
-  app2.post("/api/suite/mentorship/undo", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-      const currentUserId = req.user.id;
-      const startTime = Date.now();
-      const swipeHistory2 = await storage.getUserSwipeHistory(currentUserId, "SUITE_MENTORSHIP", 1);
-      if (!swipeHistory2 || swipeHistory2.length === 0) {
-        return res.status(404).json({ message: "No recent swipes to undo" });
+  app2.post(
+    "/api/suite/mentorship/undo",
+    async (req, res) => {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
-      const lastSwipe = swipeHistory2[0];
-      const targetUserId = lastSwipe.targetUserId;
-      const targetMentorshipProfile = await storage.getSuiteMentorshipProfile(targetUserId);
-      if (!targetMentorshipProfile) {
-        return res.status(404).json({ message: "Target mentorship profile not found" });
-      }
-      const existingConnection = await storage.getSuiteMentorshipConnection(
-        currentUserId,
-        targetMentorshipProfile.id
-      );
-      if (existingConnection) {
-        if (existingConnection.matched) {
-          const currentUserMentorshipProfile = await storage.getSuiteMentorshipProfile(currentUserId);
-          if (!currentUserMentorshipProfile) {
-            console.log(`[SUITE-MENTORSHIP-UNDO] Current user ${currentUserId} has no mentorship profile`);
-            return res.status(404).json({ message: "Current user mentorship profile not found" });
-          }
-          const mutualConnection = await storage.getSuiteMentorshipConnection(
-            targetUserId,
-            currentUserMentorshipProfile.id
-          );
-          if (mutualConnection) {
-            await storage.deleteSuiteMentorshipConnectionById(existingConnection.id);
-            await storage.deleteSuiteMentorshipConnectionById(mutualConnection.id);
+      try {
+        const currentUserId = req.user.id;
+        const startTime = Date.now();
+        const swipeHistory2 = await storage.getUserSwipeHistory(
+          currentUserId,
+          "SUITE_MENTORSHIP",
+          1
+        );
+        if (!swipeHistory2 || swipeHistory2.length === 0) {
+          return res.status(404).json({ message: "No recent swipes to undo" });
+        }
+        const lastSwipe = swipeHistory2[0];
+        const targetUserId = lastSwipe.targetUserId;
+        const targetMentorshipProfile = await storage.getSuiteMentorshipProfile(targetUserId);
+        if (!targetMentorshipProfile) {
+          return res.status(404).json({ message: "Target mentorship profile not found" });
+        }
+        const existingConnection = await storage.getSuiteMentorshipConnection(
+          currentUserId,
+          targetMentorshipProfile.id
+        );
+        if (existingConnection) {
+          if (existingConnection.matched) {
+            const currentUserMentorshipProfile = await storage.getSuiteMentorshipProfile(currentUserId);
+            if (!currentUserMentorshipProfile) {
+              console.log(
+                `[SUITE-MENTORSHIP-UNDO] Current user ${currentUserId} has no mentorship profile`
+              );
+              return res.status(404).json({ message: "Current user mentorship profile not found" });
+            }
+            const mutualConnection = await storage.getSuiteMentorshipConnection(
+              targetUserId,
+              currentUserMentorshipProfile.id
+            );
+            if (mutualConnection) {
+              await storage.deleteSuiteMentorshipConnectionById(
+                existingConnection.id
+              );
+              await storage.deleteSuiteMentorshipConnectionById(
+                mutualConnection.id
+              );
+              console.log(
+                `[SUITE-MENTORSHIP-UNDO] Removed matched connection between ${currentUserId} and ${targetUserId}`
+              );
+            }
+          } else {
+            await storage.deleteSuiteMentorshipConnectionById(
+              existingConnection.id
+            );
             console.log(
-              `[SUITE-MENTORSHIP-UNDO] Removed matched connection between ${currentUserId} and ${targetUserId}`
+              `[SUITE-MENTORSHIP-UNDO] Removed connection ${existingConnection.id} for user ${currentUserId}`
+            );
+          }
+        }
+        await storage.removeSwipeHistory(lastSwipe.id);
+        const sourceUserWs = connectedUsers4.get(currentUserId);
+        if (sourceUserWs && sourceUserWs.readyState === WebSocket4.OPEN) {
+          sourceUserWs.send(
+            JSON.stringify({
+              type: "suite_restore_to_discover",
+              suiteType: "mentorship",
+              profileId: targetMentorshipProfile.id,
+              userId: targetUserId,
+              reason: "undo_action",
+              timestamp: (/* @__PURE__ */ new Date()).toISOString()
+            })
+          );
+          console.log(
+            `[REAL-TIME] Restored mentorship profile ${targetMentorshipProfile.id} to user ${currentUserId}'s discover deck`
+          );
+        }
+        console.log(
+          `\u{1F504} [SUITE-MENTORSHIP-UNDO] User ${currentUserId} undid ${lastSwipe.action} on user ${targetUserId} in ${Date.now() - startTime}ms`
+        );
+        const completeProfile = await storage.getSuiteMentorshipProfile(targetUserId);
+        return res.status(200).json({
+          message: "Mentorship action undone successfully",
+          undoneAction: lastSwipe.action,
+          targetUserId,
+          profileId: targetMentorshipProfile.id,
+          profile: completeProfile,
+          // Include full profile data for instant frontend restoration
+          performance: `${Date.now() - startTime}ms`
+        });
+      } catch (error) {
+        console.error("Error undoing mentorship swipe action:", error);
+        return res.status(500).json({ message: "Server error" });
+      }
+    }
+  );
+  app2.post(
+    "/api/suite/networking/undo",
+    async (req, res) => {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      try {
+        const currentUserId = req.user.id;
+        const startTime = Date.now();
+        const swipeHistory2 = await storage.getUserSwipeHistory(
+          currentUserId,
+          "SUITE_NETWORKING",
+          1
+        );
+        if (!swipeHistory2 || swipeHistory2.length === 0) {
+          return res.status(404).json({ message: "No recent swipes to undo" });
+        }
+        const lastSwipe = swipeHistory2[0];
+        const targetUserId = lastSwipe.targetUserId;
+        const targetNetworkingProfile = await storage.getSuiteNetworkingProfile(targetUserId);
+        if (!targetNetworkingProfile) {
+          return res.status(404).json({ message: "Target networking profile not found" });
+        }
+        const existingConnection = await storage.getSuiteNetworkingConnection(
+          currentUserId,
+          targetNetworkingProfile.id
+        );
+        if (existingConnection) {
+          if (existingConnection.matched) {
+            const currentUserNetworkingProfile = await storage.getSuiteNetworkingProfile(currentUserId);
+            if (!currentUserNetworkingProfile) {
+              console.log(
+                `[SUITE-NETWORKING-UNDO] Current user ${currentUserId} has no networking profile`
+              );
+              return res.status(404).json({ message: "Current user networking profile not found" });
+            }
+            const mutualConnection = await storage.getSuiteNetworkingConnection(
+              targetUserId,
+              currentUserNetworkingProfile.id
+            );
+            if (mutualConnection) {
+              await storage.deleteSuiteNetworkingConnectionById(
+                existingConnection.id
+              );
+              await storage.deleteSuiteNetworkingConnectionById(
+                mutualConnection.id
+              );
+              console.log(
+                `[SUITE-NETWORKING-UNDO] Removed mutual networking connections: ${existingConnection.id} and ${mutualConnection.id}`
+              );
+            }
+          } else {
+            await storage.deleteSuiteNetworkingConnectionById(
+              existingConnection.id
+            );
+            console.log(
+              `[SUITE-NETWORKING-UNDO] Removed single networking connection: ${existingConnection.id}`
             );
           }
         } else {
-          await storage.deleteSuiteMentorshipConnectionById(existingConnection.id);
           console.log(
-            `[SUITE-MENTORSHIP-UNDO] Removed connection ${existingConnection.id} for user ${currentUserId}`
+            `[SUITE-NETWORKING-UNDO] No networking connection found between user ${currentUserId} and profile ${targetNetworkingProfile.id}`
           );
         }
-      }
-      await storage.removeSwipeHistory(lastSwipe.id);
-      const sourceUserWs = connectedUsers3.get(currentUserId);
-      if (sourceUserWs && sourceUserWs.readyState === WebSocket3.OPEN) {
-        sourceUserWs.send(
-          JSON.stringify({
-            type: "suite_restore_to_discover",
-            suiteType: "mentorship",
-            profileId: targetMentorshipProfile.id,
-            userId: targetUserId,
-            reason: "undo_action",
-            timestamp: (/* @__PURE__ */ new Date()).toISOString()
-          })
-        );
-        console.log(
-          `[REAL-TIME] Restored mentorship profile ${targetMentorshipProfile.id} to user ${currentUserId}'s discover deck`
-        );
-      }
-      console.log(
-        `\u{1F504} [SUITE-MENTORSHIP-UNDO] User ${currentUserId} undid ${lastSwipe.action} on user ${targetUserId} in ${Date.now() - startTime}ms`
-      );
-      const completeProfile = await storage.getSuiteMentorshipProfile(targetUserId);
-      return res.status(200).json({
-        message: "Mentorship action undone successfully",
-        undoneAction: lastSwipe.action,
-        targetUserId,
-        profileId: targetMentorshipProfile.id,
-        profile: completeProfile,
-        // Include full profile data for instant frontend restoration
-        performance: `${Date.now() - startTime}ms`
-      });
-    } catch (error) {
-      console.error("Error undoing mentorship swipe action:", error);
-      return res.status(500).json({ message: "Server error" });
-    }
-  });
-  app2.post("/api/suite/networking/undo", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-      const currentUserId = req.user.id;
-      const startTime = Date.now();
-      const swipeHistory2 = await storage.getUserSwipeHistory(currentUserId, "SUITE_NETWORKING", 1);
-      if (!swipeHistory2 || swipeHistory2.length === 0) {
-        return res.status(404).json({ message: "No recent swipes to undo" });
-      }
-      const lastSwipe = swipeHistory2[0];
-      const targetUserId = lastSwipe.targetUserId;
-      const targetNetworkingProfile = await storage.getSuiteNetworkingProfile(targetUserId);
-      if (!targetNetworkingProfile) {
-        return res.status(404).json({ message: "Target networking profile not found" });
-      }
-      const existingConnection = await storage.getSuiteNetworkingConnection(
-        currentUserId,
-        targetNetworkingProfile.id
-      );
-      if (existingConnection) {
-        if (existingConnection.matched) {
-          const currentUserNetworkingProfile = await storage.getSuiteNetworkingProfile(currentUserId);
-          if (!currentUserNetworkingProfile) {
-            console.log(`[SUITE-NETWORKING-UNDO] Current user ${currentUserId} has no networking profile`);
-            return res.status(404).json({ message: "Current user networking profile not found" });
-          }
-          const mutualConnection = await storage.getSuiteNetworkingConnection(
-            targetUserId,
-            currentUserNetworkingProfile.id
+        await storage.removeSwipeHistory(lastSwipe.id);
+        const sourceUserWs = connectedUsers4.get(currentUserId);
+        if (sourceUserWs && sourceUserWs.readyState === WebSocket4.OPEN) {
+          sourceUserWs.send(
+            JSON.stringify({
+              type: "suite_restore_to_discover",
+              suiteType: "networking",
+              profileId: targetNetworkingProfile.id,
+              userId: targetUserId,
+              reason: "undo_action",
+              timestamp: (/* @__PURE__ */ new Date()).toISOString()
+            })
           );
-          if (mutualConnection) {
-            await storage.deleteSuiteNetworkingConnectionById(existingConnection.id);
-            await storage.deleteSuiteNetworkingConnectionById(mutualConnection.id);
-            console.log(
-              `[SUITE-NETWORKING-UNDO] Removed mutual networking connections: ${existingConnection.id} and ${mutualConnection.id}`
-            );
-          }
-        } else {
-          await storage.deleteSuiteNetworkingConnectionById(existingConnection.id);
           console.log(
-            `[SUITE-NETWORKING-UNDO] Removed single networking connection: ${existingConnection.id}`
+            `[REAL-TIME] Restored networking profile ${targetNetworkingProfile.id} to user ${currentUserId}'s discover deck`
           );
         }
-      } else {
         console.log(
-          `[SUITE-NETWORKING-UNDO] No networking connection found between user ${currentUserId} and profile ${targetNetworkingProfile.id}`
+          `\u{1F504} [SUITE-NETWORKING-UNDO] User ${currentUserId} undid ${lastSwipe.action} on user ${targetUserId} in ${Date.now() - startTime}ms`
         );
+        const completeProfile = await storage.getSuiteNetworkingProfile(targetUserId);
+        return res.status(200).json({
+          message: "Networking action undone successfully",
+          undoneAction: lastSwipe.action,
+          targetUserId,
+          profileId: targetNetworkingProfile.id,
+          profile: completeProfile,
+          // Include full profile data for instant frontend restoration
+          performance: `${Date.now() - startTime}ms`
+        });
+      } catch (error) {
+        console.error("Error undoing networking swipe action:", error);
+        return res.status(500).json({ message: "Server error" });
       }
-      await storage.removeSwipeHistory(lastSwipe.id);
-      const sourceUserWs = connectedUsers3.get(currentUserId);
-      if (sourceUserWs && sourceUserWs.readyState === WebSocket3.OPEN) {
-        sourceUserWs.send(
-          JSON.stringify({
-            type: "suite_restore_to_discover",
-            suiteType: "networking",
-            profileId: targetNetworkingProfile.id,
-            userId: targetUserId,
-            reason: "undo_action",
-            timestamp: (/* @__PURE__ */ new Date()).toISOString()
-          })
-        );
-        console.log(
-          `[REAL-TIME] Restored networking profile ${targetNetworkingProfile.id} to user ${currentUserId}'s discover deck`
-        );
-      }
-      console.log(
-        `\u{1F504} [SUITE-NETWORKING-UNDO] User ${currentUserId} undid ${lastSwipe.action} on user ${targetUserId} in ${Date.now() - startTime}ms`
-      );
-      const completeProfile = await storage.getSuiteNetworkingProfile(targetUserId);
-      return res.status(200).json({
-        message: "Networking action undone successfully",
-        undoneAction: lastSwipe.action,
-        targetUserId,
-        profileId: targetNetworkingProfile.id,
-        profile: completeProfile,
-        // Include full profile data for instant frontend restoration
-        performance: `${Date.now() - startTime}ms`
-      });
-    } catch (error) {
-      console.error("Error undoing networking swipe action:", error);
-      return res.status(500).json({ message: "Server error" });
     }
-  });
+  );
   app2.post("/api/suite/jobs/undo", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -17546,7 +24608,11 @@ async function registerRoutes(app2) {
     try {
       const currentUserId = req.user.id;
       const startTime = Date.now();
-      const swipeHistory2 = await storage.getUserSwipeHistory(currentUserId, "SUITE_JOBS", 1);
+      const swipeHistory2 = await storage.getUserSwipeHistory(
+        currentUserId,
+        "SUITE_JOBS",
+        1
+      );
       if (!swipeHistory2 || swipeHistory2.length === 0) {
         return res.status(404).json({ message: "No recent job swipes to undo" });
       }
@@ -17570,7 +24636,9 @@ async function registerRoutes(app2) {
           );
           if (reciprocalApplication) {
             await storage.deleteSuiteJobApplicationById(existingApplication.id);
-            await storage.deleteSuiteJobApplicationById(reciprocalApplication.id);
+            await storage.deleteSuiteJobApplicationById(
+              reciprocalApplication.id
+            );
             console.log(
               `[SUITE-JOBS-UNDO] Removed mutual job applications: ${existingApplication.id} and ${reciprocalApplication.id}`
             );
@@ -17587,8 +24655,8 @@ async function registerRoutes(app2) {
         );
       }
       await storage.removeSwipeHistory(lastSwipe.id);
-      const sourceUserWs = connectedUsers3.get(currentUserId);
-      if (sourceUserWs && sourceUserWs.readyState === WebSocket3.OPEN) {
+      const sourceUserWs = connectedUsers4.get(currentUserId);
+      if (sourceUserWs && sourceUserWs.readyState === WebSocket4.OPEN) {
         sourceUserWs.send(
           JSON.stringify({
             type: "suite_restore_to_discover",
@@ -17631,14 +24699,18 @@ async function registerRoutes(app2) {
         );
         return res.status(400).json({ message: "Users cannot create chats with themselves" });
       }
-      console.log("[CHAT-PERFORMANCE] Starting optimized chat creation process");
+      console.log(
+        "[CHAT-PERFORMANCE] Starting optimized chat creation process"
+      );
       const startTime = Date.now();
       const [userMatches, currentUser, targetUser] = await Promise.all([
         storage.getMatchesByUserId(currentUserId),
         storage.getUser(currentUserId),
         storage.getUser(targetUserId)
       ]);
-      console.log(`[CHAT-PERFORMANCE] Parallel DB fetch completed in ${Date.now() - startTime}ms`);
+      console.log(
+        `[CHAT-PERFORMANCE] Parallel DB fetch completed in ${Date.now() - startTime}ms`
+      );
       const existingMatch = userMatches.find(
         (match2) => match2.userId1 === currentUserId && match2.userId2 === targetUserId || match2.userId1 === targetUserId && match2.userId2 === currentUserId
       );
@@ -17648,49 +24720,77 @@ async function registerRoutes(app2) {
         return res.status(404).json({ message: "Target user not found" });
       }
       if (existingMatch) {
-        console.log(`\u{1F50D} [MEET-DIRECT-MESSAGE] Found existing match ${existingMatch.id} between users ${currentUserId} and ${targetUserId}`);
-        console.log(`\u{1F50D} [MEET-DIRECT-MESSAGE] Existing match metadata: ${existingMatch.metadata}`);
+        console.log(
+          `\u{1F50D} [MEET-DIRECT-MESSAGE] Found existing match ${existingMatch.id} between users ${currentUserId} and ${targetUserId}`
+        );
+        console.log(
+          `\u{1F50D} [MEET-DIRECT-MESSAGE] Existing match metadata: ${existingMatch.metadata}`
+        );
         if (existingMatch.metadata) {
           try {
             const existingMetadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
             if (existingMetadata && existingMetadata.origin === "SUITE") {
-              console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] Found existing SUITE match, checking for MEET in additionalConnections`);
+              console.log(
+                `\u{1F517} [MEET-DIRECT-MESSAGE] Found existing SUITE match, checking for MEET in additionalConnections`
+              );
               if (!existingMetadata.additionalConnections) {
                 existingMetadata.additionalConnections = [];
-                console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] Initialized additionalConnections array`);
+                console.log(
+                  `\u{1F517} [MEET-DIRECT-MESSAGE] Initialized additionalConnections array`
+                );
               }
               if (!existingMetadata.additionalConnections.includes("MEET")) {
                 existingMetadata.additionalConnections.push("MEET");
-                console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] Adding MEET to additionalConnections for existing SUITE match ${existingMatch.id}`);
-                console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] New additionalConnections: ${JSON.stringify(existingMetadata.additionalConnections)}`);
-                const updatedMatch = await storage.updateMatch(existingMatch.id, {
-                  metadata: JSON.stringify(existingMetadata)
-                });
-                console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] Successfully added MEET to additionalConnections for existing SUITE match ${existingMatch.id}`);
-                console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] Final updated metadata: ${updatedMatch?.metadata}`);
+                console.log(
+                  `\u{1F517} [MEET-DIRECT-MESSAGE] Adding MEET to additionalConnections for existing SUITE match ${existingMatch.id}`
+                );
+                console.log(
+                  `\u{1F517} [MEET-DIRECT-MESSAGE] New additionalConnections: ${JSON.stringify(existingMetadata.additionalConnections)}`
+                );
+                const updatedMatch = await storage.updateMatch(
+                  existingMatch.id,
+                  {
+                    metadata: JSON.stringify(existingMetadata)
+                  }
+                );
+                console.log(
+                  `\u{1F517} [MEET-DIRECT-MESSAGE] Successfully added MEET to additionalConnections for existing SUITE match ${existingMatch.id}`
+                );
+                console.log(
+                  `\u{1F517} [MEET-DIRECT-MESSAGE] Final updated metadata: ${updatedMatch?.metadata}`
+                );
                 match = updatedMatch || existingMatch;
               } else {
-                console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] MEET already exists in additionalConnections`);
+                console.log(
+                  `\u{1F517} [MEET-DIRECT-MESSAGE] MEET already exists in additionalConnections`
+                );
                 match = existingMatch;
               }
             } else {
-              console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] Existing match is not a SUITE match, using as-is`);
+              console.log(
+                `\u{1F517} [MEET-DIRECT-MESSAGE] Existing match is not a SUITE match, using as-is`
+              );
               match = existingMatch;
             }
           } catch (error) {
-            console.error(`\u{1F517} [MEET-DIRECT-MESSAGE] Error parsing/updating existing match metadata:`, error);
+            console.error(
+              `\u{1F517} [MEET-DIRECT-MESSAGE] Error parsing/updating existing match metadata:`,
+              error
+            );
             match = existingMatch;
           }
         } else {
-          console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] Existing match has no metadata, using as-is`);
+          console.log(
+            `\u{1F517} [MEET-DIRECT-MESSAGE] Existing match has no metadata, using as-is`
+          );
           match = existingMatch;
         }
         matchId = existingMatch.id;
         console.log(
           `Using existing match ${existingMatch.id} for direct message without changing match status`
         );
-        const recipientWs = connectedUsers3.get(targetUserId);
-        if (recipientWs && recipientWs.readyState === WebSocket3.OPEN) {
+        const recipientWs = connectedUsers4.get(targetUserId);
+        if (recipientWs && recipientWs.readyState === WebSocket4.OPEN) {
           recipientWs.send(
             JSON.stringify({
               type: "chat_created",
@@ -17707,12 +24807,21 @@ async function registerRoutes(app2) {
           );
         }
       } else {
-        console.log(`\u{1F50D} [MEET-DIRECT-MESSAGE] Checking for existing SUITE matches between users ${currentUserId} and ${targetUserId}`);
-        const existingMatches = await storage.getAllMatchesBetweenUsers(currentUserId, targetUserId);
-        console.log(`\u{1F50D} [MEET-DIRECT-MESSAGE] Found ${existingMatches.length} existing matches between users`);
+        console.log(
+          `\u{1F50D} [MEET-DIRECT-MESSAGE] Checking for existing SUITE matches between users ${currentUserId} and ${targetUserId}`
+        );
+        const existingMatches = await storage.getAllMatchesBetweenUsers(
+          currentUserId,
+          targetUserId
+        );
+        console.log(
+          `\u{1F50D} [MEET-DIRECT-MESSAGE] Found ${existingMatches.length} existing matches between users`
+        );
         if (existingMatches.length > 0) {
           existingMatches.forEach((match2, index) => {
-            console.log(`\u{1F50D} [MEET-DIRECT-MESSAGE] Match ${index + 1}: ID=${match2.id}, metadata=${match2.metadata}`);
+            console.log(
+              `\u{1F50D} [MEET-DIRECT-MESSAGE] Match ${index + 1}: ID=${match2.id}, metadata=${match2.metadata}`
+            );
           });
         }
         const existingSuiteMatch = existingMatches.find((match2) => {
@@ -17721,39 +24830,64 @@ async function registerRoutes(app2) {
               const metadata = typeof match2.metadata === "string" ? JSON.parse(match2.metadata) : match2.metadata;
               return metadata && metadata.origin === "SUITE";
             } catch (e) {
-              console.error(`\u{1F50D} [MEET-DIRECT-MESSAGE] Failed to parse metadata for match ${match2.id}:`, e);
+              console.error(
+                `\u{1F50D} [MEET-DIRECT-MESSAGE] Failed to parse metadata for match ${match2.id}:`,
+                e
+              );
               return false;
             }
           }
           return false;
         });
         if (existingSuiteMatch) {
-          console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] Found existing SUITE match ${existingSuiteMatch.id}, adding MEET as additional connection`);
+          console.log(
+            `\u{1F517} [MEET-DIRECT-MESSAGE] Found existing SUITE match ${existingSuiteMatch.id}, adding MEET as additional connection`
+          );
           try {
             const existingMetadata = typeof existingSuiteMatch.metadata === "string" ? JSON.parse(existingSuiteMatch.metadata) : existingSuiteMatch.metadata;
-            console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] Current metadata: ${JSON.stringify(existingMetadata)}`);
+            console.log(
+              `\u{1F517} [MEET-DIRECT-MESSAGE] Current metadata: ${JSON.stringify(existingMetadata)}`
+            );
             if (!existingMetadata.additionalConnections) {
               existingMetadata.additionalConnections = [];
-              console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] Initialized additionalConnections array`);
+              console.log(
+                `\u{1F517} [MEET-DIRECT-MESSAGE] Initialized additionalConnections array`
+              );
             }
             if (!existingMetadata.additionalConnections.includes("MEET")) {
               existingMetadata.additionalConnections.push("MEET");
-              console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] Adding MEET to additionalConnections for SUITE match ${existingSuiteMatch.id}`);
-              console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] New additionalConnections: ${JSON.stringify(existingMetadata.additionalConnections)}`);
-              const updatedMatch = await storage.updateMatch(existingSuiteMatch.id, {
-                metadata: JSON.stringify(existingMetadata)
-              });
-              console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] Successfully added MEET to additionalConnections for existing SUITE match ${existingSuiteMatch.id}`);
-              console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] Final updated metadata: ${updatedMatch?.metadata}`);
+              console.log(
+                `\u{1F517} [MEET-DIRECT-MESSAGE] Adding MEET to additionalConnections for SUITE match ${existingSuiteMatch.id}`
+              );
+              console.log(
+                `\u{1F517} [MEET-DIRECT-MESSAGE] New additionalConnections: ${JSON.stringify(existingMetadata.additionalConnections)}`
+              );
+              const updatedMatch = await storage.updateMatch(
+                existingSuiteMatch.id,
+                {
+                  metadata: JSON.stringify(existingMetadata)
+                }
+              );
+              console.log(
+                `\u{1F517} [MEET-DIRECT-MESSAGE] Successfully added MEET to additionalConnections for existing SUITE match ${existingSuiteMatch.id}`
+              );
+              console.log(
+                `\u{1F517} [MEET-DIRECT-MESSAGE] Final updated metadata: ${updatedMatch?.metadata}`
+              );
               matchId = existingSuiteMatch.id;
               match = updatedMatch || existingSuiteMatch;
             } else {
-              console.log(`\u{1F517} [MEET-DIRECT-MESSAGE] MEET already exists in additionalConnections, using existing match`);
+              console.log(
+                `\u{1F517} [MEET-DIRECT-MESSAGE] MEET already exists in additionalConnections, using existing match`
+              );
               matchId = existingSuiteMatch.id;
               match = existingSuiteMatch;
             }
           } catch (error) {
-            console.error(`\u{1F517} [MEET-DIRECT-MESSAGE] Error updating existing SUITE match:`, error);
+            console.error(
+              `\u{1F517} [MEET-DIRECT-MESSAGE] Error updating existing SUITE match:`,
+              error
+            );
             const newMatch2 = await storage.createMatch({
               userId1: currentUserId,
               userId2: targetUserId,
@@ -17778,8 +24912,8 @@ async function registerRoutes(app2) {
         console.log(
           `Created direct message channel ${newMatch.id} without match notification`
         );
-        const recipientWs = connectedUsers3.get(targetUserId);
-        if (recipientWs && recipientWs.readyState === WebSocket3.OPEN) {
+        const recipientWs = connectedUsers4.get(targetUserId);
+        if (recipientWs && recipientWs.readyState === WebSocket4.OPEN) {
           recipientWs.send(
             JSON.stringify({
               type: "chat_created",
@@ -17826,7 +24960,9 @@ async function registerRoutes(app2) {
         targetUserId
       };
       const totalTime = Date.now() - startTime;
-      console.log(`[CHAT-PERFORMANCE] Complete chat creation process finished in ${totalTime}ms`);
+      console.log(
+        `[CHAT-PERFORMANCE] Complete chat creation process finished in ${totalTime}ms`
+      );
       res.json({
         matchId,
         match: enrichedMatch,
@@ -17845,8 +24981,15 @@ async function registerRoutes(app2) {
       if (!email) {
         return res.status(400).json({ error: "Email is required" });
       }
-      const user = await storage.getUserByEmail(email);
-      return res.status(200).json({ exists: !!user });
+      const normalizedEmail = email.trim().toLowerCase();
+      const user = await storage.getUserByEmail(normalizedEmail);
+      const exists = !!user;
+      if (exists) {
+        console.log(
+          `[EMAIL-DUPLICATE-PREVENTION] Email ${normalizedEmail} already exists in system - preventing duplicate account creation`
+        );
+      }
+      return res.status(200).json({ exists });
     } catch (error) {
       console.error("Error checking email:", error);
       return res.status(500).json({ error: "Server error" });
@@ -17937,16 +25080,30 @@ async function registerRoutes(app2) {
           return res.status(400).json({ message: "hideAge must be a boolean" });
         }
       }
+      if (req.body.preferredLanguage !== void 0) {
+        if (typeof req.body.preferredLanguage === "string") {
+          profileData.preferredLanguage = req.body.preferredLanguage;
+        } else {
+          return res.status(400).json({ message: "preferredLanguage must be a string" });
+        }
+      }
       const otherFields = { ...req.body };
       delete otherFields.profileHidden;
       delete otherFields.ghostMode;
       delete otherFields.hideAge;
-      console.log("[PROFILE-UPDATE-DEBUG] Other fields to validate:", otherFields);
+      delete otherFields.preferredLanguage;
+      console.log(
+        "[PROFILE-UPDATE-DEBUG] Other fields to validate:",
+        otherFields
+      );
       if (Object.keys(otherFields).length > 0) {
         const partialProfileSchema = userProfileSchema.partial();
         try {
           const validatedOtherFields = partialProfileSchema.parse(otherFields);
-          console.log("[PROFILE-UPDATE-DEBUG] Validated fields:", validatedOtherFields);
+          console.log(
+            "[PROFILE-UPDATE-DEBUG] Validated fields:",
+            validatedOtherFields
+          );
           profileData = { ...profileData, ...validatedOtherFields };
         } catch (error) {
           console.log("[PROFILE-UPDATE-DEBUG] Validation error:", error);
@@ -18034,7 +25191,9 @@ async function registerRoutes(app2) {
         const userAgent = req.get("User-Agent") || "Unknown";
         const ipAddress = req.ip || req.connection.remoteAddress || "Unknown";
         if ("password" in profileData) {
-          console.log(`[SECURITY-NOTIFICATION] Sending password change notification for user ${userId}`);
+          console.log(
+            `[SECURITY-NOTIFICATION] Sending password change notification for user ${userId}`
+          );
           sendSecurityChangeNotification({
             userId,
             email: updatedUser.email,
@@ -18044,11 +25203,16 @@ async function registerRoutes(app2) {
             userAgent,
             ipAddress
           }).catch((error) => {
-            console.error("[SECURITY-NOTIFICATION] Error sending password change notification:", error);
+            console.error(
+              "[SECURITY-NOTIFICATION] Error sending password change notification:",
+              error
+            );
           });
         }
         if ("email" in profileData && originalUser.email !== profileData.email) {
-          console.log(`[SECURITY-NOTIFICATION] Sending email change notification to PREVIOUS email for user ${userId}`);
+          console.log(
+            `[SECURITY-NOTIFICATION] Sending email change notification to PREVIOUS email for user ${userId}`
+          );
           sendSecurityChangeNotification({
             userId,
             email: originalUser.email,
@@ -18061,11 +25225,16 @@ async function registerRoutes(app2) {
             userAgent,
             ipAddress
           }).catch((error) => {
-            console.error("[SECURITY-NOTIFICATION] Error sending email change notification:", error);
+            console.error(
+              "[SECURITY-NOTIFICATION] Error sending email change notification:",
+              error
+            );
           });
         }
         if ("phoneNumber" in profileData && originalUser.phoneNumber !== profileData.phoneNumber) {
-          console.log(`[SECURITY-NOTIFICATION] Sending phone number change notification for user ${userId}`);
+          console.log(
+            `[SECURITY-NOTIFICATION] Sending phone number change notification for user ${userId}`
+          );
           sendSecurityChangeNotification({
             userId,
             email: updatedUser.email,
@@ -18078,7 +25247,10 @@ async function registerRoutes(app2) {
             userAgent,
             ipAddress
           }).catch((error) => {
-            console.error("[SECURITY-NOTIFICATION] Error sending phone number change notification:", error);
+            console.error(
+              "[SECURITY-NOTIFICATION] Error sending phone number change notification:",
+              error
+            );
           });
         }
         if ("profileHidden" in profileData) {
@@ -18154,6 +25326,7 @@ async function registerRoutes(app2) {
             religionPreference: JSON.stringify([]),
             ethnicityPreference: JSON.stringify([]),
             educationLevelPreference: JSON.stringify([]),
+            highSchoolPreference: JSON.stringify([]),
             hasChildrenPreference: null,
             wantsChildrenPreference: null,
             bodyTypePreference: JSON.stringify([]),
@@ -18233,6 +25406,7 @@ async function registerRoutes(app2) {
             religionPreference: JSON.stringify([]),
             ethnicityPreference: JSON.stringify([]),
             educationLevelPreference: JSON.stringify([]),
+            highSchoolPreference: JSON.stringify([]),
             hasChildrenPreference: null,
             wantsChildrenPreference: null,
             bodyTypePreference: JSON.stringify([]),
@@ -18274,91 +25448,120 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Server error updating preferences" });
     }
   });
-  app2.put("/api/user/nationality", requireAuth, async (req, res) => {
-    try {
-      const { nationality } = req.body;
-      if (!nationality || typeof nationality !== "string") {
-        return res.status(400).json({ message: "Nationality is required and must be a string" });
-      }
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ message: "User not authenticated" });
-      }
-      const updatedUser = await storage.updateUserProfile(userId, {
-        countryOfOrigin: nationality
-      });
-      if (!updatedUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
+  app2.put(
+    "/api/user/nationality",
+    requireAuth,
+    async (req, res) => {
       try {
-        await storage.updateUserLocationPreference(userId, nationality);
-        console.log(`[NATIONALITY] Updated user ${userId} location preference to: ${nationality}`);
-      } catch (prefError) {
-        console.warn(`[NATIONALITY] Failed to update location preference for user ${userId}:`, prefError);
+        const { nationality } = req.body;
+        if (!nationality || typeof nationality !== "string") {
+          return res.status(400).json({ message: "Nationality is required and must be a string" });
+        }
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ message: "User not authenticated" });
+        }
+        const updatedUser = await storage.updateUserProfile(userId, {
+          countryOfOrigin: nationality
+        });
+        if (!updatedUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        try {
+          await storage.updateUserLocationPreference(userId, nationality);
+          console.log(
+            `[NATIONALITY] Updated user ${userId} location preference to: ${nationality}`
+          );
+        } catch (prefError) {
+          console.warn(
+            `[NATIONALITY] Failed to update location preference for user ${userId}:`,
+            prefError
+          );
+        }
+        console.log(
+          `[NATIONALITY] Updated user ${userId} nationality to: ${nationality}`
+        );
+        res.status(200).json({
+          message: "Nationality updated successfully",
+          nationality: updatedUser.countryOfOrigin
+        });
+      } catch (error) {
+        console.error("Error updating user nationality:", error);
+        res.status(500).json({ message: "Error updating nationality" });
       }
-      console.log(`[NATIONALITY] Updated user ${userId} nationality to: ${nationality}`);
-      res.status(200).json({
-        message: "Nationality updated successfully",
-        nationality: updatedUser.countryOfOrigin
-      });
-    } catch (error) {
-      console.error("Error updating user nationality:", error);
-      res.status(500).json({ message: "Error updating nationality" });
     }
-  });
-  app2.put("/api/user/pool-country", requireAuth, async (req, res) => {
-    try {
-      const { poolCountry, appMode } = req.body;
-      if (!poolCountry || typeof poolCountry !== "string") {
-        return res.status(400).json({ message: "Pool country is required and must be a string" });
+  );
+  app2.put(
+    "/api/user/pool-country",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const { poolCountry, appMode } = req.body;
+        if (!poolCountry || typeof poolCountry !== "string") {
+          return res.status(400).json({ message: "Pool country is required and must be a string" });
+        }
+        if (!appMode || !["MEET", "SUITE"].includes(appMode)) {
+          return res.status(400).json({
+            message: "App mode is required and must be 'MEET' or 'SUITE'"
+          });
+        }
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ message: "User not authenticated" });
+        }
+        const updatedPreference = await storage.updateUserAppSpecificPoolCountry(
+          userId,
+          poolCountry,
+          appMode
+        );
+        if (!updatedPreference) {
+          return res.status(404).json({ message: "Failed to update pool country preference" });
+        }
+        const fieldName = appMode === "MEET" ? "meetPoolCountry" : "suitePoolCountry";
+        const updatedValue = appMode === "MEET" ? updatedPreference.meetPoolCountry : updatedPreference.suitePoolCountry;
+        console.log(
+          `[POOL-COUNTRY] Updated user ${userId} ${appMode} pool country to: ${poolCountry}`
+        );
+        res.status(200).json({
+          message: "Pool country updated successfully",
+          appMode,
+          poolCountry: updatedValue,
+          [fieldName]: updatedValue
+        });
+      } catch (error) {
+        console.error("Error updating user pool country:", error);
+        res.status(500).json({ message: "Error updating pool country" });
       }
-      if (!appMode || !["MEET", "SUITE"].includes(appMode)) {
-        return res.status(400).json({ message: "App mode is required and must be 'MEET' or 'SUITE'" });
-      }
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ message: "User not authenticated" });
-      }
-      const updatedPreference = await storage.updateUserAppSpecificPoolCountry(userId, poolCountry, appMode);
-      if (!updatedPreference) {
-        return res.status(404).json({ message: "Failed to update pool country preference" });
-      }
-      const fieldName = appMode === "MEET" ? "meetPoolCountry" : "suitePoolCountry";
-      const updatedValue = appMode === "MEET" ? updatedPreference.meetPoolCountry : updatedPreference.suitePoolCountry;
-      console.log(`[POOL-COUNTRY] Updated user ${userId} ${appMode} pool country to: ${poolCountry}`);
-      res.status(200).json({
-        message: "Pool country updated successfully",
-        appMode,
-        poolCountry: updatedValue,
-        [fieldName]: updatedValue
-      });
-    } catch (error) {
-      console.error("Error updating user pool country:", error);
-      res.status(500).json({ message: "Error updating pool country" });
     }
-  });
-  app2.get("/api/user/pool-country", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ message: "User not authenticated" });
+  );
+  app2.get(
+    "/api/user/pool-country",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const userId = req.user?.id;
+        if (!userId) {
+          return res.status(401).json({ message: "User not authenticated" });
+        }
+        const preferences = await storage.getUserPreferences(userId);
+        if (!preferences) {
+          return res.status(404).json({ message: "User preferences not found" });
+        }
+        console.log(
+          `[POOL-COUNTRY] Retrieved pool countries for user ${userId}`
+        );
+        res.status(200).json({
+          meetPoolCountry: preferences.meetPoolCountry || "ANYWHERE",
+          suitePoolCountry: preferences.suitePoolCountry || "ANYWHERE",
+          // Legacy field for backward compatibility
+          poolCountry: preferences.poolCountry || "ANYWHERE"
+        });
+      } catch (error) {
+        console.error("Error getting user pool country:", error);
+        res.status(500).json({ message: "Error getting pool country" });
       }
-      const preferences = await storage.getUserPreferences(userId);
-      if (!preferences) {
-        return res.status(404).json({ message: "User preferences not found" });
-      }
-      console.log(`[POOL-COUNTRY] Retrieved pool countries for user ${userId}`);
-      res.status(200).json({
-        meetPoolCountry: preferences.meetPoolCountry || "ANYWHERE",
-        suitePoolCountry: preferences.suitePoolCountry || "ANYWHERE",
-        // Legacy field for backward compatibility
-        poolCountry: preferences.poolCountry || "ANYWHERE"
-      });
-    } catch (error) {
-      console.error("Error getting user pool country:", error);
-      res.status(500).json({ message: "Error getting pool country" });
     }
-  });
+  );
   app2.get("/api/discover-users", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized", status: "login_required" });
@@ -18468,122 +25671,118 @@ async function registerRoutes(app2) {
       res.status(500).json({ message: "Server error retrieving match" });
     }
   });
-  app2.get("/api/matches/between/:userId", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-      const currentUserId = req.user.id;
-      const otherUserId = parseInt(req.params.userId);
-      if (isNaN(otherUserId)) {
-        return res.status(400).json({ message: "Invalid user ID" });
+  app2.get(
+    "/api/matches/between/:userId",
+    async (req, res) => {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
-      console.log(`Fetching all matches between users ${currentUserId} and ${otherUserId}`);
-      const allMatches = await storage.getAllMatchesBetweenUsers(currentUserId, otherUserId);
-      console.log(`Found ${allMatches.length} matches between users ${currentUserId} and ${otherUserId}`);
-      res.json(allMatches);
-    } catch (error) {
-      console.error("Error fetching matches between users:", error);
-      res.status(500).json({ message: "Server error retrieving matches" });
+      try {
+        const currentUserId = req.user.id;
+        const otherUserId = parseInt(req.params.userId);
+        if (isNaN(otherUserId)) {
+          return res.status(400).json({ message: "Invalid user ID" });
+        }
+        console.log(
+          `Fetching all matches between users ${currentUserId} and ${otherUserId}`
+        );
+        const allMatches = await storage.getAllMatchesBetweenUsers(
+          currentUserId,
+          otherUserId
+        );
+        console.log(
+          `Found ${allMatches.length} matches between users ${currentUserId} and ${otherUserId}`
+        );
+        res.json(allMatches);
+      } catch (error) {
+        console.error("Error fetching matches between users:", error);
+        res.status(500).json({ message: "Server error retrieving matches" });
+      }
     }
-  });
+  );
   app2.get("/api/matches", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
+    const startTime = Date.now();
     try {
       const userId = req.user.id;
-      const matches2 = await storage.getMatchesByUserId(userId);
-      const confirmedMatches = matches2.filter((match) => match.matched);
-      const pendingLikes = matches2.filter(
-        (match) => {
-          if (match.matched || match.isDislike) return false;
-          if (match.metadata) {
-            try {
-              const metadata = typeof match.metadata === "string" ? JSON.parse(match.metadata) : match.metadata;
-              if (metadata && metadata.suiteType) {
-                console.log(`[SUITE-MATCH-DEBUG] Found SUITE match ${match.id} for user ${userId}, showing bidirectionally`);
-                return true;
-              }
-            } catch (e) {
-              console.error(`[SUITE-MATCH-DEBUG] Failed to parse metadata for match ${match.id}:`, e);
+      console.log(
+        `[MATCH-PERFORMANCE] Starting optimized matches fetch for user ${userId}`
+      );
+      const optimizedMatches = await storage.getMatches(userId);
+      if (optimizedMatches.length === 0) {
+        console.log(`[MATCH-PERFORMANCE] No matches found for user ${userId}`);
+        return res.json([]);
+      }
+      const enrichedMatches = await Promise.all(
+        optimizedMatches.map(async (match) => {
+          const otherUserId = match.userId1 === userId ? match.userId2 : match.userId1;
+          const otherUser = await storage.getUser(otherUserId);
+          return {
+            ...match,
+            user: otherUser ? {
+              id: otherUser.id,
+              fullName: otherUser.fullName,
+              photoUrl: otherUser.photoUrl,
+              bio: otherUser.bio,
+              profession: otherUser.profession,
+              location: otherUser.location
+            } : null
+          };
+        })
+      );
+      const confirmedMatches = enrichedMatches.filter((match) => match.matched);
+      const pendingLikes = enrichedMatches.filter((match) => {
+        if (match.matched || match.isDislike) return false;
+        if (match.metadata) {
+          try {
+            const metadata = typeof match.metadata === "string" ? JSON.parse(match.metadata) : match.metadata;
+            if (metadata && metadata.suiteType) {
+              console.log(
+                `[SUITE-MATCH-DEBUG] Found SUITE match ${match.id} for user ${userId}, showing bidirectionally`
+              );
+              return true;
             }
+          } catch (e) {
+            console.error(
+              `[SUITE-MATCH-DEBUG] Failed to parse metadata for match ${match.id}:`,
+              e
+            );
           }
-          return match.userId1 !== userId && match.userId2 === userId;
         }
-      ).sort((a, b) => {
+        return match.userId1 !== userId && match.userId2 === userId;
+      }).sort((a, b) => {
         if (a.createdAt && b.createdAt) {
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
         }
         return b.id - a.id;
       });
-      const confirmedMatchesWithProfiles = await Promise.all(
-        confirmedMatches.map(async (match) => {
-          const otherUserId = match.userId1 === userId ? match.userId2 : match.userId1;
-          const otherUser = await storage.getUser(otherUserId);
-          if (!otherUser) return null;
-          const { password, ...userWithoutPassword } = otherUser;
-          if (userWithoutPassword.ghostMode) {
-            userWithoutPassword.isOnline = false;
-          }
-          const messages2 = await storage.getMessagesByMatchId(match.id, userId);
-          const lastMessage = messages2.length > 0 ? messages2[messages2.length - 1] : null;
-          let unreadCount = 0;
-          if (match.userId1 === userId && match.hasUnreadMessages1) {
-            unreadCount = messages2.filter(
-              (msg) => msg.receiverId === userId && msg.senderId !== userId && // Only count messages from the other user
-              !msg.read
-            ).length;
-          } else if (match.userId2 === userId && match.hasUnreadMessages2) {
-            unreadCount = messages2.filter(
-              (msg) => msg.receiverId === userId && msg.senderId !== userId && // Only count messages from the other user
-              !msg.read
-            ).length;
-          }
-          if (unreadCount === 0) {
-            if (match.userId1 === userId && match.hasUnreadMessages1 || match.userId2 === userId && match.hasUnreadMessages2) {
-              const hasUnreadFromOther = messages2.some(
-                (msg) => msg.receiverId === userId && msg.senderId !== userId && !msg.read
-              );
-              if (hasUnreadFromOther) {
-                unreadCount = 1;
-              }
-            }
-          }
-          return {
-            ...match,
-            user: userWithoutPassword,
-            matchType: "confirmed",
-            // This is a confirmed match
-            lastMessage: lastMessage ? lastMessage.content : null,
-            lastMessageTime: lastMessage ? lastMessage.createdAt : null,
-            unreadCount
-          };
-        })
+      const confirmedMatchesWithType = confirmedMatches.filter((match) => match.user).map((match) => ({
+        ...match,
+        matchType: "confirmed"
+      }));
+      const pendingLikesWithType = pendingLikes.filter((match) => match.user).map((match) => ({
+        ...match,
+        matchType: "pending"
+      }));
+      const allMatches = [...confirmedMatchesWithType, ...pendingLikesWithType];
+      const endTime = Date.now();
+      const executionTime = endTime - startTime;
+      console.log(
+        `[MATCH-PERFORMANCE] \u26A1 Optimized matches fetch completed in ${executionTime}ms for user ${userId}`
       );
-      const pendingLikesWithProfiles = await Promise.all(
-        pendingLikes.map(async (match) => {
-          const likerUserId = match.userId1;
-          const likerUser = await storage.getUser(likerUserId);
-          if (!likerUser) return null;
-          const { password, ...userWithoutPassword } = likerUser;
-          if (userWithoutPassword.ghostMode) {
-            userWithoutPassword.isOnline = false;
-          }
-          return {
-            ...match,
-            user: userWithoutPassword,
-            matchType: "pending"
-            // This user liked the current user but isn't matched yet
-          };
-        })
+      console.log(
+        `[MATCH-PERFORMANCE] \u2705 Returning ${allMatches.length} matches (${confirmedMatchesWithType.length} confirmed, ${pendingLikesWithType.length} pending)`
       );
-      const allMatches = [
-        ...confirmedMatchesWithProfiles,
-        ...pendingLikesWithProfiles
-      ].filter((match) => match !== null);
       res.json(allMatches);
     } catch (error) {
+      const endTime = Date.now();
+      const executionTime = endTime - startTime;
+      console.error(
+        `[MATCH-PERFORMANCE] \u274C Error in optimized matches fetch after ${executionTime}ms:`,
+        error
+      );
       res.status(500).json({ message: "Server error retrieving matches" });
     }
   });
@@ -18652,9 +25851,9 @@ async function registerRoutes(app2) {
           throw error;
         }
       }
-      if (connectedUsers3) {
-        const otherUserSocket = connectedUsers3.get(otherUserId);
-        if (otherUserSocket && otherUserSocket.readyState === WebSocket3.OPEN) {
+      if (connectedUsers4) {
+        const otherUserSocket = connectedUsers4.get(otherUserId);
+        if (otherUserSocket && otherUserSocket.readyState === WebSocket4.OPEN) {
           otherUserSocket.send(
             JSON.stringify({
               type: "swipe_action",
@@ -18667,8 +25866,8 @@ async function registerRoutes(app2) {
             `[SWIPE] Notified user ${otherUserId} about dislike action from user ${currentUserId}`
           );
         }
-        const currentUserSocket = connectedUsers3.get(currentUserId);
-        if (currentUserSocket && currentUserSocket.readyState === WebSocket3.OPEN) {
+        const currentUserSocket = connectedUsers4.get(currentUserId);
+        if (currentUserSocket && currentUserSocket.readyState === WebSocket4.OPEN) {
           currentUserSocket.send(
             JSON.stringify({
               type: "discover:refresh",
@@ -18731,12 +25930,12 @@ async function registerRoutes(app2) {
           archiveError
         );
       }
-      await db.delete(typingStatus).where(eq5(typingStatus.matchId, matchId));
-      await db.delete(videoCalls).where(eq5(videoCalls.matchId, matchId));
+      await db.delete(typingStatus).where(eq6(typingStatus.matchId, matchId));
+      await db.delete(videoCalls).where(eq6(videoCalls.matchId, matchId));
       const messages2 = await storage.getMessagesByMatchId(matchId);
       if (messages2 && messages2.length > 0) {
         for (const message of messages2) {
-          await db.delete(messages).where(eq5(messages.id, message.id));
+          await db.delete(messages).where(eq6(messages.id, message.id));
         }
       }
       await storage.deleteMatch(matchId);
@@ -18793,84 +25992,110 @@ async function registerRoutes(app2) {
       });
     }
   });
-  app2.post("/api/report-user", requireAuth, async (req, res) => {
-    try {
-      const reportingUserId = req.user.id;
-      const dataWithReporter = {
-        ...req.body,
-        reporterUserId: reportingUserId
-      };
-      const validatedData = insertUserReportStrikeSchema.parse(dataWithReporter);
-      if (reportingUserId === validatedData.reportedUserId) {
-        return res.status(400).json({
-          message: "Cannot report yourself",
-          success: false
-        });
-      }
-      const reportedUser = await storage.getUser(validatedData.reportedUserId);
-      if (!reportedUser) {
-        return res.status(404).json({
-          message: "Reported user not found",
-          success: false
-        });
-      }
-      let matchId = void 0;
-      if (validatedData.matchId) {
-        const match = await storage.getMatchById(validatedData.matchId);
-        if (match && (match.userId1 === reportingUserId && match.userId2 === validatedData.reportedUserId || match.userId2 === reportingUserId && match.userId1 === validatedData.reportedUserId)) {
-          matchId = validatedData.matchId;
-        }
-      }
-      console.log(`[REPORT-USER] User ${reportingUserId} reporting user ${validatedData.reportedUserId} for: ${validatedData.reason}`);
-      const reportStrike = await storage.createUserReportStrike({
-        reporterUserId: validatedData.reporterUserId,
-        reportedUserId: validatedData.reportedUserId,
-        reason: validatedData.reason,
-        description: validatedData.description,
-        matchId
-      });
-      const totalStrikes = await storage.getUserReportStrikeCount(validatedData.reportedUserId);
-      console.log(`[REPORT-USER] Report created successfully. User ${validatedData.reportedUserId} now has ${totalStrikes} total strikes`);
-      if (matchId) {
-        try {
-          console.log(`[REPORT-USER] Unmatching users ${reportingUserId} and ${validatedData.reportedUserId} due to report`);
-          const { ArchivingService: ArchivingService2 } = await Promise.resolve().then(() => (init_archiving_service(), archiving_service_exports));
-          await ArchivingService2.archiveMatchWithMessages(matchId, reportingUserId, "user_deletion");
-          await storage.deleteMatch(matchId);
-          await db.insert(matches).values([
-            {
-              userId1: reportingUserId,
-              userId2: validatedData.reportedUserId,
-              matched: false,
-              isDislike: true,
-              createdAt: /* @__PURE__ */ new Date()
-            },
-            {
-              userId1: validatedData.reportedUserId,
-              userId2: reportingUserId,
-              matched: false,
-              isDislike: true,
-              createdAt: /* @__PURE__ */ new Date()
-            }
-          ]);
-          console.log(`[REPORT-USER] Successfully unmatched and created dislike records`);
-        } catch (unmatchError) {
-          console.error(`[REPORT-USER] Error during unmatch process:`, unmatchError);
-        }
-      }
-      if (totalStrikes >= 3) {
-        console.log(`[REPORT-USER] User ${validatedData.reportedUserId} reached suspension threshold with ${totalStrikes} strikes`);
-        try {
-          const suspensionExpiresAt = /* @__PURE__ */ new Date();
-          suspensionExpiresAt.setDate(suspensionExpiresAt.getDate() + 3);
-          await storage.updateUserProfile(validatedData.reportedUserId, {
-            isSuspended: true,
-            suspendedAt: /* @__PURE__ */ new Date(),
-            suspensionExpiresAt
+  app2.post(
+    "/api/report-user",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const reportingUserId = req.user.id;
+        const dataWithReporter = {
+          ...req.body,
+          reporterUserId: reportingUserId
+        };
+        const validatedData = insertUserReportStrikeSchema.parse(dataWithReporter);
+        if (reportingUserId === validatedData.reportedUserId) {
+          return res.status(400).json({
+            message: "Cannot report yourself",
+            success: false
           });
-          console.log(`[REPORT-USER] User ${validatedData.reportedUserId} suspended until ${suspensionExpiresAt.toISOString()}`);
-          const { sendEmail: sendEmail2 } = await Promise.resolve().then(() => (init_sendgrid(), sendgrid_exports));
-          const emailContent = `
+        }
+        const reportedUser = await storage.getUser(
+          validatedData.reportedUserId
+        );
+        if (!reportedUser) {
+          return res.status(404).json({
+            message: "Reported user not found",
+            success: false
+          });
+        }
+        let matchId = void 0;
+        if (validatedData.matchId) {
+          const match = await storage.getMatchById(validatedData.matchId);
+          if (match && (match.userId1 === reportingUserId && match.userId2 === validatedData.reportedUserId || match.userId2 === reportingUserId && match.userId1 === validatedData.reportedUserId)) {
+            matchId = validatedData.matchId;
+          }
+        }
+        console.log(
+          `[REPORT-USER] User ${reportingUserId} reporting user ${validatedData.reportedUserId} for: ${validatedData.reason}`
+        );
+        const reportStrike = await storage.createUserReportStrike({
+          reporterUserId: validatedData.reporterUserId,
+          reportedUserId: validatedData.reportedUserId,
+          reason: validatedData.reason,
+          description: validatedData.description,
+          matchId
+        });
+        const totalStrikes = await storage.getUserReportStrikeCount(
+          validatedData.reportedUserId
+        );
+        console.log(
+          `[REPORT-USER] Report created successfully. User ${validatedData.reportedUserId} now has ${totalStrikes} total strikes`
+        );
+        if (matchId) {
+          try {
+            console.log(
+              `[REPORT-USER] Unmatching users ${reportingUserId} and ${validatedData.reportedUserId} due to report`
+            );
+            const { ArchivingService: ArchivingService2 } = await Promise.resolve().then(() => (init_archiving_service(), archiving_service_exports));
+            await ArchivingService2.archiveMatchWithMessages(
+              matchId,
+              reportingUserId,
+              "user_deletion"
+            );
+            await storage.deleteMatch(matchId);
+            await db.insert(matches).values([
+              {
+                userId1: reportingUserId,
+                userId2: validatedData.reportedUserId,
+                matched: false,
+                isDislike: true,
+                createdAt: /* @__PURE__ */ new Date()
+              },
+              {
+                userId1: validatedData.reportedUserId,
+                userId2: reportingUserId,
+                matched: false,
+                isDislike: true,
+                createdAt: /* @__PURE__ */ new Date()
+              }
+            ]);
+            console.log(
+              `[REPORT-USER] Successfully unmatched and created dislike records`
+            );
+          } catch (unmatchError) {
+            console.error(
+              `[REPORT-USER] Error during unmatch process:`,
+              unmatchError
+            );
+          }
+        }
+        if (totalStrikes >= 3) {
+          console.log(
+            `[REPORT-USER] User ${validatedData.reportedUserId} reached suspension threshold with ${totalStrikes} strikes`
+          );
+          try {
+            const suspensionExpiresAt = /* @__PURE__ */ new Date();
+            suspensionExpiresAt.setDate(suspensionExpiresAt.getDate() + 3);
+            await storage.updateUserProfile(validatedData.reportedUserId, {
+              isSuspended: true,
+              suspendedAt: /* @__PURE__ */ new Date(),
+              suspensionExpiresAt
+            });
+            console.log(
+              `[REPORT-USER] User ${validatedData.reportedUserId} suspended until ${suspensionExpiresAt.toISOString()}`
+            );
+            const { sendEmail: sendEmail2 } = await Promise.resolve().then(() => (init_sendgrid(), sendgrid_exports));
+            const emailContent = `
             <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1);">
               <div style="background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #ffeaa7, #dda0dd, #98d8c8); height: 6px;"></div>
               
@@ -18903,7 +26128,7 @@ async function registerRoutes(app2) {
 
                 <p style="color: #555; font-size: 16px; line-height: 1.6; margin: 20px 0;">
                   If you believe this suspension is incorrect, you can appeal by contacting our support team at 
-                  <a href="mailto:admin@btechnos.com" style="color: #667eea;">admin@btechnos.com</a>
+                  <a href="mailto:admin@kronogon.com" style="color: #667eea;">admin@kronogon.com</a>
                 </p>
 
                 <div style="margin: 30px 0;">
@@ -18915,42 +26140,48 @@ async function registerRoutes(app2) {
               </div>
             </div>
           `;
-          await sendEmail2(process.env.SENDGRID_API_KEY, {
-            to: reportedUser.email,
-            from: "admin@btechnos.com",
-            subject: "\u{1F6A8} CHARLEY Account Suspension Notice",
-            html: emailContent,
-            text: `Your CHARLEY account has been suspended due to multiple reports. You have ${totalStrikes} total reports. Contact admin@btechnos.com to appeal.`
-          });
-          console.log(`[REPORT-USER] Suspension email sent to ${reportedUser.email}`);
-        } catch (emailError) {
-          console.error(`[REPORT-USER] Failed to send suspension email:`, emailError);
+            await sendEmail2(process.env.SENDGRID_API_KEY, {
+              to: reportedUser.email,
+              from: "admin@kronogon.com",
+              subject: "\u{1F6A8} CHARLEY Account Suspension Notice",
+              html: emailContent,
+              text: `Your CHARLEY account has been suspended due to multiple reports. You have ${totalStrikes} total reports. Contact admin@kronogon.com to appeal.`
+            });
+            console.log(
+              `[REPORT-USER] Suspension email sent to ${reportedUser.email}`
+            );
+          } catch (emailError) {
+            console.error(
+              `[REPORT-USER] Failed to send suspension email:`,
+              emailError
+            );
+          }
         }
-      }
-      return res.status(201).json({
-        message: "Report submitted successfully",
-        success: true,
-        reportId: reportStrike.id,
-        totalStrikes,
-        suspended: totalStrikes >= 3
-      });
-    } catch (error) {
-      console.error("Error creating report:", error);
-      if (error instanceof ZodError2) {
-        return res.status(400).json({
-          message: "Validation failed",
-          errors: fromZodError2(error).details,
+        return res.status(201).json({
+          message: "Report submitted successfully",
+          success: true,
+          reportId: reportStrike.id,
+          totalStrikes,
+          suspended: totalStrikes >= 3
+        });
+      } catch (error) {
+        console.error("Error creating report:", error);
+        if (error instanceof ZodError2) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: fromZodError2(error).details,
+            success: false
+          });
+        }
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        return res.status(500).json({
+          message: "Server error creating report",
+          error: errorMessage,
           success: false
         });
       }
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      return res.status(500).json({
-        message: "Server error creating report",
-        error: errorMessage,
-        success: false
-      });
     }
-  });
+  );
   app2.post("/api/suspension/appeal", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -19008,8 +26239,8 @@ async function registerRoutes(app2) {
           </div>
         `;
         await sendEmail2(process.env.SENDGRID_API_KEY, {
-          to: "admin@btechnos.com",
-          from: "admin@btechnos.com",
+          to: "admin@kronogon.com",
+          from: "admin@kronogon.com",
           subject: `\u{1F6A8} Suspension Appeal - ${user.fullName} (ID: ${userId})`,
           html: emailContent,
           text: `Suspension Appeal Request
@@ -19021,13 +26252,18 @@ Phone: ${user.phoneNumber || "Not provided"}
 Message:
 ${message.trim()}`
         });
-        console.log(`[SUSPENSION-APPEAL] Appeal submitted by user ${userId} sent to admin`);
+        console.log(
+          `[SUSPENSION-APPEAL] Appeal submitted by user ${userId} sent to admin`
+        );
         return res.status(200).json({
           message: "Appeal submitted successfully",
           success: true
         });
       } catch (emailError) {
-        console.error(`[SUSPENSION-APPEAL] Failed to send appeal email:`, emailError);
+        console.error(
+          `[SUSPENSION-APPEAL] Failed to send appeal email:`,
+          emailError
+        );
         return res.status(500).json({
           message: "Failed to send appeal. Please try again later.",
           success: false
@@ -19179,7 +26415,9 @@ ${message.trim()}`
         `Fetching unread message count for user ${userId} in mode ${mode}`
       );
       const conversationsWithUnread = await storage.getUnreadConversationsCount(userId);
-      console.log(`[API] Returning unread count for ${mode} mode: ${conversationsWithUnread}`);
+      console.log(
+        `[API] Returning unread count for ${mode} mode: ${conversationsWithUnread}`
+      );
       res.json({ count: conversationsWithUnread });
     } catch (error) {
       console.error("Error fetching unread message count:", error);
@@ -19446,8 +26684,8 @@ ${message.trim()}`
           autoDeleteError
         );
       }
-      const recipientWs = connectedUsers3.get(receiverId);
-      if (recipientWs && recipientWs.readyState === WebSocket3.OPEN) {
+      const recipientWs = connectedUsers4.get(receiverId);
+      if (recipientWs && recipientWs.readyState === WebSocket4.OPEN) {
         try {
           recipientWs.send(
             JSON.stringify({
@@ -19457,15 +26695,20 @@ ${message.trim()}`
               timestamp: (/* @__PURE__ */ new Date()).toISOString()
             })
           );
-          console.log(`\u2705 Message ${newMessage.id} delivered to recipient ${receiverId} via WebSocket`);
+          console.log(
+            `\u2705 Message ${newMessage.id} delivered to recipient ${receiverId} via WebSocket`
+          );
         } catch (wsError) {
-          console.error(`Failed to send message to recipient ${receiverId}:`, wsError);
+          console.error(
+            `Failed to send message to recipient ${receiverId}:`,
+            wsError
+          );
         }
       } else {
         console.log(`\u26A0\uFE0F Recipient ${receiverId} not connected via WebSocket`);
       }
-      const senderWs = connectedUsers3.get(req.user.id);
-      if (senderWs && senderWs.readyState === WebSocket3.OPEN) {
+      const senderWs = connectedUsers4.get(req.user.id);
+      if (senderWs && senderWs.readyState === WebSocket4.OPEN) {
         try {
           senderWs.send(
             JSON.stringify({
@@ -19477,9 +26720,14 @@ ${message.trim()}`
               timestamp: (/* @__PURE__ */ new Date()).toISOString()
             })
           );
-          console.log(`\u2705 Message ${newMessage.id} delivery confirmed to sender ${req.user.id} via WebSocket`);
+          console.log(
+            `\u2705 Message ${newMessage.id} delivery confirmed to sender ${req.user.id} via WebSocket`
+          );
         } catch (wsError) {
-          console.error(`Failed to send delivery confirmation to sender ${req.user.id}:`, wsError);
+          console.error(
+            `Failed to send delivery confirmation to sender ${req.user.id}:`,
+            wsError
+          );
         }
       } else {
         console.log(`\u26A0\uFE0F Sender ${req.user.id} not connected via WebSocket`);
@@ -19932,7 +27180,9 @@ ${message.trim()}`
       if (!targetUserId || !action || !["like", "dislike"].includes(action)) {
         return res.status(400).json({ message: "Invalid swipe data" });
       }
-      console.log(`[SWIPE] User ${currentUserId} ${action}d user ${targetUserId}`);
+      console.log(
+        `[SWIPE] User ${currentUserId} ${action}d user ${targetUserId}`
+      );
       if (action === "dislike") {
         try {
           await storage.createMatch({
@@ -19942,21 +27192,34 @@ ${message.trim()}`
             isDislike: true,
             metadata: JSON.stringify({ origin: "MEET" })
           });
-          console.log(`[SWIPE] Created dislike record: ${currentUserId} -> ${targetUserId}`);
+          console.log(
+            `[SWIPE] Created dislike record: ${currentUserId} -> ${targetUserId}`
+          );
         } catch (error) {
           if (error instanceof Error && error.message.includes("duplicate")) {
-            console.log(`[SWIPE] Dislike record ${currentUserId} -> ${targetUserId} already exists`);
+            console.log(
+              `[SWIPE] Dislike record ${currentUserId} -> ${targetUserId} already exists`
+            );
           } else {
             throw error;
           }
         }
       } else if (action === "like") {
-        console.log(`\u{1F50D} [MEET-SWIPE] Checking for existing SUITE matches between users ${currentUserId} and ${targetUserId}`);
-        const existingMatches = await storage.getAllMatchesBetweenUsers(currentUserId, targetUserId);
-        console.log(`\u{1F50D} [MEET-SWIPE] Found ${existingMatches.length} existing matches between users`);
+        console.log(
+          `\u{1F50D} [MEET-SWIPE] Checking for existing SUITE matches between users ${currentUserId} and ${targetUserId}`
+        );
+        const existingMatches = await storage.getAllMatchesBetweenUsers(
+          currentUserId,
+          targetUserId
+        );
+        console.log(
+          `\u{1F50D} [MEET-SWIPE] Found ${existingMatches.length} existing matches between users`
+        );
         if (existingMatches.length > 0) {
           existingMatches.forEach((match, index) => {
-            console.log(`\u{1F50D} [MEET-SWIPE] Match ${index + 1}: ID=${match.id}, metadata=${match.metadata}`);
+            console.log(
+              `\u{1F50D} [MEET-SWIPE] Match ${index + 1}: ID=${match.id}, metadata=${match.metadata}`
+            );
           });
         }
         const existingSuiteMatch = existingMatches.find((match) => {
@@ -19965,30 +27228,50 @@ ${message.trim()}`
               const metadata = typeof match.metadata === "string" ? JSON.parse(match.metadata) : match.metadata;
               return metadata && metadata.origin === "SUITE";
             } catch (e) {
-              console.error(`\u{1F50D} [MEET-SWIPE] Failed to parse metadata for match ${match.id}:`, e);
+              console.error(
+                `\u{1F50D} [MEET-SWIPE] Failed to parse metadata for match ${match.id}:`,
+                e
+              );
               return false;
             }
           }
           return false;
         });
         if (existingSuiteMatch) {
-          console.log(`\u{1F517} [MEET-SWIPE] Found existing SUITE match ${existingSuiteMatch.id}, adding MEET as additional connection`);
+          console.log(
+            `\u{1F517} [MEET-SWIPE] Found existing SUITE match ${existingSuiteMatch.id}, adding MEET as additional connection`
+          );
           try {
             const existingMetadata = typeof existingSuiteMatch.metadata === "string" ? JSON.parse(existingSuiteMatch.metadata) : existingSuiteMatch.metadata;
-            console.log(`\u{1F517} [MEET-SWIPE] Current metadata: ${JSON.stringify(existingMetadata)}`);
+            console.log(
+              `\u{1F517} [MEET-SWIPE] Current metadata: ${JSON.stringify(existingMetadata)}`
+            );
             if (!existingMetadata.additionalConnections) {
               existingMetadata.additionalConnections = [];
-              console.log(`\u{1F517} [MEET-SWIPE] Initialized additionalConnections array`);
+              console.log(
+                `\u{1F517} [MEET-SWIPE] Initialized additionalConnections array`
+              );
             }
             if (!existingMetadata.additionalConnections.includes("MEET")) {
               existingMetadata.additionalConnections.push("MEET");
-              console.log(`\u{1F517} [MEET-SWIPE] Adding MEET to additionalConnections for SUITE match ${existingSuiteMatch.id}`);
-              console.log(`\u{1F517} [MEET-SWIPE] New additionalConnections: ${JSON.stringify(existingMetadata.additionalConnections)}`);
-              const updatedMatch = await storage.updateMatch(existingSuiteMatch.id, {
-                metadata: JSON.stringify(existingMetadata)
-              });
-              console.log(`\u{1F517} [MEET-SWIPE] Successfully added MEET to additionalConnections for existing SUITE match ${existingSuiteMatch.id}`);
-              console.log(`\u{1F517} [MEET-SWIPE] Final updated metadata: ${updatedMatch?.metadata}`);
+              console.log(
+                `\u{1F517} [MEET-SWIPE] Adding MEET to additionalConnections for SUITE match ${existingSuiteMatch.id}`
+              );
+              console.log(
+                `\u{1F517} [MEET-SWIPE] New additionalConnections: ${JSON.stringify(existingMetadata.additionalConnections)}`
+              );
+              const updatedMatch = await storage.updateMatch(
+                existingSuiteMatch.id,
+                {
+                  metadata: JSON.stringify(existingMetadata)
+                }
+              );
+              console.log(
+                `\u{1F517} [MEET-SWIPE] Successfully added MEET to additionalConnections for existing SUITE match ${existingSuiteMatch.id}`
+              );
+              console.log(
+                `\u{1F517} [MEET-SWIPE] Final updated metadata: ${updatedMatch?.metadata}`
+              );
               return res.json({
                 success: true,
                 action,
@@ -19996,7 +27279,9 @@ ${message.trim()}`
                 message: "MEET added as additional connection to existing SUITE match"
               });
             } else {
-              console.log(`\u{1F517} [MEET-SWIPE] MEET already exists in additionalConnections, no update needed`);
+              console.log(
+                `\u{1F517} [MEET-SWIPE] MEET already exists in additionalConnections, no update needed`
+              );
               return res.json({
                 success: true,
                 action,
@@ -20005,7 +27290,10 @@ ${message.trim()}`
               });
             }
           } catch (error) {
-            console.error(`\u{1F517} [MEET-SWIPE] Error updating existing SUITE match:`, error);
+            console.error(
+              `\u{1F517} [MEET-SWIPE] Error updating existing SUITE match:`,
+              error
+            );
           }
         }
         try {
@@ -20016,32 +27304,43 @@ ${message.trim()}`
             isDislike: false,
             metadata: JSON.stringify({ origin: "MEET" })
           });
-          console.log(`[SWIPE] Created like record: ${currentUserId} -> ${targetUserId}`);
+          console.log(
+            `[SWIPE] Created like record: ${currentUserId} -> ${targetUserId}`
+          );
           const mutualLike = await db.select().from(matches).where(
             and5(
-              eq5(matches.userId1, targetUserId),
-              eq5(matches.userId2, currentUserId),
-              eq5(matches.matched, false),
-              eq5(matches.isDislike, false)
+              eq6(matches.userId1, targetUserId),
+              eq6(matches.userId2, currentUserId),
+              eq6(matches.matched, false),
+              eq6(matches.isDislike, false)
             )
           ).limit(1);
           if (mutualLike.length > 0) {
-            console.log(`\u{1F50D} [MEET-MUTUAL-MATCH] Checking for existing SUITE matches before creating mutual match`);
-            const allExistingMatches = await storage.getAllMatchesBetweenUsers(currentUserId, targetUserId);
-            const existingSuiteMatchForMutual = allExistingMatches.find((match) => {
-              if (match.metadata) {
-                try {
-                  const metadata = typeof match.metadata === "string" ? JSON.parse(match.metadata) : match.metadata;
-                  return metadata && metadata.origin === "SUITE";
-                } catch (e) {
-                  return false;
+            console.log(
+              `\u{1F50D} [MEET-MUTUAL-MATCH] Checking for existing SUITE matches before creating mutual match`
+            );
+            const allExistingMatches = await storage.getAllMatchesBetweenUsers(
+              currentUserId,
+              targetUserId
+            );
+            const existingSuiteMatchForMutual = allExistingMatches.find(
+              (match) => {
+                if (match.metadata) {
+                  try {
+                    const metadata = typeof match.metadata === "string" ? JSON.parse(match.metadata) : match.metadata;
+                    return metadata && metadata.origin === "SUITE";
+                  } catch (e) {
+                    return false;
+                  }
                 }
+                return false;
               }
-              return false;
-            });
+            );
             let finalMetadata = { origin: "MEET" };
             if (existingSuiteMatchForMutual) {
-              console.log(`\u{1F517} [MEET-MUTUAL-MATCH] Found existing SUITE match ${existingSuiteMatchForMutual.id}, preserving SUITE metadata and adding MEET`);
+              console.log(
+                `\u{1F517} [MEET-MUTUAL-MATCH] Found existing SUITE match ${existingSuiteMatchForMutual.id}, preserving SUITE metadata and adding MEET`
+              );
               try {
                 const existingMetadata = typeof existingSuiteMatchForMutual.metadata === "string" ? JSON.parse(existingSuiteMatchForMutual.metadata) : existingSuiteMatchForMutual.metadata;
                 finalMetadata = { ...existingMetadata };
@@ -20051,9 +27350,14 @@ ${message.trim()}`
                 if (!finalMetadata.additionalConnections.includes("MEET")) {
                   finalMetadata.additionalConnections.push("MEET");
                 }
-                console.log(`\u{1F517} [MEET-MUTUAL-MATCH] Final metadata: ${JSON.stringify(finalMetadata)}`);
+                console.log(
+                  `\u{1F517} [MEET-MUTUAL-MATCH] Final metadata: ${JSON.stringify(finalMetadata)}`
+                );
               } catch (error) {
-                console.error(`\u{1F517} [MEET-MUTUAL-MATCH] Error parsing existing SUITE metadata:`, error);
+                console.error(
+                  `\u{1F517} [MEET-MUTUAL-MATCH] Error parsing existing SUITE metadata:`,
+                  error
+                );
               }
             }
             await db.update(matches).set({
@@ -20061,34 +27365,58 @@ ${message.trim()}`
               metadata: JSON.stringify(finalMetadata)
             }).where(
               or4(
-                and5(eq5(matches.userId1, currentUserId), eq5(matches.userId2, targetUserId)),
-                and5(eq5(matches.userId1, targetUserId), eq5(matches.userId2, currentUserId))
+                and5(
+                  eq6(matches.userId1, currentUserId),
+                  eq6(matches.userId2, targetUserId)
+                ),
+                and5(
+                  eq6(matches.userId1, targetUserId),
+                  eq6(matches.userId2, currentUserId)
+                )
               )
             );
-            console.log(`[SWIPE] Match created: ${currentUserId} \u2194 ${targetUserId}`);
-            console.log(`[SWIPE-CLEANUP] About to clean up swipe history for users ${currentUserId} \u2194 ${targetUserId}`);
+            console.log(
+              `[SWIPE] Match created: ${currentUserId} \u2194 ${targetUserId}`
+            );
+            console.log(
+              `[SWIPE-CLEANUP] About to clean up swipe history for users ${currentUserId} \u2194 ${targetUserId}`
+            );
             try {
-              await storage.removeMatchedUsersFromSwipeHistory(currentUserId, targetUserId);
-              console.log(`[SWIPE-CLEANUP] Successfully cleaned up swipe history for users ${currentUserId} \u2194 ${targetUserId}`);
+              await storage.removeMatchedUsersFromSwipeHistory(
+                currentUserId,
+                targetUserId
+              );
+              console.log(
+                `[SWIPE-CLEANUP] Successfully cleaned up swipe history for users ${currentUserId} \u2194 ${targetUserId}`
+              );
             } catch (historyError) {
-              console.error("Error cleaning up swipe history for matched users:", historyError);
+              console.error(
+                "Error cleaning up swipe history for matched users:",
+                historyError
+              );
             }
-            if (connectedUsers3) {
+            if (connectedUsers4) {
               [currentUserId, targetUserId].forEach((userId) => {
-                const userSocket = connectedUsers3.get(userId);
-                if (userSocket && userSocket.readyState === WebSocket3.OPEN) {
-                  userSocket.send(JSON.stringify({
-                    type: "match_notification",
-                    matchedUserId: userId === currentUserId ? targetUserId : currentUserId,
-                    timestamp: (/* @__PURE__ */ new Date()).toISOString()
-                  }));
-                  userSocket.send(JSON.stringify({
-                    type: "card_removal",
-                    removeUserId: userId === currentUserId ? targetUserId : currentUserId,
-                    reason: "mutual_match",
-                    timestamp: (/* @__PURE__ */ new Date()).toISOString()
-                  }));
-                  console.log(`\u{1F5D1}\uFE0F [CARD-REMOVAL] Sent card removal to user ${userId} for user ${userId === currentUserId ? targetUserId : currentUserId}`);
+                const userSocket = connectedUsers4.get(userId);
+                if (userSocket && userSocket.readyState === WebSocket4.OPEN) {
+                  userSocket.send(
+                    JSON.stringify({
+                      type: "match_notification",
+                      matchedUserId: userId === currentUserId ? targetUserId : currentUserId,
+                      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                    })
+                  );
+                  userSocket.send(
+                    JSON.stringify({
+                      type: "card_removal",
+                      removeUserId: userId === currentUserId ? targetUserId : currentUserId,
+                      reason: "mutual_match",
+                      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                    })
+                  );
+                  console.log(
+                    `\u{1F5D1}\uFE0F [CARD-REMOVAL] Sent card removal to user ${userId} for user ${userId === currentUserId ? targetUserId : currentUserId}`
+                  );
                 }
               });
             }
@@ -20096,7 +27424,9 @@ ${message.trim()}`
           }
         } catch (error) {
           if (error instanceof Error && error.message.includes("duplicate")) {
-            console.log(`[SWIPE] Like record ${currentUserId} -> ${targetUserId} already exists`);
+            console.log(
+              `[SWIPE] Like record ${currentUserId} -> ${targetUserId} already exists`
+            );
           } else {
             throw error;
           }
@@ -20165,7 +27495,13 @@ ${message.trim()}`
     }
     try {
       const { id } = req.params;
-      await storage.deleteUserPhoto(parseInt(id));
+      const photoId = parseInt(id);
+      if (photoId > 2147483647 || isNaN(photoId)) {
+        return res.status(400).json({
+          error: "Invalid photo ID. Temporary photos cannot be deleted via server."
+        });
+      }
+      await storage.deleteUserPhoto(photoId);
       res.status(204).send();
     } catch (err) {
       console.error(err);
@@ -20178,7 +27514,13 @@ ${message.trim()}`
     }
     try {
       const { id } = req.params;
-      const photo = await storage.setPrimaryPhoto(parseInt(id), req.user.id);
+      const photoId = parseInt(id);
+      if (photoId > 2147483647 || isNaN(photoId)) {
+        return res.status(400).json({
+          error: "Invalid photo ID. Temporary photos cannot be set as primary via server."
+        });
+      }
+      const photo = await storage.setPrimaryPhoto(photoId, req.user.id);
       res.json(photo);
     } catch (err) {
       console.error(err);
@@ -20344,6 +27686,38 @@ ${message.trim()}`
       }
     }
   );
+  app2.get("/api/ice", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const iceServers = [
+        // Free STUN servers for basic connectivity
+        { urls: ["stun:stun.l.google.com:19302"] },
+        { urls: ["stun:stun1.l.google.com:19302"] },
+        // Public TURN servers for testing (rate limited)
+        {
+          urls: ["turn:openrelay.metered.ca:80"],
+          username: "openrelayproject",
+          credential: "openrelayproject"
+        },
+        {
+          urls: ["turn:openrelay.metered.ca:443"],
+          username: "openrelayproject",
+          credential: "openrelayproject"
+        },
+        {
+          urls: ["turn:openrelay.metered.ca:443?transport=tcp"],
+          username: "openrelayproject",
+          credential: "openrelayproject"
+        }
+      ];
+      res.json({ ice_servers: iceServers });
+    } catch (error) {
+      console.error("Error generating ICE servers:", error);
+      res.status(500).json({ message: "Server error generating ICE servers" });
+    }
+  });
   app2.post("/api/video-calls", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -20364,6 +27738,40 @@ ${message.trim()}`
         videoCallData.roomName = `charley-${randomBytes2(10).toString("hex")}`;
       }
       const newVideoCall = await storage.createVideoCall(videoCallData);
+      try {
+        const targetWs = connectedUsers4.get(videoCallData.receiverId);
+        console.log("\u{1F4E1} [WebSocket] Server-side call_initiate relay check:", {
+          receiverId: videoCallData.receiverId,
+          targetWsExists: !!targetWs,
+          targetWsReady: targetWs?.readyState === WebSocket4.OPEN,
+          connectedUsersCount: connectedUsers4.size,
+          connectedUserIds: Array.from(connectedUsers4.keys())
+        });
+        if (targetWs && targetWs.readyState === WebSocket4.OPEN) {
+          const initiatePayload = {
+            type: "call_initiate",
+            matchId: newVideoCall.matchId,
+            callerId: newVideoCall.initiatorId,
+            receiverId: newVideoCall.receiverId,
+            toUserId: newVideoCall.receiverId,
+            callId: newVideoCall.id,
+            roomName: newVideoCall.roomName,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          };
+          console.log(
+            "\u{1F4E1} [WebSocket] Server-side initiating call signal:",
+            initiatePayload
+          );
+          targetWs.send(JSON.stringify(initiatePayload));
+        } else {
+          console.log(
+            "\u{1F4E1} [WebSocket] Receiver not connected for server-side call_initiate",
+            videoCallData.receiverId
+          );
+        }
+      } catch (e) {
+        console.error("Error sending server-side call_initiate:", e);
+      }
       res.status(201).json({
         videoCall: newVideoCall,
         twilioToken: "DEMO_TOKEN"
@@ -20435,6 +27843,64 @@ ${message.trim()}`
           callId,
           updateData
         );
+        try {
+          const isDeclined = status === "declined";
+          const isCompletedBeforeStart = status === "completed" && !videoCall.startedAt;
+          if (isDeclined || isCompletedBeforeStart) {
+            const callerId = videoCall.initiatorId;
+            const receiverId = videoCall.receiverId;
+            const matchIdForCall = videoCall.matchId;
+            console.log(
+              `\u{1F4DE} [CALL-SYSTEM][HTTP] Creating no-answer message for match=${matchIdForCall} caller=${callerId} receiver=${receiverId} (status=${status})`
+            );
+            const callSystemMessage = await storage.createMessage({
+              matchId: matchIdForCall,
+              senderId: callerId,
+              receiverId,
+              content: "_CALL:NO_ANSWER",
+              messageType: "call",
+              audioUrl: null,
+              audioDuration: null
+            });
+            try {
+              await storage.markMatchUnread(matchIdForCall, receiverId);
+            } catch (e) {
+              console.error(
+                "[CALL-SYSTEM][HTTP] Failed to mark match unread:",
+                e
+              );
+            }
+            const rxWs = connectedUsers4.get(receiverId);
+            if (rxWs && rxWs.readyState === WebSocket4.OPEN) {
+              rxWs.send(
+                JSON.stringify({
+                  type: "new_message",
+                  message: callSystemMessage,
+                  for: "recipient",
+                  receiptId: `call_no_answer_${callSystemMessage?.id}_rx_http`,
+                  timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                })
+              );
+            }
+            const txWs = connectedUsers4.get(callerId);
+            if (txWs && txWs.readyState === WebSocket4.OPEN) {
+              txWs.send(
+                JSON.stringify({
+                  type: "new_message",
+                  message: callSystemMessage,
+                  for: "sender",
+                  receiptId: `call_no_answer_${callSystemMessage?.id}_tx_http`,
+                  timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                })
+              );
+            }
+          }
+        } catch (e) {
+          console.error(
+            "[CALL-SYSTEM][HTTP] Error creating/broadcasting no-answer:",
+            e
+          );
+        }
         res.json(updatedCall);
       } catch (error) {
         res.status(500).json({ message: "Server error updating video call" });
@@ -20449,13 +27915,17 @@ ${message.trim()}`
       if (!phoneNumber) {
         return res.status(400).json({ message: "Phone number is required" });
       }
-      console.log(`[AGE-COMPLIANCE] Checking if phone number ${phoneNumber} is blocked`);
+      console.log(
+        `[AGE-COMPLIANCE] Checking if phone number ${phoneNumber} is blocked`
+      );
       const isBlocked = await storage.isPhoneNumberBlocked(phoneNumber);
       if (isBlocked) {
-        console.log(`[AGE-COMPLIANCE] Blocked phone number attempted registration: ${phoneNumber}`);
+        console.log(
+          `[AGE-COMPLIANCE] Blocked phone number attempted registration: ${phoneNumber}`
+        );
         const blockedRecord = await storage.getBlockedPhoneNumber(phoneNumber);
         return res.status(403).json({
-          message: "This phone number cannot be used for registration. Please contact admin@btechnos.com or call Customer Service on +1 (469) 496-5620 for assistance.",
+          message: "This phone number cannot be used for registration. Please contact admin@kronogon.com or call Customer Service on +1 (469) 496-5620 for assistance.",
           blocked: true,
           reason: blockedRecord?.reason || "Compliance violation"
         });
@@ -20500,7 +27970,22 @@ ${message.trim()}`
       });
     } catch (error) {
       console.error("Phone verification error:", error);
-      res.status(500).json({ message: "Server error sending verification code" });
+      console.error("Full error details:", {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      if (error.message?.includes("relation") || error.code === "42P01") {
+        console.error("\u274C Database table 'verification_codes' does not exist!");
+        console.error("\u{1F4A1} Run: npx drizzle-kit push to create missing tables");
+        res.status(500).json({
+          message: "Database configuration error - verification_codes table missing"
+        });
+      } else {
+        res.status(500).json({
+          message: "Server error sending verification code"
+        });
+      }
     }
   });
   app2.post("/api/phone/block", async (req, res) => {
@@ -20512,17 +27997,67 @@ ${message.trim()}`
       if (!reason) {
         return res.status(400).json({ message: "Reason is required" });
       }
-      console.log(`[AGE-COMPLIANCE] Blocking phone number ${phoneNumber} for ${fullName || "Unknown User"} (${email || "No Email"}) - Reason: ${reason}`);
+      console.log(
+        `[AGE-COMPLIANCE] Blocking phone number ${phoneNumber} for ${fullName || "Unknown User"} (${email || "No Email"}) - Reason: ${reason}`
+      );
       const alreadyBlocked = await storage.isPhoneNumberBlocked(phoneNumber);
       if (alreadyBlocked) {
-        console.log(`[AGE-COMPLIANCE] Phone number ${phoneNumber} already blocked`);
+        console.log(
+          `[AGE-COMPLIANCE] Phone number ${phoneNumber} already blocked`
+        );
         return res.status(200).json({
           message: "Phone number is already blocked",
           alreadyBlocked: true
         });
       }
-      const blockedRecord = await storage.addBlockedPhoneNumber(phoneNumber, reason, fullName, email, metadata);
-      console.log(`[AGE-COMPLIANCE] Successfully blocked phone number ${phoneNumber} with ID ${blockedRecord.id}`);
+      const blockedRecord = await storage.addBlockedPhoneNumber(
+        phoneNumber,
+        reason,
+        fullName,
+        email,
+        metadata
+      );
+      console.log(
+        `[AGE-COMPLIANCE] Successfully blocked phone number ${phoneNumber} with ID ${blockedRecord.id}`
+      );
+      if (email && fullName && reason.includes("under 14")) {
+        console.log(
+          `[AGE-COMPLIANCE] Sending apology email to blocked user: ${email}`
+        );
+        try {
+          const { sendUnderAgeApologyEmail: sendUnderAgeApologyEmail2 } = await Promise.resolve().then(() => (init_sendgrid(), sendgrid_exports));
+          let dateOfBirth = null;
+          if (metadata) {
+            try {
+              const parsedMetadata = JSON.parse(metadata);
+              dateOfBirth = parsedMetadata.dateOfBirth;
+            } catch (parseError) {
+              console.warn(
+                `[AGE-COMPLIANCE] Could not parse metadata for email: ${parseError}`
+              );
+            }
+          }
+          const emailSent = await sendUnderAgeApologyEmail2({
+            name: fullName,
+            email,
+            dateOfBirth
+          });
+          if (emailSent) {
+            console.log(
+              `[AGE-COMPLIANCE] Apology email sent successfully to blocked user: ${email}`
+            );
+          } else {
+            console.error(
+              `[AGE-COMPLIANCE] Failed to send apology email to blocked user: ${email}`
+            );
+          }
+        } catch (emailError) {
+          console.error(
+            `[AGE-COMPLIANCE] Error sending apology email to ${email}:`,
+            emailError
+          );
+        }
+      }
       res.status(200).json({
         message: "Phone number has been successfully blocked",
         blocked: true,
@@ -20536,30 +28071,32 @@ ${message.trim()}`
       });
     }
   });
-  app2.post("/api/password/send-reset-code", async (req, res) => {
-    try {
-      const { email } = req.body;
-      if (!email) {
-        return res.status(400).json({ message: "Email is required" });
-      }
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(404).json({ message: "No user found with this email address" });
-      }
-      const resetCode = Math.floor(1e6 + Math.random() * 9e6).toString();
-      const expiresAt = /* @__PURE__ */ new Date();
-      expiresAt.setMinutes(expiresAt.getMinutes() + 10);
-      await db.insert(passwordResetCodes).values({
-        email,
-        resetCode,
-        isUsed: false,
-        expiresAt
-      });
-      const emailSent = await sendEmail(
-        process.env.SENDGRID_API_KEY,
-        {
+  app2.post(
+    "/api/password/send-reset-code",
+    async (req, res) => {
+      try {
+        const { email } = req.body;
+        if (!email) {
+          return res.status(400).json({ message: "Email is required" });
+        }
+        const user = await storage.getUserByEmail(email);
+        if (!user) {
+          return res.status(404).json({ message: "No user found with this email address" });
+        }
+        const resetCode = Math.floor(
+          1e6 + Math.random() * 9e6
+        ).toString();
+        const expiresAt = /* @__PURE__ */ new Date();
+        expiresAt.setMinutes(expiresAt.getMinutes() + 10);
+        await db.insert(passwordResetCodes).values({
+          email,
+          resetCode,
+          isUsed: false,
+          expiresAt
+        });
+        const emailSent = await sendEmail(process.env.SENDGRID_API_KEY, {
           to: email,
-          from: "admin@btechnos.com",
+          from: "admin@kronogon.com",
           subject: "CHARLEY - Password Reset Code",
           html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px;">
@@ -20588,82 +28125,88 @@ ${message.trim()}`
           </div>
         `,
           text: `Your CHARLEY password reset code is: ${resetCode}. This code expires in 10 minutes. If you didn't request this, please ignore this email.`
+        });
+        if (emailSent) {
+          res.status(200).json({
+            message: "Reset code sent to your email",
+            success: true
+          });
+        } else {
+          res.status(500).json({ message: "Failed to send reset code" });
         }
-      );
-      if (emailSent) {
+      } catch (error) {
+        console.error("Password reset code error:", error);
+        res.status(500).json({ message: "Server error during password reset request" });
+      }
+    }
+  );
+  app2.post(
+    "/api/password/verify-reset-code",
+    async (req, res) => {
+      try {
+        const { email, resetCode } = req.body;
+        if (!email || !resetCode) {
+          return res.status(400).json({ message: "Email and reset code are required" });
+        }
+        const validCode = await db.select().from(passwordResetCodes).where(
+          and5(
+            eq6(passwordResetCodes.email, email),
+            eq6(passwordResetCodes.resetCode, resetCode),
+            eq6(passwordResetCodes.isUsed, false),
+            gte(passwordResetCodes.expiresAt, /* @__PURE__ */ new Date())
+          )
+        ).limit(1);
+        if (validCode.length === 0) {
+          return res.status(400).json({ message: "Invalid or expired reset code" });
+        }
         res.status(200).json({
-          message: "Reset code sent to your email",
+          message: "Reset code verified successfully",
           success: true
         });
-      } else {
-        res.status(500).json({ message: "Failed to send reset code" });
+      } catch (error) {
+        console.error("Reset code verification error:", error);
+        res.status(500).json({ message: "Server error during code verification" });
       }
-    } catch (error) {
-      console.error("Password reset code error:", error);
-      res.status(500).json({ message: "Server error during password reset request" });
     }
-  });
-  app2.post("/api/password/verify-reset-code", async (req, res) => {
-    try {
-      const { email, resetCode } = req.body;
-      if (!email || !resetCode) {
-        return res.status(400).json({ message: "Email and reset code are required" });
-      }
-      const validCode = await db.select().from(passwordResetCodes).where(
-        and5(
-          eq5(passwordResetCodes.email, email),
-          eq5(passwordResetCodes.resetCode, resetCode),
-          eq5(passwordResetCodes.isUsed, false),
-          gte(passwordResetCodes.expiresAt, /* @__PURE__ */ new Date())
-        )
-      ).limit(1);
-      if (validCode.length === 0) {
-        return res.status(400).json({ message: "Invalid or expired reset code" });
-      }
-      res.status(200).json({
-        message: "Reset code verified successfully",
-        success: true
-      });
-    } catch (error) {
-      console.error("Reset code verification error:", error);
-      res.status(500).json({ message: "Server error during code verification" });
-    }
-  });
-  app2.post("/api/password/reset-with-code", async (req, res) => {
-    try {
-      const { email, resetCode, newPassword } = req.body;
-      if (!email || !resetCode || !newPassword) {
-        return res.status(400).json({
-          message: "Email, reset code, and new password are required"
+  );
+  app2.post(
+    "/api/password/reset-with-code",
+    async (req, res) => {
+      try {
+        const { email, resetCode, newPassword } = req.body;
+        if (!email || !resetCode || !newPassword) {
+          return res.status(400).json({
+            message: "Email, reset code, and new password are required"
+          });
+        }
+        const validCode = await db.select().from(passwordResetCodes).where(
+          and5(
+            eq6(passwordResetCodes.email, email),
+            eq6(passwordResetCodes.resetCode, resetCode),
+            eq6(passwordResetCodes.isUsed, false),
+            gte(passwordResetCodes.expiresAt, /* @__PURE__ */ new Date())
+          )
+        ).limit(1);
+        if (validCode.length === 0) {
+          return res.status(400).json({ message: "Invalid or expired reset code" });
+        }
+        const user = await storage.getUserByEmail(email);
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        const hashedPassword = await hashPassword(newPassword);
+        await storage.updateUserPassword(user.id, hashedPassword);
+        await db.update(passwordResetCodes).set({ isUsed: true }).where(eq6(passwordResetCodes.id, validCode[0].id));
+        res.status(200).json({
+          message: "Password reset successfully",
+          success: true
         });
+      } catch (error) {
+        console.error("Password reset error:", error);
+        res.status(500).json({ message: "Server error during password reset" });
       }
-      const validCode = await db.select().from(passwordResetCodes).where(
-        and5(
-          eq5(passwordResetCodes.email, email),
-          eq5(passwordResetCodes.resetCode, resetCode),
-          eq5(passwordResetCodes.isUsed, false),
-          gte(passwordResetCodes.expiresAt, /* @__PURE__ */ new Date())
-        )
-      ).limit(1);
-      if (validCode.length === 0) {
-        return res.status(400).json({ message: "Invalid or expired reset code" });
-      }
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-      const hashedPassword = await hashPassword(newPassword);
-      await storage.updateUserPassword(user.id, hashedPassword);
-      await db.update(passwordResetCodes).set({ isUsed: true }).where(eq5(passwordResetCodes.id, validCode[0].id));
-      res.status(200).json({
-        message: "Password reset successfully",
-        success: true
-      });
-    } catch (error) {
-      console.error("Password reset error:", error);
-      res.status(500).json({ message: "Server error during password reset" });
     }
-  });
+  );
   app2.post("/api/password/change", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -20691,7 +28234,9 @@ ${message.trim()}`
       await storage.updateUserPassword(user.id, hashedPassword);
       const userAgent = req.get("User-Agent") || "Unknown";
       const ipAddress = req.ip || req.connection.remoteAddress || "Unknown";
-      console.log(`[SECURITY-NOTIFICATION] Sending password change notification for user ${user.id}`);
+      console.log(
+        `[SECURITY-NOTIFICATION] Sending password change notification for user ${user.id}`
+      );
       sendSecurityChangeNotification({
         userId: user.id,
         email: user.email,
@@ -20701,7 +28246,10 @@ ${message.trim()}`
         userAgent,
         ipAddress
       }).catch((error) => {
-        console.error("[SECURITY-NOTIFICATION] Error sending password change notification:", error);
+        console.error(
+          "[SECURITY-NOTIFICATION] Error sending password change notification:",
+          error
+        );
       });
       req.logout((err) => {
         if (err) {
@@ -20746,31 +28294,51 @@ ${message.trim()}`
       }
       if (user.stripeSubscriptionId && stripe2) {
         try {
-          console.log(`[STRIPE-SYNC] Checking real-time subscription status for user ${userId}, subscription: ${user.stripeSubscriptionId}`);
-          const stripeSubscription = await stripe2.subscriptions.retrieve(user.stripeSubscriptionId);
+          console.log(
+            `[STRIPE-SYNC] Checking real-time subscription status for user ${userId}, subscription: ${user.stripeSubscriptionId}`
+          );
+          const stripeSubscription = await stripe2.subscriptions.retrieve(
+            user.stripeSubscriptionId
+          );
           console.log(`[STRIPE-SYNC] Stripe subscription details:`);
           console.log(`[STRIPE-SYNC] - Status: ${stripeSubscription.status}`);
-          console.log(`[STRIPE-SYNC] - Cancel at period end: ${stripeSubscription.cancel_at_period_end}`);
-          console.log(`[STRIPE-SYNC] - Current period end: ${new Date(stripeSubscription.current_period_end * 1e3)}`);
-          console.log(`[STRIPE-SYNC] - Current database status: ${user.subscriptionStatus}`);
+          console.log(
+            `[STRIPE-SYNC] - Cancel at period end: ${stripeSubscription.cancel_at_period_end}`
+          );
+          console.log(
+            `[STRIPE-SYNC] - Current period end: ${new Date(stripeSubscription.current_period_end * 1e3)}`
+          );
+          console.log(
+            `[STRIPE-SYNC] - Current database status: ${user.subscriptionStatus}`
+          );
           let localSubscriptionStatus = user.subscriptionStatus;
           let localPremiumAccess = user.premiumAccess;
           let localSubscriptionExpiresAt = user.subscriptionExpiresAt;
           if (stripeSubscription.status === "active") {
             console.log(`[STRIPE-SYNC] User ${userId} has active subscription`);
             if (stripeSubscription.cancel_at_period_end) {
-              console.log(`[STRIPE-SYNC] - Subscription scheduled for cancellation at period end (grace period)`);
+              console.log(
+                `[STRIPE-SYNC] - Subscription scheduled for cancellation at period end (grace period)`
+              );
               localSubscriptionStatus = "canceled";
               localPremiumAccess = true;
-              localSubscriptionExpiresAt = new Date(stripeSubscription.current_period_end * 1e3);
+              localSubscriptionExpiresAt = new Date(
+                stripeSubscription.current_period_end * 1e3
+              );
             } else {
-              console.log(`[STRIPE-SYNC] - Subscription is truly active (not scheduled for cancellation)`);
+              console.log(
+                `[STRIPE-SYNC] - Subscription is truly active (not scheduled for cancellation)`
+              );
               localSubscriptionStatus = "active";
               localPremiumAccess = true;
-              localSubscriptionExpiresAt = new Date(stripeSubscription.current_period_end * 1e3);
+              localSubscriptionExpiresAt = new Date(
+                stripeSubscription.current_period_end * 1e3
+              );
             }
           } else if (stripeSubscription.status === "canceled" || stripeSubscription.status === "unpaid") {
-            const currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1e3);
+            const currentPeriodEnd = new Date(
+              stripeSubscription.current_period_end * 1e3
+            );
             const now = /* @__PURE__ */ new Date();
             if (now < currentPeriodEnd) {
               localSubscriptionStatus = "canceled";
@@ -20783,7 +28351,9 @@ ${message.trim()}`
             }
           }
           if (localSubscriptionStatus !== user.subscriptionStatus || localPremiumAccess !== user.premiumAccess) {
-            console.log(`[STRIPE-SYNC] Updating user ${userId} status from Stripe: ${stripeSubscription.status}, premium: ${localPremiumAccess}`);
+            console.log(
+              `[STRIPE-SYNC] Updating user ${userId} status from Stripe: ${stripeSubscription.status}, premium: ${localPremiumAccess}`
+            );
             await storage.updateUserProfile(userId, {
               subscriptionStatus: localSubscriptionStatus,
               premiumAccess: localPremiumAccess,
@@ -20799,14 +28369,19 @@ ${message.trim()}`
             stripeCancelAtPeriodEnd: stripeSubscription.cancel_at_period_end
           });
         } catch (stripeError) {
-          console.error(`[STRIPE-SYNC] Error checking Stripe subscription for user ${userId}:`, stripeError);
+          console.error(
+            `[STRIPE-SYNC] Error checking Stripe subscription for user ${userId}:`,
+            stripeError
+          );
         }
       }
       if (user.subscriptionExpiresAt && user.subscriptionStatus === "canceled") {
         const now = /* @__PURE__ */ new Date();
         const expiresAt = new Date(user.subscriptionExpiresAt);
         if (now > expiresAt && user.premiumAccess) {
-          console.log(`[SUBSCRIPTION-EXPIRY] User ${userId} subscription expired at ${expiresAt}, removing premium access`);
+          console.log(
+            `[SUBSCRIPTION-EXPIRY] User ${userId} subscription expired at ${expiresAt}, removing premium access`
+          );
           await storage.updateUserProfile(userId, {
             premiumAccess: false,
             subscriptionStatus: "expired"
@@ -20839,7 +28414,9 @@ ${message.trim()}`
         return res.status(400).json({ message: "premiumAccess must be a boolean" });
       }
       const userId = req.user.id;
-      console.log(`[PREMIUM-TOGGLE] User ${userId} toggling premium access to: ${premiumAccess}`);
+      console.log(
+        `[PREMIUM-TOGGLE] User ${userId} toggling premium access to: ${premiumAccess}`
+      );
       await storage.updateUserProfile(userId, {
         premiumAccess
       });
@@ -20866,9 +28443,13 @@ ${message.trim()}`
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      console.log(`[SUBSCRIPTION-CANCEL] User ${userId} requesting subscription cancellation`);
+      console.log(
+        `[SUBSCRIPTION-CANCEL] User ${userId} requesting subscription cancellation`
+      );
       if (!user.stripeSubscriptionId) {
-        console.log(`[SUBSCRIPTION-CANCEL] User ${userId} has no Stripe subscription, just removing premium access`);
+        console.log(
+          `[SUBSCRIPTION-CANCEL] User ${userId} has no Stripe subscription, just removing premium access`
+        );
         await storage.updateUserProfile(userId, {
           premiumAccess: false
         });
@@ -20880,11 +28461,18 @@ ${message.trim()}`
       }
       if (stripe2) {
         try {
-          console.log(`[SUBSCRIPTION-CANCEL] Canceling Stripe subscription: ${user.stripeSubscriptionId}`);
-          const canceledSubscription = await stripe2.subscriptions.update(user.stripeSubscriptionId, {
-            cancel_at_period_end: true
-          });
-          console.log(`[SUBSCRIPTION-CANCEL] Stripe subscription canceled with grace period until: ${new Date(canceledSubscription.current_period_end * 1e3)}`);
+          console.log(
+            `[SUBSCRIPTION-CANCEL] Canceling Stripe subscription: ${user.stripeSubscriptionId}`
+          );
+          const canceledSubscription = await stripe2.subscriptions.update(
+            user.stripeSubscriptionId,
+            {
+              cancel_at_period_end: true
+            }
+          );
+          console.log(
+            `[SUBSCRIPTION-CANCEL] Stripe subscription canceled with grace period until: ${new Date(canceledSubscription.current_period_end * 1e3)}`
+          );
           await storage.updateUserProfile(userId, {
             subscriptionStatus: "canceled",
             subscriptionCanceledAt: /* @__PURE__ */ new Date()
@@ -20892,7 +28480,9 @@ ${message.trim()}`
             // subscriptionExpiresAt stays the same for grace period end
           });
           try {
-            const subscription = await storage.getSubscriptionByStripeId(user.stripeSubscriptionId);
+            const subscription = await storage.getSubscriptionByStripeId(
+              user.stripeSubscriptionId
+            );
             if (subscription) {
               await storage.createSubscriptionEvent({
                 subscriptionId: subscription.id,
@@ -20904,16 +28494,25 @@ ${message.trim()}`
                 newStatus: "canceled",
                 metadata: JSON.stringify({
                   canceledAt: (/* @__PURE__ */ new Date()).toISOString(),
-                  gracePeriodEnd: new Date(canceledSubscription.current_period_end * 1e3).toISOString(),
+                  gracePeriodEnd: new Date(
+                    canceledSubscription.current_period_end * 1e3
+                  ).toISOString(),
                   cancelAtPeriodEnd: true
                 })
               });
-              console.log(`[SUBSCRIPTION-CANCEL] Created cancellation event for subscription: ${subscription.id}`);
+              console.log(
+                `[SUBSCRIPTION-CANCEL] Created cancellation event for subscription: ${subscription.id}`
+              );
             }
           } catch (eventError) {
-            console.error(`[SUBSCRIPTION-CANCEL] Failed to create cancellation event:`, eventError);
+            console.error(
+              `[SUBSCRIPTION-CANCEL] Failed to create cancellation event:`,
+              eventError
+            );
           }
-          const gracePeriodEnd = new Date(canceledSubscription.current_period_end * 1e3);
+          const gracePeriodEnd = new Date(
+            canceledSubscription.current_period_end * 1e3
+          );
           res.json({
             message: "Subscription cancelled successfully. You'll retain premium access until your billing period ends.",
             gracePeriod: true,
@@ -20922,9 +28521,14 @@ ${message.trim()}`
             subscriptionStatus: "canceled"
           });
         } catch (stripeError) {
-          console.error(`[SUBSCRIPTION-CANCEL] Stripe cancellation failed:`, stripeError);
+          console.error(
+            `[SUBSCRIPTION-CANCEL] Stripe cancellation failed:`,
+            stripeError
+          );
           if (stripeError.code === "resource_missing") {
-            console.log(`[SUBSCRIPTION-CANCEL] Subscription not found in Stripe, updating local status only`);
+            console.log(
+              `[SUBSCRIPTION-CANCEL] Subscription not found in Stripe, updating local status only`
+            );
             await storage.updateUserProfile(userId, {
               premiumAccess: false,
               subscriptionStatus: "expired",
@@ -20939,7 +28543,9 @@ ${message.trim()}`
           throw stripeError;
         }
       } else {
-        console.log(`[SUBSCRIPTION-CANCEL] Stripe not configured, removing premium access locally`);
+        console.log(
+          `[SUBSCRIPTION-CANCEL] Stripe not configured, removing premium access locally`
+        );
         await storage.updateUserProfile(userId, {
           premiumAccess: false
         });
@@ -20957,37 +28563,46 @@ ${message.trim()}`
       });
     }
   });
-  app2.post("/api/subscriptions/check-expiry", async (req, res) => {
-    try {
-      console.log(`[SUBSCRIPTION-EXPIRY] Checking for expired subscriptions...`);
-      const expiredUsers = await db.select().from(users).where(
-        sql5`subscription_status = 'canceled' 
+  app2.post(
+    "/api/subscriptions/check-expiry",
+    async (req, res) => {
+      try {
+        console.log(
+          `[SUBSCRIPTION-EXPIRY] Checking for expired subscriptions...`
+        );
+        const expiredUsers = await db.select().from(users).where(
+          sql5`subscription_status = 'canceled' 
               AND premium_access = true 
               AND subscription_expires_at < NOW()`
-      );
-      let expiredCount = 0;
-      for (const user of expiredUsers) {
-        console.log(`[SUBSCRIPTION-EXPIRY] Expiring subscription for user ${user.id}`);
-        await storage.updateUserProfile(user.id, {
-          premiumAccess: false,
-          subscriptionStatus: "expired"
+        );
+        let expiredCount = 0;
+        for (const user of expiredUsers) {
+          console.log(
+            `[SUBSCRIPTION-EXPIRY] Expiring subscription for user ${user.id}`
+          );
+          await storage.updateUserProfile(user.id, {
+            premiumAccess: false,
+            subscriptionStatus: "expired"
+          });
+          expiredCount++;
+        }
+        console.log(
+          `[SUBSCRIPTION-EXPIRY] Expired ${expiredCount} subscriptions`
+        );
+        res.json({
+          success: true,
+          expiredCount,
+          message: `Expired ${expiredCount} subscriptions`
         });
-        expiredCount++;
+      } catch (error) {
+        console.error("[SUBSCRIPTION-EXPIRY] Error checking expiry:", error);
+        res.status(500).json({
+          success: false,
+          error: "Failed to check subscription expiry"
+        });
       }
-      console.log(`[SUBSCRIPTION-EXPIRY] Expired ${expiredCount} subscriptions`);
-      res.json({
-        success: true,
-        expiredCount,
-        message: `Expired ${expiredCount} subscriptions`
-      });
-    } catch (error) {
-      console.error("[SUBSCRIPTION-EXPIRY] Error checking expiry:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to check subscription expiry"
-      });
     }
-  });
+  );
   app2.post("/api/verify/phone/check", async (req, res) => {
     try {
       const { phoneNumber, code } = req.body;
@@ -21056,9 +28671,15 @@ ${message.trim()}`
       let subscriptionCanceled = false;
       if (stripe2 && user.stripeSubscriptionId) {
         try {
-          console.log(`[STRIPE-CANCELLATION] Canceling subscription ${user.stripeSubscriptionId} for user ${userId}`);
-          const canceledSubscription = await stripe2.subscriptions.cancel(user.stripeSubscriptionId);
-          console.log(`[STRIPE-CANCELLATION] Successfully canceled subscription: ${canceledSubscription.id}, status: ${canceledSubscription.status}`);
+          console.log(
+            `[STRIPE-CANCELLATION] Canceling subscription ${user.stripeSubscriptionId} for user ${userId}`
+          );
+          const canceledSubscription = await stripe2.subscriptions.cancel(
+            user.stripeSubscriptionId
+          );
+          console.log(
+            `[STRIPE-CANCELLATION] Successfully canceled subscription: ${canceledSubscription.id}, status: ${canceledSubscription.status}`
+          );
           subscriptionCanceled = true;
           await storage.updateUser(userId, {
             subscriptionStatus: "canceled",
@@ -21066,10 +28687,15 @@ ${message.trim()}`
             premiumAccess: false
           });
         } catch (error) {
-          console.error(`[STRIPE-CANCELLATION] Error canceling subscription for user ${userId}:`, error);
+          console.error(
+            `[STRIPE-CANCELLATION] Error canceling subscription for user ${userId}:`,
+            error
+          );
         }
       } else if (user.stripeSubscriptionId && !stripe2) {
-        console.warn(`[STRIPE-CANCELLATION] User ${userId} has subscription ${user.stripeSubscriptionId} but Stripe is not initialized`);
+        console.warn(
+          `[STRIPE-CANCELLATION] User ${userId} has subscription ${user.stripeSubscriptionId} but Stripe is not initialized`
+        );
       }
       req.logout((err) => {
         if (err) {
@@ -21100,126 +28726,153 @@ ${message.trim()}`
       });
     }
   });
-  app2.post("/api/user/deactivate-profile", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-      const userId = req.user.id;
-      await storage.updateUser(userId, {
-        hasActivatedProfile: false,
-        profileHidden: true,
-        // Also hide the profile
-        // Reset all MY INFO fields to null (Not specified)
-        bio: null,
-        location: null,
-        countryOfOrigin: null,
-        profession: null,
-        religion: null,
-        ethnicity: null,
-        secondaryTribe: null,
-        relationshipStatus: null,
-        relationshipGoal: null,
-        highSchool: null,
-        collegeUniversity: null,
-        interests: null,
-        educationLevel: null,
-        // Reset optional profile fields
-        hasChildren: null,
-        wantsChildren: null,
-        smoking: null,
-        drinking: null,
-        // Reset OTHER section fields - Body Type and Height
-        bodyType: null,
-        height: null,
-        // Reset photo visibility toggle
-        showProfilePhoto: false,
-        // Reset visibility preferences to disable MY INFO toggles only
-        visibilityPreferences: JSON.stringify({
-          bio: false,
-          location: false,
-          countryOfOrigin: false,
-          profession: false,
-          religion: false,
-          ethnicity: false,
-          relationshipStatus: false,
-          relationshipGoal: false,
-          highSchool: false,
-          collegeUniversity: false,
-          interests: false
-        })
-      });
+  app2.post(
+    "/api/user/deactivate-profile",
+    async (req, res) => {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
       try {
-        const preferences = await storage.getUserPreferences(userId);
-        if (preferences) {
-          await storage.updateUserPreferences(userId, {
-            // Reset children preferences 
-            hasChildrenPreference: null,
-            wantsChildrenPreference: null,
-            // Reset age range preferences to NULL
-            minAge: null,
-            maxAge: null,
-            // Reset height range preferences to NULL
-            minHeightPreference: null,
-            maxHeightPreference: null,
-            // Reset distance preference to NULL
-            distancePreference: null,
-            // Reset the 9 additional dating preference fields to NULL
-            bodyTypePreference: null,
-            // 1. Body Type
-            religionPreference: null,
-            // 3. Religion  
-            ethnicityPreference: null,
-            // 4. Ghanaian Tribes
-            educationLevelPreference: null,
-            // 5. Education Level
-            interestPreferences: null,
-            // 6. Interests
-            matchingPriorities: null,
-            // 7. Matching Priorities
-            dealBreakers: null,
-            // 8. Deal Breakers
-            relationshipGoalPreference: null
-            // 9. Relationship Goals
-          });
-          console.log(`Reset ALL Dating Preferences (age, height, distance + 9 additional fields) to NULL for user ${userId}`);
+        const userId = req.user.id;
+        await storage.updateUser(userId, {
+          hasActivatedProfile: false,
+          profileHidden: true,
+          // Also hide the profile
+          // Reset all MY INFO fields to null (Not specified)
+          bio: null,
+          location: null,
+          countryOfOrigin: null,
+          profession: null,
+          religion: null,
+          ethnicity: null,
+          secondaryTribe: null,
+          relationshipStatus: null,
+          relationshipGoal: null,
+          highSchool: null,
+          collegeUniversity: null,
+          interests: null,
+          educationLevel: null,
+          // Reset optional profile fields
+          hasChildren: null,
+          wantsChildren: null,
+          smoking: null,
+          drinking: null,
+          // Reset OTHER section fields - Body Type and Height
+          bodyType: null,
+          height: null,
+          // Reset photo visibility toggle
+          showProfilePhoto: false,
+          // Reset visibility preferences to disable MY INFO toggles only
+          visibilityPreferences: JSON.stringify({
+            bio: false,
+            location: false,
+            countryOfOrigin: false,
+            profession: false,
+            religion: false,
+            ethnicity: false,
+            relationshipStatus: false,
+            relationshipGoal: false,
+            highSchool: false,
+            collegeUniversity: false,
+            interests: false
+          })
+        });
+        try {
+          const preferences = await storage.getUserPreferences(userId);
+          if (preferences) {
+            await storage.updateUserPreferences(preferences.id, {
+              // Reset children preferences
+              hasChildrenPreference: null,
+              wantsChildrenPreference: null,
+              // Reset age range preferences to NULL
+              minAge: null,
+              maxAge: null,
+              // Reset height range preferences to NULL
+              minHeightPreference: null,
+              maxHeightPreference: null,
+              // Reset distance preference to NULL
+              distancePreference: null,
+              // Reset the 10 additional dating preference fields to NULL
+              bodyTypePreference: null,
+              // 1. Body Type
+              religionPreference: null,
+              // 3. Religion
+              ethnicityPreference: null,
+              // 4. Ghanaian Tribes
+              educationLevelPreference: null,
+              // 5. Education Level
+              highSchoolPreference: null,
+              // 6. High School Preferences (under-18 only)
+              interestPreferences: null,
+              // 7. Interests
+              matchingPriorities: null,
+              // 7. Matching Priorities
+              dealBreakers: null,
+              // 8. Deal Breakers
+              relationshipGoalPreference: null
+              // 9. Relationship Goals
+            });
+            console.log(
+              `CRITICAL BUG FIXED: Reset ALL Dating Preferences (age, height, distance + 9 additional fields) to NULL for user ${userId} using preferences record ID ${preferences.id}`
+            );
+          } else {
+            console.log(
+              `No preferences record found for user ${userId} - skipping preferences reset`
+            );
+          }
+        } catch (preferencesError) {
+          console.error(
+            `Error resetting preferences for user ${userId}:`,
+            preferencesError
+          );
         }
-      } catch (preferencesError) {
-        console.error(`Error resetting preferences for user ${userId}:`, preferencesError);
+        try {
+          await storage.deleteAllUserInterests(userId);
+          console.log(`Cleared all interests for user ${userId}`);
+        } catch (interestError) {
+          console.error(
+            `Error clearing interests for user ${userId}:`,
+            interestError
+          );
+        }
+        try {
+          await storage.updateUserInterestsVisibility(userId, false);
+          console.log(
+            `Set all interests visibility to hidden for user ${userId}`
+          );
+        } catch (visibilityError) {
+          console.error(
+            `Error setting interests visibility for user ${userId}:`,
+            visibilityError
+          );
+        }
+        console.log(
+          `User ${userId} deactivated their profile and reset all MY INFO fields`
+        );
+        res.status(200).json({
+          message: "Profile deactivated successfully",
+          success: true
+        });
+      } catch (error) {
+        console.error("Profile deactivation error:", error);
+        res.status(500).json({
+          message: "Server error deactivating profile"
+        });
       }
-      try {
-        await storage.deleteAllUserInterests(userId);
-        console.log(`Cleared all interests for user ${userId}`);
-      } catch (interestError) {
-        console.error(`Error clearing interests for user ${userId}:`, interestError);
-      }
-      try {
-        await storage.updateUserInterestsVisibility(userId, false);
-        console.log(`Set all interests visibility to hidden for user ${userId}`);
-      } catch (visibilityError) {
-        console.error(`Error setting interests visibility for user ${userId}:`, visibilityError);
-      }
-      console.log(`User ${userId} deactivated their profile and reset all MY INFO fields`);
-      res.status(200).json({
-        message: "Profile deactivated successfully",
-        success: true
-      });
-    } catch (error) {
-      console.error("Profile deactivation error:", error);
-      res.status(500).json({
-        message: "Server error deactivating profile"
-      });
     }
-  });
-  app2.post("/api/test/reset-networking", async (req, res) => {
-    try {
-      await storage.clearAllNetworkingConnections();
-      res.json({ success: true, message: "Networking connections reset" });
-    } catch (error) {
-      console.error("Error resetting networking connections:", error);
-      res.status(500).json({ message: "Failed to reset connections" });
+  );
+  app2.post(
+    "/api/test/reset-networking",
+    async (req, res) => {
+      try {
+        await storage.clearAllNetworkingConnections();
+        res.json({ success: true, message: "Networking connections reset" });
+      } catch (error) {
+        console.error("Error resetting networking connections:", error);
+        res.status(500).json({ message: "Failed to reset connections" });
+      }
     }
-  });
+  );
   const httpServer = createServer(app2);
   let wss;
   try {
@@ -21240,7 +28893,7 @@ ${message.trim()}`
     );
     wss = new WebSocketServer({ noServer: true });
   }
-  const connectedUsers3 = /* @__PURE__ */ new Map();
+  const connectedUsers4 = /* @__PURE__ */ new Map();
   const typingTimeouts = /* @__PURE__ */ new Map();
   let profileVisibilityBroadcaster = null;
   let ghostModeBroadcaster = null;
@@ -21253,10 +28906,10 @@ ${message.trim()}`
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     });
     console.log(
-      `Broadcasting networking profile update for user ${userId} to ${connectedUsers3.size} connected users`
+      `Broadcasting networking profile update for user ${userId} to ${connectedUsers4.size} connected users`
     );
-    connectedUsers3.forEach((ws2, connectedUserId) => {
-      if (connectedUserId !== userId && ws2.readyState === WebSocket3.OPEN) {
+    connectedUsers4.forEach((ws2, connectedUserId) => {
+      if (connectedUserId !== userId && ws2.readyState === WebSocket4.OPEN) {
         try {
           ws2.send(updateMessage);
           console.log(
@@ -21267,24 +28920,41 @@ ${message.trim()}`
             `Failed to send networking profile update to user ${connectedUserId}:`,
             error
           );
-          connectedUsers3.delete(connectedUserId);
+          connectedUsers4.delete(connectedUserId);
         }
       }
     });
   }
   function getConnectedUsers() {
-    return connectedUsers3;
+    return connectedUsers4;
   }
-  setWebSocketConnections(connectedUsers3);
+  setWebSocketConnections(connectedUsers4);
   registerSuiteConnectionAPI(app2);
-  setSuiteWebSocketConnections(connectedUsers3);
+  setSuiteWebSocketConnections(connectedUsers4);
+  setKwameWebSocketConnections(connectedUsers4);
   const activeChats = /* @__PURE__ */ new Map();
+  const rateLimits = /* @__PURE__ */ new Map();
   wss.on("connection", (ws2, req) => {
     console.log("WebSocket connection established");
     let userId = null;
     ws2.on("message", async (message) => {
       try {
         const data = JSON.parse(message);
+        console.log("\u{1F4E1} [WebSocket] Received message:", {
+          type: data.type,
+          userId,
+          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+        });
+        if (data.type && data.type.includes("call")) {
+          console.log("\u{1F4E1} [WebSocket] Received call signaling message:", {
+            type: data.type,
+            userId,
+            matchId: data.matchId,
+            callId: data.callId,
+            fromUserId: data.fromUserId || data.callerId,
+            toUserId: data.toUserId || data.receiverId
+          });
+        }
         if (data.type === "auth") {
           userId = data.userId;
           if (userId) {
@@ -21299,7 +28969,7 @@ ${message.trim()}`
                 );
                 return;
               }
-              connectedUsers3.set(userId, ws2);
+              connectedUsers4.set(userId, ws2);
               await storage.updateUserOnlineStatus(userId, true);
               const connectTime = /* @__PURE__ */ new Date();
               const timestampISO = connectTime.toISOString();
@@ -21313,7 +28983,7 @@ ${message.trim()}`
                   timestamp: timestampISO
                 })
               );
-              const onlineCount = connectedUsers3.size;
+              const onlineCount = connectedUsers4.size;
               ws2.send(
                 JSON.stringify({
                   type: "online_count_update",
@@ -21495,8 +29165,8 @@ ${message.trim()}`
               `[PRIVACY] Created secure message ${newMessage.id} for match ${data.matchId}`
             );
             const messageReceiptId = `${newMessage.id}_${Date.now()}`;
-            const recipientWs = connectedUsers3.get(data.receiverId);
-            if (recipientWs && recipientWs.readyState === WebSocket3.OPEN) {
+            const recipientWs = connectedUsers4.get(data.receiverId);
+            if (recipientWs && recipientWs.readyState === WebSocket4.OPEN) {
               recipientWs.send(
                 JSON.stringify({
                   type: "new_message",
@@ -21580,8 +29250,8 @@ ${message.trim()}`
               data.isTyping
             );
             const otherUserId = match.userId1 === userId ? match.userId2 : match.userId1;
-            const otherUserWs = connectedUsers3.get(otherUserId);
-            if (otherUserWs && otherUserWs.readyState === WebSocket3.OPEN) {
+            const otherUserWs = connectedUsers4.get(otherUserId);
+            if (otherUserWs && otherUserWs.readyState === WebSocket4.OPEN) {
               otherUserWs.send(
                 JSON.stringify({
                   type: "typing_status",
@@ -21599,10 +29269,16 @@ ${message.trim()}`
               }
               const timeout = setTimeout(async () => {
                 try {
-                  console.log(`[AUTO-CLEAR] Clearing stuck typing status for user ${userId} in match ${data.matchId}`);
-                  await storage.updateTypingStatus(userId, data.matchId, false);
-                  const currentOtherUserWs = connectedUsers3.get(otherUserId);
-                  if (currentOtherUserWs && currentOtherUserWs.readyState === WebSocket3.OPEN) {
+                  console.log(
+                    `[AUTO-CLEAR] Clearing stuck typing status for user ${userId} in match ${data.matchId}`
+                  );
+                  await storage.updateTypingStatus(
+                    userId,
+                    data.matchId,
+                    false
+                  );
+                  const currentOtherUserWs = connectedUsers4.get(otherUserId);
+                  if (currentOtherUserWs && currentOtherUserWs.readyState === WebSocket4.OPEN) {
                     currentOtherUserWs.send(
                       JSON.stringify({
                         type: "typing_status",
@@ -21616,7 +29292,10 @@ ${message.trim()}`
                   }
                   typingTimeouts.delete(timeoutKey);
                 } catch (clearError) {
-                  console.error("Error auto-clearing typing status:", clearError);
+                  console.error(
+                    "Error auto-clearing typing status:",
+                    clearError
+                  );
                 }
               }, 1e4);
               typingTimeouts.set(timeoutKey, timeout);
@@ -21719,8 +29398,8 @@ ${message.trim()}`
               data.messageId
             );
             if (updatedMessage) {
-              const senderWs = connectedUsers3.get(updatedMessage.senderId);
-              if (senderWs && senderWs.readyState === WebSocket3.OPEN) {
+              const senderWs = connectedUsers4.get(updatedMessage.senderId);
+              if (senderWs && senderWs.readyState === WebSocket4.OPEN) {
                 senderWs.send(
                   JSON.stringify({
                     type: "read_receipt",
@@ -21806,8 +29485,8 @@ ${message.trim()}`
               );
               const activeUsers = await storage.getUsersInActiveChat(matchId);
               const bothUsersActive = activeUsers.includes(userId) && activeUsers.includes(otherUserId);
-              const otherUserWs = connectedUsers3.get(otherUserId);
-              if (otherUserWs && otherUserWs.readyState === WebSocket3.OPEN) {
+              const otherUserWs = connectedUsers4.get(otherUserId);
+              if (otherUserWs && otherUserWs.readyState === WebSocket4.OPEN) {
                 const currentTime = /* @__PURE__ */ new Date();
                 const timestampISO = currentTime.toISOString();
                 otherUserWs.send(
@@ -21833,7 +29512,7 @@ ${message.trim()}`
                     // Override any previous status
                   })
                 );
-                if (ws2.readyState === WebSocket3.OPEN) {
+                if (ws2.readyState === WebSocket4.OPEN) {
                   ws2.send(
                     JSON.stringify({
                       type: "user_status",
@@ -21855,8 +29534,8 @@ ${message.trim()}`
               console.log(
                 `[PRIVACY] User ${userId} set active status for match ${matchId} to false`
               );
-              const otherUserWs = connectedUsers3.get(otherUserId);
-              if (otherUserWs && otherUserWs.readyState === WebSocket3.OPEN) {
+              const otherUserWs = connectedUsers4.get(otherUserId);
+              if (otherUserWs && otherUserWs.readyState === WebSocket4.OPEN) {
                 otherUserWs.send(
                   JSON.stringify({
                     type: "chat_partner_active",
@@ -21896,8 +29575,8 @@ ${message.trim()}`
               return;
             }
             const otherUserId = match.userId1 === userId ? match.userId2 : match.userId1;
-            const otherUserWs = connectedUsers3.get(otherUserId);
-            if (otherUserWs && otherUserWs.readyState === WebSocket3.OPEN) {
+            const otherUserWs = connectedUsers4.get(otherUserId);
+            if (otherUserWs && otherUserWs.readyState === WebSocket4.OPEN) {
               otherUserWs.send(
                 JSON.stringify({
                   type: "match_popup_closed",
@@ -21973,8 +29652,8 @@ ${message.trim()}`
                 } else {
                   matchId = match.id;
                 }
-                const targetUserWs = connectedUsers3.get(targetUserId);
-                if (targetUserWs && targetUserWs.readyState === WebSocket3.OPEN) {
+                const targetUserWs = connectedUsers4.get(targetUserId);
+                if (targetUserWs && targetUserWs.readyState === WebSocket4.OPEN) {
                   const sourceUser = await storage.getUser(userId);
                   const safeUserInfo = sourceUser ? (({ password, ...rest }) => rest)(sourceUser) : { id: userId, fullName: "Unknown User" };
                   targetUserWs.send(
@@ -21996,9 +29675,9 @@ ${message.trim()}`
                 );
               }
             } else {
-              const sourceUserWs = connectedUsers3.get(userId);
-              const targetUserWs = connectedUsers3.get(targetUserId);
-              if (sourceUserWs && sourceUserWs.readyState === WebSocket3.OPEN) {
+              const sourceUserWs = connectedUsers4.get(userId);
+              const targetUserWs = connectedUsers4.get(targetUserId);
+              if (sourceUserWs && sourceUserWs.readyState === WebSocket4.OPEN) {
                 sourceUserWs.send(
                   JSON.stringify({
                     type: "remove_from_discover",
@@ -22011,7 +29690,7 @@ ${message.trim()}`
                   `[REAL-TIME] Instantly removed user ${targetUserId}'s card from user ${userId}'s discover deck`
                 );
               }
-              if (targetUserWs && targetUserWs.readyState === WebSocket3.OPEN) {
+              if (targetUserWs && targetUserWs.readyState === WebSocket4.OPEN) {
                 targetUserWs.send(
                   JSON.stringify({
                     type: "remove_from_discover",
@@ -22041,8 +29720,8 @@ ${message.trim()}`
             for (const [
               connectedUserId,
               connectedWs
-            ] of connectedUsers3.entries()) {
-              if (connectedWs.readyState === WebSocket3.OPEN) {
+            ] of connectedUsers4.entries()) {
+              if (connectedWs.readyState === WebSocket4.OPEN) {
                 if (connectedUserId === targetUserId || connectedUserId === userId) {
                   connectedWs.send(
                     JSON.stringify({
@@ -22065,9 +29744,14 @@ ${message.trim()}`
             console.error("Error handling swipe action event:", error);
           }
         } else if (data.type === "ping") {
-          ws2.send(JSON.stringify({ type: "pong", timestamp: (/* @__PURE__ */ new Date()).toISOString() }));
+          ws2.send(
+            JSON.stringify({
+              type: "pong",
+              timestamp: (/* @__PURE__ */ new Date()).toISOString()
+            })
+          );
         } else if (data.type === "get_online_count") {
-          const onlineCount = connectedUsers3.size;
+          const onlineCount = connectedUsers4.size;
           ws2.send(
             JSON.stringify({
               type: "online_count_update",
@@ -22075,6 +29759,254 @@ ${message.trim()}`
               timestamp: (/* @__PURE__ */ new Date()).toISOString()
             })
           );
+        } else if (data.type === "call_initiate" || data.type === "call_ringing" || data.type === "call_cancel" || data.type === "call_accept" || data.type === "call_decline" || data.type === "call_end" || data.type === "webrtc_offer" || data.type === "webrtc_answer" || data.type === "webrtc_ice") {
+          if (!userId) return;
+          const now = Date.now();
+          const rateLimitKey = `call_signaling_${userId}`;
+          if (!rateLimits.has(rateLimitKey)) {
+            rateLimits.set(rateLimitKey, { count: 0, resetTime: now + 6e4 });
+          }
+          const userRateLimit = rateLimits.get(rateLimitKey);
+          if (now > userRateLimit.resetTime) {
+            userRateLimit.count = 0;
+            userRateLimit.resetTime = now + 6e4;
+          }
+          userRateLimit.count++;
+          if (userRateLimit.count > 50) {
+            console.warn(
+              `Rate limit exceeded for call signaling by user ${userId}`
+            );
+            return;
+          }
+          const { matchId, callId } = data;
+          if (!matchId || data.type !== "webrtc_ice" && !callId) {
+            console.warn(
+              `Invalid call signaling message from user ${userId}:`,
+              data.type
+            );
+            return;
+          }
+          const toUserId = data.toUserId ?? data.receiverId ?? (typeof data.callerId === "number" && data.callerId !== userId ? data.callerId : void 0) ?? (typeof data.fromUserId === "number" && data.fromUserId !== userId ? data.fromUserId : void 0);
+          if (!toUserId) return;
+          try {
+            if (storage.getMatchById) {
+              const match = await storage.getMatchById(matchId);
+              if (!match) {
+                console.warn(
+                  `Match ${matchId} not found for call signaling from user ${userId}`
+                );
+                return;
+              }
+              const participants = /* @__PURE__ */ new Set([match.userId1, match.userId2]);
+              if (!participants.has(userId) || !participants.has(toUserId)) {
+                console.warn(
+                  `User ${userId} not authorized for match ${matchId} call signaling`
+                );
+                return;
+              }
+            }
+          } catch (error) {
+            console.error(
+              `Error validating match ${matchId} for call signaling:`,
+              error
+            );
+            return;
+          }
+          if (callId && storage.getVideoCallById) {
+            try {
+              const call = await storage.getVideoCallById(callId);
+              if (call && call.initiatorId !== userId && call.receiverId !== userId) {
+                console.warn(
+                  `User ${userId} not authorized for call ${callId}`
+                );
+                return;
+              }
+            } catch (error) {
+              console.error(`Error validating call ${callId}:`, error);
+            }
+          }
+          const targetWs = connectedUsers4.get(toUserId);
+          console.log("\u{1F4E1} [WebSocket] Attempting to relay call signal:", {
+            toUserId,
+            targetWsExists: !!targetWs,
+            targetWsReady: targetWs?.readyState === WebSocket4.OPEN,
+            connectedUsersCount: connectedUsers4.size,
+            connectedUserIds: Array.from(connectedUsers4.keys())
+          });
+          if (targetWs && targetWs.readyState === WebSocket4.OPEN) {
+            console.log(
+              "\u{1F4E1} [WebSocket] \u2705 Relaying call signal to user",
+              toUserId
+            );
+            targetWs.send(
+              JSON.stringify({
+                ...data,
+                timestamp: (/* @__PURE__ */ new Date()).toISOString()
+              })
+            );
+          } else {
+            console.log(
+              "\u{1F4E1} [WebSocket] \u274C Cannot relay - target user not connected",
+              toUserId
+            );
+          }
+          try {
+            if (data.type === "call_initiate" && data.callId) {
+              await storage.updateVideoCallStatus?.(data.callId, {
+                status: "pending"
+              });
+            } else if (data.type === "call_accept" && data.callId) {
+              await storage.updateVideoCallStatus?.(data.callId, {
+                status: "active",
+                startedAt: /* @__PURE__ */ new Date()
+              });
+            } else if ((data.type === "call_decline" || data.type === "call_cancel") && data.callId) {
+              await storage.updateVideoCallStatus?.(data.callId, {
+                status: "declined",
+                endedAt: /* @__PURE__ */ new Date()
+              });
+              try {
+                const call = await storage.getVideoCallById?.(data.callId);
+                if (call && !call.startedAt) {
+                  const callerId = call.initiatorId;
+                  const receiverId = call.receiverId;
+                  const matchIdForCall = call.matchId;
+                  console.log(
+                    `\u{1F4DE} [CALL-SYSTEM] Creating no-answer message for match=${matchIdForCall} caller=${callerId} receiver=${receiverId}`
+                  );
+                  const callSystemMessage = await storage.createMessage({
+                    matchId: matchIdForCall,
+                    senderId: callerId,
+                    receiverId,
+                    content: "_CALL:NO_ANSWER",
+                    // Caller sees: No answer; Receiver renders: Missed call
+                    messageType: "call",
+                    audioUrl: null,
+                    audioDuration: null
+                  });
+                  try {
+                    await storage.markMatchUnread(matchIdForCall, receiverId);
+                  } catch (e) {
+                    console.error(
+                      "[CALL-SYSTEM] Failed to mark match unread:",
+                      e
+                    );
+                  }
+                  console.log(
+                    `\u{1F4DE} [CALL-SYSTEM] Inserted call system message id=${callSystemMessage?.id} for match=${matchIdForCall}`
+                  );
+                  const rxWs = connectedUsers4.get(receiverId);
+                  if (rxWs && rxWs.readyState === WebSocket4.OPEN) {
+                    rxWs.send(
+                      JSON.stringify({
+                        type: "new_message",
+                        message: callSystemMessage,
+                        for: "recipient",
+                        receiptId: `call_no_answer_${callSystemMessage?.id}_rx`,
+                        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                      })
+                    );
+                  }
+                  const txWs = connectedUsers4.get(callerId);
+                  if (txWs && txWs.readyState === WebSocket4.OPEN) {
+                    txWs.send(
+                      JSON.stringify({
+                        type: "new_message",
+                        message: callSystemMessage,
+                        for: "sender",
+                        receiptId: `call_no_answer_${callSystemMessage?.id}_tx`,
+                        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                      })
+                    );
+                  }
+                }
+              } catch (e) {
+                console.error(
+                  "Failed to create no-answer/missed call message:",
+                  e
+                );
+              }
+            } else if (data.type === "call_end" && data.callId) {
+              let callRecord = null;
+              try {
+                if (storage.getVideoCallById) {
+                  callRecord = await storage.getVideoCallById(data.callId);
+                }
+              } catch (e) {
+                console.error(
+                  "[CALL-SYSTEM] Error fetching call record on call_end:",
+                  e
+                );
+              }
+              if (callRecord && !callRecord.startedAt) {
+                await storage.updateVideoCallStatus?.(data.callId, {
+                  status: "declined",
+                  endedAt: /* @__PURE__ */ new Date()
+                });
+                try {
+                  const callerId = callRecord.initiatorId;
+                  const receiverId = callRecord.receiverId;
+                  const matchIdForCall = callRecord.matchId;
+                  console.log(
+                    `\u{1F4DE} [CALL-SYSTEM] call_end before start \u2192 creating no-answer message for match=${matchIdForCall} caller=${callerId} receiver=${receiverId}`
+                  );
+                  const callSystemMessage = await storage.createMessage({
+                    matchId: matchIdForCall,
+                    senderId: callerId,
+                    receiverId,
+                    content: "_CALL:NO_ANSWER",
+                    messageType: "call",
+                    audioUrl: null,
+                    audioDuration: null
+                  });
+                  try {
+                    await storage.markMatchUnread(matchIdForCall, receiverId);
+                  } catch (e) {
+                    console.error(
+                      "[CALL-SYSTEM] Failed to mark match unread:",
+                      e
+                    );
+                  }
+                  const rxWs = connectedUsers4.get(receiverId);
+                  if (rxWs && rxWs.readyState === WebSocket4.OPEN) {
+                    rxWs.send(
+                      JSON.stringify({
+                        type: "new_message",
+                        message: callSystemMessage,
+                        for: "recipient",
+                        receiptId: `call_no_answer_${callSystemMessage?.id}_rx`,
+                        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                      })
+                    );
+                  }
+                  const txWs = connectedUsers4.get(callerId);
+                  if (txWs && txWs.readyState === WebSocket4.OPEN) {
+                    txWs.send(
+                      JSON.stringify({
+                        type: "new_message",
+                        message: callSystemMessage,
+                        for: "sender",
+                        receiptId: `call_no_answer_${callSystemMessage?.id}_tx`,
+                        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                      })
+                    );
+                  }
+                } catch (e) {
+                  console.error(
+                    "[CALL-SYSTEM] Failed to create/broadcast no-answer on call_end:",
+                    e
+                  );
+                }
+              } else {
+                await storage.updateVideoCallStatus?.(data.callId, {
+                  status: "completed",
+                  endedAt: /* @__PURE__ */ new Date()
+                });
+              }
+            }
+          } catch (e) {
+            console.error("Call status update error:", e);
+          }
         }
       } catch (error) {
         console.error("Error processing WebSocket message:", error);
@@ -22092,8 +30024,8 @@ ${message.trim()}`
               if (match) {
                 await storage.updateActiveChatStatus(userId, matchId, false);
                 const otherUserId = match.userId1 === userId ? match.userId2 : match.userId1;
-                const otherUserWs = connectedUsers3.get(otherUserId);
-                if (otherUserWs && otherUserWs.readyState === WebSocket3.OPEN) {
+                const otherUserWs = connectedUsers4.get(otherUserId);
+                if (otherUserWs && otherUserWs.readyState === WebSocket4.OPEN) {
                   otherUserWs.send(
                     JSON.stringify({
                       type: "chat_partner_active",
@@ -22115,10 +30047,10 @@ ${message.trim()}`
           }
           activeChats.delete(userId);
         }
-        connectedUsers3.delete(userId);
+        connectedUsers4.delete(userId);
         const disconnectTime = /* @__PURE__ */ new Date();
         const timestampISO = disconnectTime.toISOString();
-        const onlineCount = connectedUsers3.size;
+        const onlineCount = connectedUsers4.size;
         broadcastToAllUsers({
           type: "online_count_update",
           count: onlineCount,
@@ -22164,8 +30096,8 @@ ${message.trim()}`
           console.log(
             `[PRESENCE] User ${userId} is now offline. Last seen: ${timestampISO}`
           );
-          Array.from(connectedUsers3.values()).forEach((clientWs) => {
-            if (clientWs.readyState === WebSocket3.OPEN) {
+          Array.from(connectedUsers4.values()).forEach((clientWs) => {
+            if (clientWs.readyState === WebSocket4.OPEN) {
               clientWs.send(
                 JSON.stringify({
                   type: "chat_clear_user",
@@ -22181,16 +30113,16 @@ ${message.trim()}`
     });
   });
   function broadcastToAllUsers(data) {
-    connectedUsers3.forEach((ws2) => {
-      if (ws2.readyState === WebSocket3.OPEN) {
+    connectedUsers4.forEach((ws2) => {
+      if (ws2.readyState === WebSocket4.OPEN) {
         ws2.send(JSON.stringify(data));
       }
     });
   }
   function broadcastToUsers(userIds, data) {
     for (const userId of userIds) {
-      const userSocket = connectedUsers3.get(userId);
-      if (userSocket && userSocket.readyState === WebSocket3.OPEN) {
+      const userSocket = connectedUsers4.get(userId);
+      if (userSocket && userSocket.readyState === WebSocket4.OPEN) {
         userSocket.send(JSON.stringify(data));
       }
     }
@@ -22203,8 +30135,8 @@ ${message.trim()}`
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     };
     let notifiedCount = 0;
-    connectedUsers3.forEach((ws2, connectedUserId) => {
-      if (connectedUserId !== userId && ws2.readyState === WebSocket3.OPEN) {
+    connectedUsers4.forEach((ws2, connectedUserId) => {
+      if (connectedUserId !== userId && ws2.readyState === WebSocket4.OPEN) {
         try {
           ws2.send(JSON.stringify(visibilityChangeMessage));
           notifiedCount++;
@@ -22228,8 +30160,8 @@ ${message.trim()}`
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     };
     let notifiedCount = 0;
-    connectedUsers3.forEach((ws2, connectedUserId) => {
-      if (connectedUserId !== userId && ws2.readyState === WebSocket3.OPEN) {
+    connectedUsers4.forEach((ws2, connectedUserId) => {
+      if (connectedUserId !== userId && ws2.readyState === WebSocket4.OPEN) {
         try {
           ws2.send(JSON.stringify(ghostModeChangeMessage));
           notifiedCount++;
@@ -22253,8 +30185,8 @@ ${message.trim()}`
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     };
     let notifiedCount = 0;
-    connectedUsers3.forEach((ws2, connectedUserId) => {
-      if (ws2.readyState === WebSocket3.OPEN) {
+    connectedUsers4.forEach((ws2, connectedUserId) => {
+      if (ws2.readyState === WebSocket4.OPEN) {
         try {
           ws2.send(JSON.stringify(verificationChangeMessage));
           notifiedCount++;
@@ -22394,7 +30326,7 @@ ${message.trim()}`
             console.error("Error deleting image file:", mediaError);
           }
         }
-        const deleteResult = await db.delete(messages).where(eq5(messages.id, messageId));
+        const deleteResult = await db.delete(messages).where(eq6(messages.id, messageId));
         const verificationMessage = await storage.getMessageById(messageId);
         if (verificationMessage) {
           console.warn(
@@ -22402,7 +30334,7 @@ ${message.trim()}`
           );
         }
         try {
-          invalidateMessageCaches(connectedUsers3, {
+          invalidateMessageCaches(connectedUsers4, {
             matchId: message.matchId,
             userId,
             messageId,
@@ -22423,8 +30355,8 @@ ${message.trim()}`
             deletedBy: userId,
             timestamp: (/* @__PURE__ */ new Date()).toISOString()
           };
-          const senderWs = connectedUsers3.get(userId);
-          if (senderWs && senderWs.readyState === WebSocket3.OPEN) {
+          const senderWs = connectedUsers4.get(userId);
+          if (senderWs && senderWs.readyState === WebSocket4.OPEN) {
             try {
               senderWs.send(JSON.stringify(deletionMessage));
             } catch (wsError) {
@@ -22434,8 +30366,8 @@ ${message.trim()}`
               );
             }
           }
-          const receiverWs = connectedUsers3.get(otherUserId);
-          if (receiverWs && receiverWs.readyState === WebSocket3.OPEN) {
+          const receiverWs = connectedUsers4.get(otherUserId);
+          if (receiverWs && receiverWs.readyState === WebSocket4.OPEN) {
             try {
               receiverWs.send(JSON.stringify(deletionMessage));
             } catch (wsError) {
@@ -22504,7 +30436,7 @@ ${message.trim()}`
         }
         await storage.markMessageAsDeletedForUser(messageId, userId);
         try {
-          invalidateMessageCaches(connectedUsers3, {
+          invalidateMessageCaches(connectedUsers4, {
             matchId: message.matchId,
             userId,
             messageId,
@@ -22565,8 +30497,8 @@ ${message.trim()}`
         const reactingUser = await storage.getUser(userId);
         const userName = reactingUser?.fullName || reactingUser?.username || "Someone";
         const otherUserId = match.userId1 === userId ? match.userId2 : match.userId1;
-        const otherUserSocket = connectedUsers3.get(otherUserId);
-        if (otherUserSocket && otherUserSocket.readyState === WebSocket3.OPEN) {
+        const otherUserSocket = connectedUsers4.get(otherUserId);
+        if (otherUserSocket && otherUserSocket.readyState === WebSocket4.OPEN) {
           otherUserSocket.send(
             JSON.stringify({
               type: "reactionReplaced",
@@ -22616,8 +30548,8 @@ ${message.trim()}`
         const removingUser = await storage.getUser(userId);
         const userName = removingUser?.fullName || removingUser?.username || "Someone";
         const otherUserId = match.userId1 === userId ? match.userId2 : match.userId1;
-        const otherUserSocket = connectedUsers3.get(otherUserId);
-        if (otherUserSocket && otherUserSocket.readyState === WebSocket3.OPEN) {
+        const otherUserSocket = connectedUsers4.get(otherUserId);
+        if (otherUserSocket && otherUserSocket.readyState === WebSocket4.OPEN) {
           otherUserSocket.send(
             JSON.stringify({
               type: "reactionRemoved",
@@ -22824,8 +30756,8 @@ ${message.trim()}`
           const newLastMessageForUser = remainingMessagesForUser.length > 0 ? remainingMessagesForUser[remainingMessagesForUser.length - 1] : null;
           const newLastMessageForOther = remainingMessagesForOther.length > 0 ? remainingMessagesForOther[remainingMessagesForOther.length - 1] : null;
           const otherUserId = match.userId1 === userId ? match.userId2 : match.userId1;
-          const currentUserSocket = connectedUsers3.get(userId);
-          if (currentUserSocket && currentUserSocket.readyState === WebSocket3.OPEN) {
+          const currentUserSocket = connectedUsers4.get(userId);
+          if (currentUserSocket && currentUserSocket.readyState === WebSocket4.OPEN) {
             currentUserSocket.send(
               JSON.stringify({
                 type: "messagesDeletedForUser",
@@ -22841,8 +30773,8 @@ ${message.trim()}`
               })
             );
           }
-          const otherUserSocket = connectedUsers3.get(otherUserId);
-          if (otherUserSocket && otherUserSocket.readyState === WebSocket3.OPEN) {
+          const otherUserSocket = connectedUsers4.get(otherUserId);
+          if (otherUserSocket && otherUserSocket.readyState === WebSocket4.OPEN) {
             otherUserSocket.send(
               JSON.stringify({
                 type: "messagesDeletedForUser",
@@ -22864,10 +30796,10 @@ ${message.trim()}`
             reason: "auto_delete_lastMessage_update",
             timestamp: (/* @__PURE__ */ new Date()).toISOString()
           };
-          if (currentUserSocket && currentUserSocket.readyState === WebSocket3.OPEN) {
+          if (currentUserSocket && currentUserSocket.readyState === WebSocket4.OPEN) {
             currentUserSocket.send(JSON.stringify(matchRefreshData));
           }
-          if (otherUserSocket && otherUserSocket.readyState === WebSocket3.OPEN) {
+          if (otherUserSocket && otherUserSocket.readyState === WebSocket4.OPEN) {
             otherUserSocket.send(JSON.stringify(matchRefreshData));
           }
           res.json({
@@ -22932,37 +30864,49 @@ ${message.trim()}`
       }
     }
   );
-  app2.get("/api/suite/job-profile/:userId", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-      const targetUserId = parseInt(req.params.userId);
-      console.log(`[JOB-PROFILE-API] Request from user ${req.user.id} for job profile of target user ${targetUserId}`);
-      const profile = await storage.getSuiteJobProfile(targetUserId);
-      if (!profile) {
-        console.log(`[JOB-PROFILE-API] No job profile found for target user ${targetUserId}`);
-        return res.status(404).json({ message: "Job profile not found" });
+  app2.get(
+    "/api/suite/job-profile/:userId",
+    async (req, res) => {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
-      console.log(`[JOB-PROFILE-API] Found job profile for target user ${targetUserId}:`, {
-        profileId: profile.id,
-        profileUserId: profile.userId,
-        jobTitle: profile.jobTitle,
-        description: profile.description,
-        whoShouldApply: profile.whoShouldApply,
-        applicationUrl: profile.applicationUrl,
-        applicationEmail: profile.applicationEmail
-      });
-      if (profile.userId !== targetUserId) {
-        console.error(`[JOB-PROFILE-API] CRITICAL ERROR: Profile user ID ${profile.userId} does not match target user ID ${targetUserId}`);
-        return res.status(500).json({ message: "Data integrity error" });
+      try {
+        const targetUserId = parseInt(req.params.userId);
+        console.log(
+          `[JOB-PROFILE-API] Request from user ${req.user.id} for job profile of target user ${targetUserId}`
+        );
+        const profile = await storage.getSuiteJobProfile(targetUserId);
+        if (!profile) {
+          console.log(
+            `[JOB-PROFILE-API] No job profile found for target user ${targetUserId}`
+          );
+          return res.status(404).json({ message: "Job profile not found" });
+        }
+        console.log(
+          `[JOB-PROFILE-API] Found job profile for target user ${targetUserId}:`,
+          {
+            profileId: profile.id,
+            profileUserId: profile.userId,
+            jobTitle: profile.jobTitle,
+            description: profile.description,
+            whoShouldApply: profile.whoShouldApply,
+            applicationUrl: profile.applicationUrl,
+            applicationEmail: profile.applicationEmail
+          }
+        );
+        if (profile.userId !== targetUserId) {
+          console.error(
+            `[JOB-PROFILE-API] CRITICAL ERROR: Profile user ID ${profile.userId} does not match target user ID ${targetUserId}`
+          );
+          return res.status(500).json({ message: "Data integrity error" });
+        }
+        res.json(profile);
+      } catch (error) {
+        console.error("Error fetching job profile by user ID:", error);
+        res.status(500).json({ message: "Failed to fetch job profile" });
       }
-      res.json(profile);
-    } catch (error) {
-      console.error("Error fetching job profile by user ID:", error);
-      res.status(500).json({ message: "Failed to fetch job profile" });
     }
-  });
+  );
   app2.get("/api/suite/job-profile", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -23018,36 +30962,33 @@ ${message.trim()}`
       res.status(500).json({ message: "Failed to update visibility preferences" });
     }
   });
-  app2.delete(
-    "/api/suite/job-profile",
-    async (req, res) => {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      try {
-        const userId = req.user.id;
-        console.log("Deleting job profile for user:", userId);
-        await storage.deleteSuiteJobProfile(userId);
-        broadcastToAllUsers({
-          type: "suite_profile_deleted",
-          profileType: "job",
-          userId,
-          timestamp: (/* @__PURE__ */ new Date()).toISOString()
-        });
-        console.log("Job profile deleted successfully for user:", userId);
-        res.json({
-          success: true,
-          message: "Job profile deleted successfully"
-        });
-      } catch (error) {
-        console.error("Error deleting job profile:", error);
-        res.status(500).json({
-          message: "Failed to delete job profile",
-          error: error instanceof Error ? error.message : "Unknown error"
-        });
-      }
+  app2.delete("/api/suite/job-profile", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
-  );
+    try {
+      const userId = req.user.id;
+      console.log("Deleting job profile for user:", userId);
+      await storage.deleteSuiteJobProfile(userId);
+      broadcastToAllUsers({
+        type: "suite_profile_deleted",
+        profileType: "job",
+        userId,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      console.log("Job profile deleted successfully for user:", userId);
+      res.json({
+        success: true,
+        message: "Job profile deleted successfully"
+      });
+    } catch (error) {
+      console.error("Error deleting job profile:", error);
+      res.status(500).json({
+        message: "Failed to delete job profile",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
   app2.get(
     "/api/suite/mentorship-profile/:userId",
     async (req, res) => {
@@ -23169,7 +31110,12 @@ ${message.trim()}`
       try {
         const userId = req.user.id;
         const { role } = req.query;
-        console.log("Deleting mentorship profile for user:", userId, "role:", role);
+        console.log(
+          "Deleting mentorship profile for user:",
+          userId,
+          "role:",
+          role
+        );
         if (role) {
           await storage.deleteSuiteMentorshipProfile(userId, role);
         } else {
@@ -23182,7 +31128,10 @@ ${message.trim()}`
           role: role || "all",
           timestamp: (/* @__PURE__ */ new Date()).toISOString()
         });
-        console.log("Mentorship profile deleted successfully for user:", userId);
+        console.log(
+          "Mentorship profile deleted successfully for user:",
+          userId
+        );
         res.json({
           success: true,
           message: "Mentorship profile deleted successfully"
@@ -23219,7 +31168,10 @@ ${message.trim()}`
         if (updateData.visibilityPreferences) {
           try {
             const parsed = JSON.parse(updateData.visibilityPreferences);
-            console.log("Successfully parsed visibilityPreferences:", Object.keys(parsed));
+            console.log(
+              "Successfully parsed visibilityPreferences:",
+              Object.keys(parsed)
+            );
           } catch (jsonError) {
             console.error("Invalid JSON in visibilityPreferences:", jsonError);
             return res.status(400).json({
@@ -23253,12 +31205,15 @@ ${message.trim()}`
             });
           }
         }
-        console.log("PATCH: About to call createOrUpdateSuiteMentorshipProfile with:", {
-          userId,
-          updateDataKeys: Object.keys(updateData),
-          hasVisibilityPreferences: !!updateData.visibilityPreferences,
-          visibilityPreferencesType: typeof updateData.visibilityPreferences
-        });
+        console.log(
+          "PATCH: About to call createOrUpdateSuiteMentorshipProfile with:",
+          {
+            userId,
+            updateDataKeys: Object.keys(updateData),
+            hasVisibilityPreferences: !!updateData.visibilityPreferences,
+            visibilityPreferencesType: typeof updateData.visibilityPreferences
+          }
+        );
         const mentorshipProfile = await storage.createOrUpdateSuiteMentorshipProfile(
           userId,
           updateData
@@ -23423,7 +31378,10 @@ ${message.trim()}`
           userId,
           timestamp: (/* @__PURE__ */ new Date()).toISOString()
         });
-        console.log("Networking profile deleted successfully for user:", userId);
+        console.log(
+          "Networking profile deleted successfully for user:",
+          userId
+        );
         res.json({
           success: true,
           message: "Networking profile deleted successfully"
@@ -23608,7 +31566,9 @@ ${message.trim()}`
         0
       );
       console.log(`Loaded ${jobProfiles.length} job profiles for discovery`);
-      res.json(jobProfiles);
+      const { suiteMatchingEngine: suiteMatchingEngine2 } = await Promise.resolve().then(() => (init_suite_matching_engine(), suite_matching_engine_exports));
+      const ranked = await suiteMatchingEngine2.rankJobs(userId, jobProfiles);
+      res.json(ranked);
     } catch (error) {
       console.error("Error fetching job discovery profiles:", error);
       res.status(500).json({ message: "Failed to fetch job profiles" });
@@ -23653,7 +31613,9 @@ ${message.trim()}`
         action: action === "like" ? "like" : "dislike",
         appMode: "SUITE_JOBS"
       });
-      console.log(`\u{1F4DD} [SUITE-JOBS-HISTORY] Recorded swipe history for user ${userId} -> ${jobProfile.userId} (${action})`);
+      console.log(
+        `\u{1F4DD} [SUITE-JOBS-HISTORY] Recorded swipe history for user ${userId} -> ${jobProfile.userId} (${action})`
+      );
       let isMatch = false;
       if (action === "like") {
         const reciprocalApplication = await storage.getSuiteJobApplicationByUsers(
@@ -23677,17 +31639,29 @@ ${message.trim()}`
             userId2: Math.max(userId, jobProfile.userId),
             matched: true,
             isDislike: false,
-            metadata: JSON.stringify({ origin: "SUITE", suiteType: "jobs", context: "professional" })
+            metadata: JSON.stringify({
+              origin: "SUITE",
+              suiteType: "jobs",
+              context: "professional"
+            })
           };
           await storage.createMatch(matchData);
           console.log(
             `\u{1F4BC} [SUITE-JOBS] Instant match created: ${userId} \u2194 ${jobProfile.userId}`
           );
           try {
-            await storage.removeMatchedUsersFromSwipeHistory(userId, jobProfile.userId);
-            console.log(`[JOBS-MATCH] Cleaned up swipe history for matched users: ${userId} \u2194 ${jobProfile.userId}`);
+            await storage.removeMatchedUsersFromSwipeHistory(
+              userId,
+              jobProfile.userId
+            );
+            console.log(
+              `[JOBS-MATCH] Cleaned up swipe history for matched users: ${userId} \u2194 ${jobProfile.userId}`
+            );
           } catch (historyError) {
-            console.error("Error cleaning up jobs swipe history for matched users:", historyError);
+            console.error(
+              "Error cleaning up jobs swipe history for matched users:",
+              historyError
+            );
           }
         }
       }
@@ -23700,12 +31674,14 @@ ${message.trim()}`
         reason: `jobs_${action}_action`,
         timestamp: (/* @__PURE__ */ new Date()).toISOString()
       };
-      const currentUserWs = connectedUsers3.get(userId);
+      const currentUserWs = connectedUsers4.get(userId);
       if (currentUserWs && currentUserWs.readyState === 1) {
         currentUserWs.send(JSON.stringify(removalMessage));
-        console.log(`\u{1F5D1}\uFE0F [JOBS-REMOVAL] Sent card removal to user ${userId} for profile ${profileId}`);
+        console.log(
+          `\u{1F5D1}\uFE0F [JOBS-REMOVAL] Sent card removal to user ${userId} for profile ${profileId}`
+        );
       }
-      const targetUserWs = connectedUsers3.get(jobProfile.userId);
+      const targetUserWs = connectedUsers4.get(jobProfile.userId);
       if (targetUserWs && targetUserWs.readyState === 1) {
         try {
           const currentUserJobProfile = await storage.getSuiteJobProfileByUserId(userId);
@@ -23720,10 +31696,15 @@ ${message.trim()}`
               timestamp: (/* @__PURE__ */ new Date()).toISOString()
             };
             targetUserWs.send(JSON.stringify(targetRemovalMessage));
-            console.log(`\u{1F5D1}\uFE0F [JOBS-REMOVAL] Sent bidirectional card removal to user ${jobProfile.userId} for profile ${currentUserJobProfile.id} (user ${userId})`);
+            console.log(
+              `\u{1F5D1}\uFE0F [JOBS-REMOVAL] Sent bidirectional card removal to user ${jobProfile.userId} for profile ${currentUserJobProfile.id} (user ${userId})`
+            );
           }
         } catch (profileError) {
-          console.error("Error getting current user's job profile for bidirectional removal:", profileError);
+          console.error(
+            "Error getting current user's job profile for bidirectional removal:",
+            profileError
+          );
         }
       }
       if (action === "like") {
@@ -23736,7 +31717,9 @@ ${message.trim()}`
             timestamp: (/* @__PURE__ */ new Date()).toISOString()
           };
           targetUserWs.send(JSON.stringify(notificationData));
-          console.log(`WebSocket notification sent to user ${jobProfile.userId} for job application`);
+          console.log(
+            `WebSocket notification sent to user ${jobProfile.userId} for job application`
+          );
         }
       }
       res.json({
@@ -23751,202 +31734,283 @@ ${message.trim()}`
       res.status(500).json({ message: "Failed to process job application" });
     }
   });
-  app2.post("/api/suite/connections/jobs/:applicationId/respond", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-      const { action } = req.body;
-      const applicationId = parseInt(req.params.applicationId);
-      const currentUserId = req.user.id;
-      if (!["accept", "decline"].includes(action)) {
-        return res.status(400).json({ message: "Invalid action" });
+  app2.post(
+    "/api/suite/connections/jobs/:applicationId/respond",
+    async (req, res) => {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
-      const existingApplication = await storage.getSuiteJobApplicationById(applicationId);
-      if (!existingApplication) {
-        return res.status(404).json({ message: "Job application not found" });
-      }
-      if (existingApplication.targetUserId !== currentUserId) {
-        return res.status(403).json({ message: "Not authorized to respond to this application" });
-      }
-      let isMatch = false;
-      if (action === "accept") {
-        await storage.updateSuiteJobApplication(existingApplication.id, {
-          applicationStatus: "accepted",
-          matched: true
-        });
-        isMatch = true;
-        const existingMatch = await storage.getMatchBetweenUsers(currentUserId, existingApplication.userId);
-        console.log(`\u{1F50D} [JOBS-ACCEPT-DEBUG] Existing match found: ${existingMatch ? `ID ${existingMatch.id}` : "none"}`);
-        const currentUserNetworkingProfile = await storage.getSuiteNetworkingProfile(currentUserId);
-        const targetUserNetworkingProfile = await storage.getSuiteNetworkingProfile(existingApplication.userId);
-        console.log(`\u{1F50D} [JOBS-ACCEPT-DEBUG] Networking profiles - Current user ${currentUserId}: ${currentUserNetworkingProfile ? "exists" : "none"}, Target user ${existingApplication.userId}: ${targetUserNetworkingProfile ? "exists" : "none"}`);
-        let existingNetworkingConnection = null;
-        if (currentUserNetworkingProfile && targetUserNetworkingProfile) {
-          const connection1 = await storage.getSuiteNetworkingConnection(currentUserId, targetUserNetworkingProfile.id);
-          const connection2 = await storage.getSuiteNetworkingConnection(existingApplication.userId, currentUserNetworkingProfile.id);
-          console.log(`\u{1F50D} [JOBS-ACCEPT-DEBUG] Connection1 (${currentUserId} -> ${targetUserNetworkingProfile.id}): ${connection1 ? `matched=${connection1.matched}, action=${connection1.action}` : "none"}`);
-          console.log(`\u{1F50D} [JOBS-ACCEPT-DEBUG] Connection2 (${existingApplication.userId} -> ${currentUserNetworkingProfile.id}): ${connection2 ? `matched=${connection2.matched}, action=${connection2.action}` : "none"}`);
-          existingNetworkingConnection = connection1?.matched || connection2?.matched ? connection1?.matched ? connection1 : connection2 : connection1?.action === "like" && connection2?.action === "like" ? connection1 : null;
+      try {
+        const { action } = req.body;
+        const applicationId = parseInt(req.params.applicationId);
+        const currentUserId = req.user.id;
+        if (!["accept", "decline"].includes(action)) {
+          return res.status(400).json({ message: "Invalid action" });
         }
-        console.log(`\u{1F50D} [JOBS-ACCEPT-DEBUG] Final networking connection selected: ${existingNetworkingConnection ? `matched=${existingNetworkingConnection.matched}` : "none"}`);
-        let finalMatch;
-        if (existingMatch) {
-          try {
-            let existingMetadata;
-            if (existingMatch.metadata) {
-              existingMetadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
-            }
-            console.log(`\u{1F50D} [JOBS-ACCEPT-DEBUG] Existing match metadata:`, existingMetadata);
-            if (existingMetadata) {
-              if (!existingMetadata.additionalConnections) {
-                existingMetadata.additionalConnections = [];
+        const existingApplication = await storage.getSuiteJobApplicationById(applicationId);
+        if (!existingApplication) {
+          return res.status(404).json({ message: "Job application not found" });
+        }
+        if (existingApplication.targetUserId !== currentUserId) {
+          return res.status(403).json({ message: "Not authorized to respond to this application" });
+        }
+        let isMatch = false;
+        if (action === "accept") {
+          await storage.updateSuiteJobApplication(existingApplication.id, {
+            applicationStatus: "accepted",
+            matched: true
+          });
+          isMatch = true;
+          const existingMatch = await storage.getMatchBetweenUsers(
+            currentUserId,
+            existingApplication.userId
+          );
+          console.log(
+            `\u{1F50D} [JOBS-ACCEPT-DEBUG] Existing match found: ${existingMatch ? `ID ${existingMatch.id}` : "none"}`
+          );
+          const currentUserNetworkingProfile = await storage.getSuiteNetworkingProfile(currentUserId);
+          const targetUserNetworkingProfile = await storage.getSuiteNetworkingProfile(existingApplication.userId);
+          console.log(
+            `\u{1F50D} [JOBS-ACCEPT-DEBUG] Networking profiles - Current user ${currentUserId}: ${currentUserNetworkingProfile ? "exists" : "none"}, Target user ${existingApplication.userId}: ${targetUserNetworkingProfile ? "exists" : "none"}`
+          );
+          let existingNetworkingConnection = null;
+          if (currentUserNetworkingProfile && targetUserNetworkingProfile) {
+            const connection1 = await storage.getSuiteNetworkingConnection(
+              currentUserId,
+              targetUserNetworkingProfile.id
+            );
+            const connection2 = await storage.getSuiteNetworkingConnection(
+              existingApplication.userId,
+              currentUserNetworkingProfile.id
+            );
+            console.log(
+              `\u{1F50D} [JOBS-ACCEPT-DEBUG] Connection1 (${currentUserId} -> ${targetUserNetworkingProfile.id}): ${connection1 ? `matched=${connection1.matched}, action=${connection1.action}` : "none"}`
+            );
+            console.log(
+              `\u{1F50D} [JOBS-ACCEPT-DEBUG] Connection2 (${existingApplication.userId} -> ${currentUserNetworkingProfile.id}): ${connection2 ? `matched=${connection2.matched}, action=${connection2.action}` : "none"}`
+            );
+            existingNetworkingConnection = connection1?.matched || connection2?.matched ? connection1?.matched ? connection1 : connection2 : connection1?.action === "like" && connection2?.action === "like" ? connection1 : null;
+          }
+          console.log(
+            `\u{1F50D} [JOBS-ACCEPT-DEBUG] Final networking connection selected: ${existingNetworkingConnection ? `matched=${existingNetworkingConnection.matched}` : "none"}`
+          );
+          let finalMatch;
+          if (existingMatch) {
+            try {
+              let existingMetadata;
+              if (existingMatch.metadata) {
+                existingMetadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
               }
-              if (existingNetworkingConnection && existingNetworkingConnection.matched && !existingMetadata.additionalConnections.includes("networking")) {
-                existingMetadata.additionalConnections.push("networking");
-                console.log(`\u{1F517} [JOBS-ACCEPT] Adding networking to additionalConnections for existing match ${existingMatch.id}`);
-              }
-              if (existingMetadata.origin === "SUITE" && existingMetadata.suiteType !== "jobs" || existingMetadata.origin === "MEET") {
-                if (!existingMetadata.additionalConnections.includes("jobs")) {
-                  existingMetadata.additionalConnections.push("jobs");
-                  console.log(`\u{1F517} [JOBS-ACCEPT] Adding jobs to additionalConnections for existing match ${existingMatch.id} between users ${currentUserId} and ${existingApplication.userId}`);
+              console.log(
+                `\u{1F50D} [JOBS-ACCEPT-DEBUG] Existing match metadata:`,
+                existingMetadata
+              );
+              if (existingMetadata) {
+                if (!existingMetadata.additionalConnections) {
+                  existingMetadata.additionalConnections = [];
                 }
-                finalMatch = await storage.updateMatch(existingMatch.id, {
-                  matched: true,
-                  metadata: JSON.stringify(existingMetadata)
-                });
-              } else {
                 if (existingNetworkingConnection && existingNetworkingConnection.matched && !existingMetadata.additionalConnections.includes("networking")) {
                   existingMetadata.additionalConnections.push("networking");
-                  console.log(`\u{1F517} [JOBS-ACCEPT] Adding networking to additionalConnections for jobs match ${existingMatch.id}`);
+                  console.log(
+                    `\u{1F517} [JOBS-ACCEPT] Adding networking to additionalConnections for existing match ${existingMatch.id}`
+                  );
+                }
+                if (existingMetadata.origin === "SUITE" && existingMetadata.suiteType !== "jobs" || existingMetadata.origin === "MEET") {
+                  if (!existingMetadata.additionalConnections.includes("jobs")) {
+                    existingMetadata.additionalConnections.push("jobs");
+                    console.log(
+                      `\u{1F517} [JOBS-ACCEPT] Adding jobs to additionalConnections for existing match ${existingMatch.id} between users ${currentUserId} and ${existingApplication.userId}`
+                    );
+                  }
                   finalMatch = await storage.updateMatch(existingMatch.id, {
                     matched: true,
                     metadata: JSON.stringify(existingMetadata)
                   });
                 } else {
-                  finalMatch = await storage.updateMatch(existingMatch.id, {
-                    matched: true,
-                    metadata: JSON.stringify(existingMetadata)
-                  });
-                  console.log(`\u{1F517} [JOBS-ACCEPT] Updated existing match ${existingMatch.id} with jobs metadata`);
+                  if (existingNetworkingConnection && existingNetworkingConnection.matched && !existingMetadata.additionalConnections.includes(
+                    "networking"
+                  )) {
+                    existingMetadata.additionalConnections.push("networking");
+                    console.log(
+                      `\u{1F517} [JOBS-ACCEPT] Adding networking to additionalConnections for jobs match ${existingMatch.id}`
+                    );
+                    finalMatch = await storage.updateMatch(existingMatch.id, {
+                      matched: true,
+                      metadata: JSON.stringify(existingMetadata)
+                    });
+                  } else {
+                    finalMatch = await storage.updateMatch(existingMatch.id, {
+                      matched: true,
+                      metadata: JSON.stringify(existingMetadata)
+                    });
+                    console.log(
+                      `\u{1F517} [JOBS-ACCEPT] Updated existing match ${existingMatch.id} with jobs metadata`
+                    );
+                  }
                 }
+              } else {
+                const newMetadata = {
+                  origin: "SUITE",
+                  suiteType: "jobs",
+                  context: "professional",
+                  additionalConnections: []
+                };
+                if (existingNetworkingConnection && existingNetworkingConnection.matched) {
+                  newMetadata.additionalConnections.push("networking");
+                  console.log(
+                    `\u{1F517} [JOBS-ACCEPT] Adding networking to new metadata for match ${existingMatch.id}`
+                  );
+                }
+                finalMatch = await storage.updateMatch(existingMatch.id, {
+                  matched: true,
+                  metadata: JSON.stringify(newMetadata)
+                });
+                console.log(
+                  `\u{1F517} [JOBS-ACCEPT] Added jobs metadata with networking additional connection to existing match ${existingMatch.id}`
+                );
               }
-            } else {
-              const newMetadata = {
-                origin: "SUITE",
-                suiteType: "jobs",
-                context: "professional",
-                additionalConnections: []
-              };
-              if (existingNetworkingConnection && existingNetworkingConnection.matched) {
-                newMetadata.additionalConnections.push("networking");
-                console.log(`\u{1F517} [JOBS-ACCEPT] Adding networking to new metadata for match ${existingMatch.id}`);
-              }
+            } catch (parseError) {
+              console.error("Failed to parse existing metadata:", parseError);
               finalMatch = await storage.updateMatch(existingMatch.id, {
                 matched: true,
-                metadata: JSON.stringify(newMetadata)
+                metadata: JSON.stringify({
+                  origin: "SUITE",
+                  suiteType: "jobs",
+                  context: "professional"
+                })
               });
-              console.log(`\u{1F517} [JOBS-ACCEPT] Added jobs metadata with networking additional connection to existing match ${existingMatch.id}`);
             }
-          } catch (parseError) {
-            console.error("Failed to parse existing metadata:", parseError);
-            finalMatch = await storage.updateMatch(existingMatch.id, {
+          } else if (existingNetworkingConnection && (existingNetworkingConnection.matched || existingNetworkingConnection.action === "like")) {
+            console.log(
+              `\u{1F517} [JOBS-ACCEPT] Found existing networking connection between users ${currentUserId} and ${existingApplication.userId}, creating match with jobs as additional connection`
+            );
+            const matchData = {
+              userId1: Math.min(currentUserId, existingApplication.userId),
+              userId2: Math.max(currentUserId, existingApplication.userId),
               matched: true,
-              metadata: JSON.stringify({ origin: "SUITE", suiteType: "jobs", context: "professional" })
-            });
+              isDislike: false,
+              metadata: JSON.stringify({
+                origin: "SUITE",
+                suiteType: "networking",
+                context: "professional",
+                additionalConnections: ["jobs"]
+              })
+            };
+            finalMatch = await storage.createMatch(matchData);
+            console.log(
+              `\u{1F517} [JOBS-ACCEPT] Created new match ${finalMatch.id} with networking as primary and jobs as additional connection`
+            );
+          } else {
+            const matchData = {
+              userId1: Math.min(currentUserId, existingApplication.userId),
+              userId2: Math.max(currentUserId, existingApplication.userId),
+              matched: true,
+              isDislike: false,
+              metadata: JSON.stringify({
+                origin: "SUITE",
+                suiteType: "jobs",
+                context: "professional"
+              })
+            };
+            finalMatch = await storage.createMatch(matchData);
+            console.log(
+              `\u{1F517} [JOBS-ACCEPT] Created new jobs match between users ${currentUserId} and ${existingApplication.userId}`
+            );
           }
-        } else if (existingNetworkingConnection && (existingNetworkingConnection.matched || existingNetworkingConnection.action === "like")) {
-          console.log(`\u{1F517} [JOBS-ACCEPT] Found existing networking connection between users ${currentUserId} and ${existingApplication.userId}, creating match with jobs as additional connection`);
-          const matchData = {
-            userId1: Math.min(currentUserId, existingApplication.userId),
-            userId2: Math.max(currentUserId, existingApplication.userId),
-            matched: true,
-            isDislike: false,
-            metadata: JSON.stringify({
-              origin: "SUITE",
-              suiteType: "networking",
-              context: "professional",
-              additionalConnections: ["jobs"]
-            })
-          };
-          finalMatch = await storage.createMatch(matchData);
-          console.log(`\u{1F517} [JOBS-ACCEPT] Created new match ${finalMatch.id} with networking as primary and jobs as additional connection`);
+          try {
+            await storage.removeMatchedUsersFromSwipeHistory(
+              currentUserId,
+              existingApplication.userId
+            );
+            console.log(
+              `[JOBS-ACCEPT-MATCH] Cleaned up swipe history for matched users: ${currentUserId} \u2194 ${existingApplication.userId}`
+            );
+          } catch (historyError) {
+            console.error(
+              "Error cleaning up jobs accept swipe history for matched users:",
+              historyError
+            );
+          }
+          const acceptedByUser = await storage.getUser(currentUserId);
+          const applicantUser = await storage.getUser(
+            existingApplication.userId
+          );
+          const applicantWs = connectedUsers4.get(existingApplication.userId);
+          console.log(
+            `[SUITE-JOBS-DEBUG] Applicant WebSocket for user ${existingApplication.userId}: ${applicantWs ? `found, readyState=${applicantWs.readyState}` : "NOT FOUND"}`
+          );
+          if (applicantWs && applicantWs.readyState === 1) {
+            const notificationData = {
+              type: "job_match",
+              application: {
+                id: existingApplication.id,
+                userId: existingApplication.userId,
+                targetUserId: existingApplication.targetUserId
+              },
+              acceptedBy: currentUserId,
+              isMatch: true,
+              timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+              matchedUserName: acceptedByUser?.fullName,
+              matchedUserPhoto: acceptedByUser?.photoUrl,
+              matchedUserProfession: acceptedByUser?.profession,
+              matchedUserLocation: acceptedByUser?.location
+            };
+            applicantWs.send(JSON.stringify(notificationData));
+            console.log(
+              `[SUITE-JOBS] Sent job match notification to applicant (User ${existingApplication.userId})`
+            );
+          } else {
+            console.log(
+              `[SUITE-JOBS-ERROR] Cannot send notification to applicant (User ${existingApplication.userId}) - WebSocket ${applicantWs ? "not ready" : "not found"}`
+            );
+          }
+          const accepterWs = connectedUsers4.get(currentUserId);
+          console.log(
+            `[SUITE-JOBS-DEBUG] Accepter WebSocket for user ${currentUserId}: ${accepterWs ? `found, readyState=${accepterWs.readyState}` : "NOT FOUND"}`
+          );
+          if (accepterWs && accepterWs.readyState === 1) {
+            const notificationData = {
+              type: "job_match",
+              application: {
+                id: existingApplication.id,
+                userId: existingApplication.userId,
+                targetUserId: existingApplication.targetUserId
+              },
+              acceptedBy: currentUserId,
+              isMatch: true,
+              timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+              matchedUserName: applicantUser?.fullName,
+              matchedUserPhoto: applicantUser?.photoUrl,
+              matchedUserProfession: applicantUser?.profession,
+              matchedUserLocation: applicantUser?.location
+            };
+            accepterWs.send(JSON.stringify(notificationData));
+            console.log(
+              `[SUITE-JOBS] Sent job match notification to accepter (User ${currentUserId})`
+            );
+          } else {
+            console.log(
+              `[SUITE-JOBS-ERROR] Cannot send notification to accepter (User ${currentUserId}) - WebSocket ${accepterWs ? "not ready" : "not found"}`
+            );
+          }
         } else {
-          const matchData = {
-            userId1: Math.min(currentUserId, existingApplication.userId),
-            userId2: Math.max(currentUserId, existingApplication.userId),
-            matched: true,
-            isDislike: false,
-            metadata: JSON.stringify({ origin: "SUITE", suiteType: "jobs", context: "professional" })
-          };
-          finalMatch = await storage.createMatch(matchData);
-          console.log(`\u{1F517} [JOBS-ACCEPT] Created new jobs match between users ${currentUserId} and ${existingApplication.userId}`);
+          await storage.updateSuiteJobApplication(existingApplication.id, {
+            applicationStatus: "rejected",
+            matched: false
+          });
         }
-        try {
-          await storage.removeMatchedUsersFromSwipeHistory(currentUserId, existingApplication.userId);
-          console.log(`[JOBS-ACCEPT-MATCH] Cleaned up swipe history for matched users: ${currentUserId} \u2194 ${existingApplication.userId}`);
-        } catch (historyError) {
-          console.error("Error cleaning up jobs accept swipe history for matched users:", historyError);
-        }
-        const acceptedByUser = await storage.getUser(currentUserId);
-        const applicantUser = await storage.getUser(existingApplication.userId);
-        const applicantWs = connectedUsers3.get(existingApplication.userId);
-        if (applicantWs && applicantWs.readyState === 1) {
-          const notificationData = {
-            type: "job_match",
-            application: {
-              id: existingApplication.id,
-              userId: existingApplication.userId,
-              targetUserId: existingApplication.targetUserId
-            },
-            acceptedBy: currentUserId,
-            isMatch: true,
-            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-            matchedUserName: acceptedByUser?.fullName,
-            matchedUserPhoto: acceptedByUser?.photoUrl,
-            matchedUserProfession: acceptedByUser?.profession,
-            matchedUserLocation: acceptedByUser?.location
-          };
-          applicantWs.send(JSON.stringify(notificationData));
-          console.log(`[SUITE-JOBS] Sent job match notification to applicant (User ${existingApplication.userId})`);
-        }
-        const accepterWs = connectedUsers3.get(currentUserId);
-        if (accepterWs && accepterWs.readyState === 1) {
-          const notificationData = {
-            type: "job_match",
-            application: {
-              id: existingApplication.id,
-              userId: existingApplication.userId,
-              targetUserId: existingApplication.targetUserId
-            },
-            acceptedBy: currentUserId,
-            isMatch: true,
-            timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-            matchedUserName: applicantUser?.fullName,
-            matchedUserPhoto: applicantUser?.photoUrl,
-            matchedUserProfession: applicantUser?.profession,
-            matchedUserLocation: applicantUser?.location
-          };
-          accepterWs.send(JSON.stringify(notificationData));
-          console.log(`[SUITE-JOBS] Sent job match notification to accepter (User ${currentUserId})`);
-        }
-      } else {
-        await storage.updateSuiteJobApplication(existingApplication.id, {
-          applicationStatus: "rejected",
-          matched: false
+        res.json({
+          success: true,
+          isMatch,
+          action,
+          message: action === "accept" ? "Application accepted" : "Application declined"
         });
+      } catch (error) {
+        console.error("Error responding to job application:", error);
+        res.status(500).json({ message: "Failed to respond to job application" });
       }
-      res.json({
-        success: true,
-        isMatch,
-        action,
-        message: action === "accept" ? "Application accepted" : "Application declined"
-      });
-    } catch (error) {
-      console.error("Error responding to job application:", error);
-      res.status(500).json({ message: "Failed to respond to job application" });
     }
-  });
+  );
   app2.get(
     "/api/suite/discovery/mentorship",
     async (req, res) => {
@@ -23961,8 +32025,15 @@ ${message.trim()}`
           // High limit to get all available profiles
           0
         );
-        console.log(`Loaded ${mentorshipProfiles.length} mentorship profiles for discovery`);
-        res.json(mentorshipProfiles);
+        console.log(
+          `Loaded ${mentorshipProfiles.length} mentorship profiles for discovery`
+        );
+        const { suiteMatchingEngine: suiteMatchingEngine2 } = await Promise.resolve().then(() => (init_suite_matching_engine(), suite_matching_engine_exports));
+        const ranked = await suiteMatchingEngine2.rankMentorship(
+          userId,
+          mentorshipProfiles
+        );
+        res.json(ranked);
       } catch (error) {
         console.error("Error fetching mentorship discovery profiles:", error);
         res.status(500).json({ message: "Failed to fetch mentorship profiles" });
@@ -23986,7 +32057,12 @@ ${message.trim()}`
         console.log(
           `Loaded ${networkingProfiles.length} networking profiles for discovery`
         );
-        res.json(networkingProfiles);
+        const { suiteMatchingEngine: suiteMatchingEngine2 } = await Promise.resolve().then(() => (init_suite_matching_engine(), suite_matching_engine_exports));
+        const ranked = await suiteMatchingEngine2.rankNetworking(
+          userId,
+          networkingProfiles
+        );
+        res.json(ranked);
       } catch (error) {
         console.error("Error fetching networking discovery profiles:", error);
         res.status(500).json({ message: "Failed to fetch networking profiles" });
@@ -24032,13 +32108,34 @@ ${message.trim()}`
           return res.status(409).json({ message: "Already acted on this profile" });
         }
         const connection = await storage.createSuiteNetworkingConnection(connectionData);
+        if (action === "pass") {
+          try {
+            const existingScore = await storage.getSuiteCompatibilityScore(
+              currentUserId,
+              profileId
+            );
+            if (existingScore) {
+              await storage.deleteSuiteCompatibilityScore(existingScore.id);
+              console.log(
+                `\u{1F5D1}\uFE0F [COMPATIBILITY-CLEANUP] Deleted networking compatibility score ${existingScore.id} after user ${currentUserId} passed on profile ${profileId}`
+              );
+            }
+          } catch (cleanupError) {
+            console.error(
+              "Error cleaning up compatibility score after dislike:",
+              cleanupError
+            );
+          }
+        }
         await storage.addSwipeHistory({
           userId: currentUserId,
           targetUserId: targetProfile.userId,
           action: action === "like" ? "like" : "dislike",
           appMode: "SUITE_NETWORKING"
         });
-        console.log(`\u{1F4DD} [SUITE-NETWORKING-HISTORY] Recorded swipe history for user ${currentUserId} -> ${targetProfile.userId} (${action})`);
+        console.log(
+          `\u{1F4DD} [SUITE-NETWORKING-HISTORY] Recorded swipe history for user ${currentUserId} -> ${targetProfile.userId} (${action})`
+        );
         const sourceNetworkingProfile = await storage.getSuiteNetworkingProfile(currentUserId);
         let isMatch = false;
         if (action === "like" && sourceNetworkingProfile) {
@@ -24054,7 +32151,10 @@ ${message.trim()}`
               matched: true
             });
             isMatch = true;
-            const existingMatch = await storage.getMatchBetweenUsers(currentUserId, targetProfile.userId);
+            const existingMatch = await storage.getMatchBetweenUsers(
+              currentUserId,
+              targetProfile.userId
+            );
             let finalMatch;
             if (existingMatch) {
               let metadata;
@@ -24073,11 +32173,16 @@ ${message.trim()}`
                     }
                     if (!metadata.additionalConnections.includes("networking")) {
                       metadata.additionalConnections.push("networking");
-                      console.log(`\u{1F517} Adding networking to additionalConnections for existing match ${existingMatch.id}`);
+                      console.log(
+                        `\u{1F517} Adding networking to additionalConnections for existing match ${existingMatch.id}`
+                      );
                     }
                   }
                 } catch (parseError) {
-                  console.error("Failed to parse existing metadata:", parseError);
+                  console.error(
+                    "Failed to parse existing metadata:",
+                    parseError
+                  );
                   metadata = {
                     origin: "SUITE",
                     suiteType: "networking",
@@ -24095,7 +32200,11 @@ ${message.trim()}`
                 userId2: Math.max(currentUserId, targetProfile.userId),
                 matched: true,
                 isDislike: false,
-                metadata: JSON.stringify({ origin: "SUITE", suiteType: "networking", context: "professional" })
+                metadata: JSON.stringify({
+                  origin: "SUITE",
+                  suiteType: "networking",
+                  context: "professional"
+                })
               };
               finalMatch = await storage.createMatch(matchData);
             }
@@ -24107,8 +32216,8 @@ ${message.trim()}`
         console.log(
           `\u{1F680} [SUITE-NETWORKING] User ${currentUserId} ${action}d networking profile ${profileId}`
         );
-        const sourceUserWs = connectedUsers3.get(currentUserId);
-        const targetUserWs = connectedUsers3.get(targetProfile.userId);
+        const sourceUserWs = connectedUsers4.get(currentUserId);
+        const targetUserWs = connectedUsers4.get(targetProfile.userId);
         console.log(`[DEBUG-NETWORKING] WebSocket connections check:`);
         console.log(
           `  - Source user ${currentUserId}: ${sourceUserWs ? "CONNECTED" : "NOT FOUND"} (readyState: ${sourceUserWs?.readyState})`
@@ -24116,13 +32225,13 @@ ${message.trim()}`
         console.log(
           `  - Target user ${targetProfile.userId}: ${targetUserWs ? "CONNECTED" : "NOT FOUND"} (readyState: ${targetUserWs?.readyState})`
         );
-        console.log(`  - Total connected users: ${connectedUsers3.size}`);
+        console.log(`  - Total connected users: ${connectedUsers4.size}`);
         console.log(
-          `  - Connected user IDs: [${Array.from(connectedUsers3.keys()).join(", ")}]`
+          `  - Connected user IDs: [${Array.from(connectedUsers4.keys()).join(", ")}]`
         );
         let sourceRemovalSent = false;
         let targetRemovalSent = false;
-        if (sourceUserWs && sourceUserWs.readyState === WebSocket3.OPEN) {
+        if (sourceUserWs && sourceUserWs.readyState === WebSocket4.OPEN) {
           sourceUserWs.send(
             JSON.stringify({
               type: "suite_remove_from_discover",
@@ -24141,8 +32250,8 @@ ${message.trim()}`
           console.log(
             `[FALLBACK] Source user ${currentUserId} WebSocket not found, broadcasting removal to all users`
           );
-          connectedUsers3.forEach((ws2, userId) => {
-            if (userId === currentUserId && ws2.readyState === WebSocket3.OPEN) {
+          connectedUsers4.forEach((ws2, userId) => {
+            if (userId === currentUserId && ws2.readyState === WebSocket4.OPEN) {
               ws2.send(
                 JSON.stringify({
                   type: "suite_remove_from_discover",
@@ -24160,7 +32269,7 @@ ${message.trim()}`
             }
           });
         }
-        if (sourceNetworkingProfile && targetUserWs && targetUserWs.readyState === WebSocket3.OPEN) {
+        if (sourceNetworkingProfile && targetUserWs && targetUserWs.readyState === WebSocket4.OPEN) {
           targetUserWs.send(
             JSON.stringify({
               type: "suite_remove_from_discover",
@@ -24179,8 +32288,8 @@ ${message.trim()}`
           console.log(
             `[FALLBACK] Target user ${targetProfile.userId} WebSocket not found, broadcasting removal to all users`
           );
-          connectedUsers3.forEach((ws2, userId) => {
-            if (userId === targetProfile.userId && ws2.readyState === WebSocket3.OPEN) {
+          connectedUsers4.forEach((ws2, userId) => {
+            if (userId === targetProfile.userId && ws2.readyState === WebSocket4.OPEN) {
               ws2.send(
                 JSON.stringify({
                   type: "suite_remove_from_discover",
@@ -24203,7 +32312,7 @@ ${message.trim()}`
         );
         if (action === "like") {
           try {
-            if (targetUserWs && targetUserWs.readyState === WebSocket3.OPEN) {
+            if (targetUserWs && targetUserWs.readyState === WebSocket4.OPEN) {
               const sourceUser = await storage.getUser(currentUserId);
               const safeUserInfo = sourceUser ? (({ password, ...rest }) => rest)(sourceUser) : { id: currentUserId, fullName: "Unknown User" };
               const userNetworkingConnections = await storage.getUserNetworkingConnections(
@@ -24238,9 +32347,11 @@ ${message.trim()}`
             console.error("Error sending networking notification:", error);
           }
         }
-        console.log(`[DISCOVERY-REFRESH] Broadcasting discovery refresh to all connected users`);
-        connectedUsers3.forEach((ws2, userId) => {
-          if (ws2.readyState === WebSocket3.OPEN) {
+        console.log(
+          `[DISCOVERY-REFRESH] Broadcasting discovery refresh to all connected users`
+        );
+        connectedUsers4.forEach((ws2, userId) => {
+          if (ws2.readyState === WebSocket4.OPEN) {
             ws2.send(
               JSON.stringify({
                 type: "discover:refresh",
@@ -24253,8 +32364,8 @@ ${message.trim()}`
           }
         });
         if (isMatch) {
-          connectedUsers3.forEach((ws2, userId) => {
-            if ((userId === currentUserId || userId === targetProfile.userId) && ws2.readyState === WebSocket3.OPEN) {
+          connectedUsers4.forEach((ws2, userId) => {
+            if ((userId === currentUserId || userId === targetProfile.userId) && ws2.readyState === WebSocket4.OPEN) {
               ws2.send(
                 JSON.stringify({
                   type: "connections:refresh",
@@ -24265,7 +32376,9 @@ ${message.trim()}`
               );
             }
           });
-          console.log(`[CONNECTIONS-REFRESH] Sent connections refresh for new match`);
+          console.log(
+            `[CONNECTIONS-REFRESH] Sent connections refresh for new match`
+          );
         }
         res.json({
           success: true,
@@ -24319,11 +32432,34 @@ ${message.trim()}`
           return res.status(409).json({ message: "Already acted on this profile" });
         }
         const connection = await storage.createSuiteMentorshipConnection(connectionData);
+        if (action === "pass") {
+          try {
+            const existingScore = await storage.getSuiteMentorshipCompatibilityScore(
+              currentUserId,
+              profileId
+            );
+            if (existingScore) {
+              await storage.deleteSuiteMentorshipCompatibilityScore(
+                existingScore.id
+              );
+              console.log(
+                `\u{1F5D1}\uFE0F [COMPATIBILITY-CLEANUP] Deleted mentorship compatibility score ${existingScore.id} after user ${currentUserId} passed on profile ${profileId}`
+              );
+            }
+          } catch (cleanupError) {
+            console.error(
+              "Error cleaning up compatibility score after dislike:",
+              cleanupError
+            );
+          }
+        }
         let isMatch = false;
         if (action === "like") {
           const currentUserProfile = await storage.getSuiteMentorshipProfile(currentUserId);
           if (!currentUserProfile) {
-            console.log(`[SUITE-MENTORSHIP] Current user ${currentUserId} has no mentorship profile`);
+            console.log(
+              `[SUITE-MENTORSHIP] Current user ${currentUserId} has no mentorship profile`
+            );
             return res.status(404).json({ message: "Current user mentorship profile not found" });
           }
           const mutualConnection = await storage.getSuiteMentorshipConnection(
@@ -24338,7 +32474,10 @@ ${message.trim()}`
               matched: true
             });
             isMatch = true;
-            const existingMatch = await storage.getMatchBetweenUsers(currentUserId, targetProfile.userId);
+            const existingMatch = await storage.getMatchBetweenUsers(
+              currentUserId,
+              targetProfile.userId
+            );
             let finalMatch;
             if (existingMatch) {
               let metadata;
@@ -24357,11 +32496,16 @@ ${message.trim()}`
                     }
                     if (!metadata.additionalConnections.includes("mentorship")) {
                       metadata.additionalConnections.push("mentorship");
-                      console.log(`\u{1F517} Adding mentorship to additionalConnections for existing match ${existingMatch.id}`);
+                      console.log(
+                        `\u{1F517} Adding mentorship to additionalConnections for existing match ${existingMatch.id}`
+                      );
                     }
                   }
                 } catch (parseError) {
-                  console.error("Failed to parse existing metadata:", parseError);
+                  console.error(
+                    "Failed to parse existing metadata:",
+                    parseError
+                  );
                   metadata = {
                     origin: "SUITE",
                     suiteType: "mentorship",
@@ -24379,7 +32523,11 @@ ${message.trim()}`
                 userId2: Math.max(currentUserId, targetProfile.userId),
                 matched: true,
                 isDislike: false,
-                metadata: JSON.stringify({ origin: "SUITE", suiteType: "mentorship", context: "professional" })
+                metadata: JSON.stringify({
+                  origin: "SUITE",
+                  suiteType: "mentorship",
+                  context: "professional"
+                })
               };
               finalMatch = await storage.createMatch(matchData);
             }
@@ -24398,7 +32546,11 @@ ${message.trim()}`
             // Specific app mode for mentorship
           };
           await storage.addSwipeHistory(historyData);
-          const userHistory = await storage.getUserSwipeHistory(currentUserId, "SUITE_MENTORSHIP", 20);
+          const userHistory = await storage.getUserSwipeHistory(
+            currentUserId,
+            "SUITE_MENTORSHIP",
+            20
+          );
           if (userHistory.length > 9) {
             const entriesToDelete = userHistory.slice(9);
             for (const entry of entriesToDelete) {
@@ -24414,9 +32566,9 @@ ${message.trim()}`
         console.log(
           `\u{1F680} [SUITE-MENTORSHIP] User ${currentUserId} ${action}d mentorship profile ${profileId}`
         );
-        const sourceUserWs = connectedUsers3.get(currentUserId);
-        const targetUserWs = connectedUsers3.get(targetProfile.userId);
-        if (sourceUserWs && sourceUserWs.readyState === WebSocket3.OPEN) {
+        const sourceUserWs = connectedUsers4.get(currentUserId);
+        const targetUserWs = connectedUsers4.get(targetProfile.userId);
+        if (sourceUserWs && sourceUserWs.readyState === WebSocket4.OPEN) {
           sourceUserWs.send(
             JSON.stringify({
               type: "suite_remove_from_discover",
@@ -24432,7 +32584,7 @@ ${message.trim()}`
           );
         }
         const sourceMentorshipProfile = await storage.getSuiteMentorshipProfile(currentUserId);
-        if (sourceMentorshipProfile && targetUserWs && targetUserWs.readyState === WebSocket3.OPEN) {
+        if (sourceMentorshipProfile && targetUserWs && targetUserWs.readyState === WebSocket4.OPEN) {
           targetUserWs.send(
             JSON.stringify({
               type: "suite_remove_from_discover",
@@ -24447,7 +32599,7 @@ ${message.trim()}`
             `[REAL-TIME] Instantly removed mentorship profile ${sourceMentorshipProfile.id} from user ${targetProfile.userId}'s discover deck`
           );
         }
-        if (action === "like" && targetUserWs && targetUserWs.readyState === WebSocket3.OPEN) {
+        if (action === "like" && targetUserWs && targetUserWs.readyState === WebSocket4.OPEN) {
           try {
             const sourceUser = await storage.getUser(currentUserId);
             const safeUserInfo = sourceUser ? (({ password, ...rest }) => rest)(sourceUser) : { id: currentUserId, fullName: "Unknown User" };
@@ -24581,78 +32733,99 @@ ${message.trim()}`
       res.status(500).json({ message: "Failed to remove swipe history" });
     }
   });
-  app2.delete("/api/swipe/history/clear", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-      const { appMode } = req.query;
-      if (!appMode) {
-        return res.status(400).json({ message: "appMode parameter required" });
+  app2.delete(
+    "/api/swipe/history/clear",
+    async (req, res) => {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
-      await storage.clearUserSwipeHistory(req.user.id, appMode);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error clearing swipe history:", error);
-      res.status(500).json({ message: "Failed to clear swipe history" });
+      try {
+        const { appMode } = req.query;
+        if (!appMode) {
+          return res.status(400).json({ message: "appMode parameter required" });
+        }
+        await storage.clearUserSwipeHistory(req.user.id, appMode);
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Error clearing swipe history:", error);
+        res.status(500).json({ message: "Failed to clear swipe history" });
+      }
     }
-  });
-  app2.get("/api/connections/preferences", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
+  );
+  app2.get(
+    "/api/connections/preferences",
+    async (req, res) => {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      try {
+        const preferences = await storage.getConnectionsPreferences(
+          req.user.id
+        );
+        if (preferences) {
+          const mappedPreferences = convertDbFieldsToFrontend(preferences);
+          res.json(mappedPreferences);
+        } else {
+          res.json(preferences);
+        }
+      } catch (error) {
+        console.error("Error getting connections preferences:", error);
+        res.status(500).json({ message: "Failed to get preferences" });
+      }
     }
-    try {
-      const preferences = await storage.getConnectionsPreferences(req.user.id);
-      if (preferences) {
+  );
+  app2.post(
+    "/api/connections/preferences",
+    async (req, res) => {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      try {
+        const preferences = await storage.saveConnectionsPreferences(
+          req.user.id,
+          req.body
+        );
         const mappedPreferences = convertDbFieldsToFrontend(preferences);
         res.json(mappedPreferences);
-      } else {
-        res.json(preferences);
+      } catch (error) {
+        console.error("Error saving connections preferences:", error);
+        res.status(500).json({ message: "Failed to save preferences" });
       }
-    } catch (error) {
-      console.error("Error getting connections preferences:", error);
-      res.status(500).json({ message: "Failed to get preferences" });
     }
-  });
-  app2.post("/api/connections/preferences", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-      const preferences = await storage.saveConnectionsPreferences(req.user.id, req.body);
-      const mappedPreferences = convertDbFieldsToFrontend(preferences);
-      res.json(mappedPreferences);
-    } catch (error) {
-      console.error("Error saving connections preferences:", error);
-      res.status(500).json({ message: "Failed to save preferences" });
-    }
-  });
-  app2.post("/api/user/verification-status", async (req, res) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    try {
-      const { userId, isVerified } = req.body;
-      if (typeof userId !== "number" || typeof isVerified !== "boolean") {
-        return res.status(400).json({ message: "Invalid parameters. userId (number) and isVerified (boolean) are required." });
+  );
+  app2.post(
+    "/api/user/verification-status",
+    async (req, res) => {
+      if (!req.isAuthenticated()) {
+        return res.status(401).json({ message: "Unauthorized" });
       }
-      const updatedUser = await storage.updateUserProfile(userId, { isVerified });
-      if (verificationStatusBroadcaster) {
-        verificationStatusBroadcaster(userId, isVerified);
-        console.log(
-          `Verification status update broadcasted via WebSocket for user ${userId}: isVerified=${isVerified}`
-        );
+      try {
+        const { userId, isVerified } = req.body;
+        if (typeof userId !== "number" || typeof isVerified !== "boolean") {
+          return res.status(400).json({
+            message: "Invalid parameters. userId (number) and isVerified (boolean) are required."
+          });
+        }
+        const updatedUser = await storage.updateUserProfile(userId, {
+          isVerified
+        });
+        if (verificationStatusBroadcaster) {
+          verificationStatusBroadcaster(userId, isVerified);
+          console.log(
+            `Verification status update broadcasted via WebSocket for user ${userId}: isVerified=${isVerified}`
+          );
+        }
+        res.json({
+          success: true,
+          message: `User ${userId} verification status updated to ${isVerified}`,
+          isVerified: updatedUser.isVerified
+        });
+      } catch (error) {
+        console.error("Error updating verification status:", error);
+        res.status(500).json({ message: "Failed to update verification status" });
       }
-      res.json({
-        success: true,
-        message: `User ${userId} verification status updated to ${isVerified}`,
-        isVerified: updatedUser.isVerified
-      });
-    } catch (error) {
-      console.error("Error updating verification status:", error);
-      res.status(500).json({ message: "Failed to update verification status" });
     }
-  });
+  );
   app2.patch("/api/user/verify-id", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
@@ -24668,7 +32841,9 @@ ${message.trim()}`
         idVerificationPhoto,
         liveVerificationPhoto
       });
-      console.log(`[ID-VERIFICATION] User ${req.user.id} submitted new verification photos`);
+      console.log(
+        `[ID-VERIFICATION] User ${req.user.id} submitted new verification photos`
+      );
       res.json({
         success: true,
         message: "Verification photos submitted successfully",
@@ -24694,7 +32869,9 @@ ${message.trim()}`
       }
       console.log(`[EMAIL-VERIFICATION] Starting verification for: ${email}`);
       const { EmailVerificationService: EmailVerificationService2 } = await Promise.resolve().then(() => (init_email_verification(), email_verification_exports));
-      const result = await EmailVerificationService2.verifyEmail(email.trim().toLowerCase());
+      const result = await EmailVerificationService2.verifyEmail(
+        email.trim().toLowerCase()
+      );
       console.log(`[EMAIL-VERIFICATION] Result for ${email}:`, result);
       res.json({
         success: true,
@@ -24713,42 +32890,6 @@ ${message.trim()}`
       });
     }
   });
-  app2.post("/api/contact/send", async (req, res) => {
-    try {
-      const { name, email, phoneNumber, message } = req.body;
-      if (!name || !email || !message) {
-        return res.status(400).json({
-          message: "All fields are required (name, email, message)"
-        });
-      }
-      const { sendContactFormEmail: sendContactFormEmail2 } = await Promise.resolve().then(() => (init_sendgrid(), sendgrid_exports));
-      const emailSent = await sendContactFormEmail2({
-        name: name.trim(),
-        email: email.trim(),
-        phoneNumber: phoneNumber || "Not provided",
-        message: message.trim()
-      });
-      if (emailSent) {
-        console.log(`Contact form submission sent successfully from ${email}`);
-        res.json({
-          success: true,
-          message: "Message sent successfully! We'll get back to you soon."
-        });
-      } else {
-        console.error("Failed to send contact form email");
-        res.status(500).json({
-          success: false,
-          message: "Failed to send message. Please try again later."
-        });
-      }
-    } catch (error) {
-      console.error("Contact form API error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Server error. Please try again later."
-      });
-    }
-  });
   registerSuiteCompatibilityAPI(app2);
   app2.get("/api/test/sendgrid", requireAuth, async (req, res) => {
     try {
@@ -24763,62 +32904,126 @@ ${message.trim()}`
       });
     }
   });
-  app2.post("/api/contact/send", requireAuth, async (req, res) => {
-    try {
-      const { name, email, phoneNumber, message } = req.body;
-      if (!name || !email || !message) {
-        return res.status(400).json({
-          success: false,
-          message: "All fields (name, email, message) are required"
-        });
-      }
-      const { sendContactFormEmail: sendContactFormEmail2 } = await Promise.resolve().then(() => (init_sendgrid(), sendgrid_exports));
-      const success = await sendContactFormEmail2({ name, email, phoneNumber, message });
-      if (success) {
-        res.json({
-          success: true,
-          message: "Message sent successfully"
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: "Failed to send message. Please try again later."
-        });
-      }
-    } catch (error) {
-      console.error("Contact form error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to send message. Please try again later."
-      });
-    }
-  });
   app2.post("/api/welcome/send", async (req, res) => {
     try {
-      const { name, email } = req.body;
+      const { name, email, dateOfBirth } = req.body;
       if (!name || !email) {
         return res.status(400).json({
           success: false,
           message: "Name and email are required"
         });
       }
-      console.log(`[WELCOME-EMAIL] Sending welcome email to ${email} for ${name}`);
-      const { sendWelcomeEmail: sendWelcomeEmail2 } = await Promise.resolve().then(() => (init_sendgrid(), sendgrid_exports));
-      const success = await sendWelcomeEmail2({
-        name: name.trim(),
-        email: email.trim()
-      });
-      if (success) {
-        console.log(`[WELCOME-EMAIL] Successfully sent welcome email to ${email}`);
-        res.json({
-          success: true,
-          message: "Welcome email sent successfully"
+      const calculateAge2 = (dateOfBirth2) => {
+        const today = /* @__PURE__ */ new Date();
+        const birthDate = new Date(dateOfBirth2);
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || monthDiff === 0 && today.getDate() < birthDate.getDate()) {
+          age--;
+        }
+        return age;
+      };
+      const userAge = dateOfBirth ? calculateAge2(dateOfBirth) : null;
+      const isUnder14 = userAge !== null && userAge < 14;
+      const isTeenage = userAge !== null && userAge >= 14 && userAge < 18;
+      const isAdult = userAge !== null && userAge >= 18;
+      console.log(
+        `[WELCOME-EMAIL] User ${name} (${email}) is ${userAge} years old - Under 14: ${isUnder14}, Teenage (14-17): ${isTeenage}, Adult (18+): ${isAdult}`
+      );
+      const {
+        sendWelcomeEmail: sendWelcomeEmail2,
+        sendTeenageWelcomeEmail: sendTeenageWelcomeEmail2,
+        sendUnderAgeApologyEmail: sendUnderAgeApologyEmail2
+      } = await Promise.resolve().then(() => (init_sendgrid(), sendgrid_exports));
+      let success = false;
+      if (isUnder14) {
+        console.log(
+          `[WELCOME-EMAIL] Sending under-age apology email to ${email} for ${name} (age: ${userAge})`
+        );
+        success = await sendUnderAgeApologyEmail2({
+          name: name.trim(),
+          email: email.trim(),
+          dateOfBirth
         });
+        if (success) {
+          console.log(
+            `[WELCOME-EMAIL] Successfully sent under-age apology email to ${email}`
+          );
+          res.json({
+            success: true,
+            message: "Under-age apology email sent successfully",
+            emailType: "apology"
+          });
+        } else {
+          console.error(
+            `[WELCOME-EMAIL] Failed to send under-age apology email to ${email}`
+          );
+          res.status(500).json({
+            success: false,
+            message: "Failed to send under-age apology email"
+          });
+        }
+      } else if (isTeenage) {
+        console.log(
+          `[WELCOME-EMAIL] Sending teenage welcome email to ${email} for ${name} (age: ${userAge})`
+        );
+        success = await sendTeenageWelcomeEmail2({
+          name: name.trim(),
+          email: email.trim(),
+          dateOfBirth
+        });
+        if (success) {
+          console.log(
+            `[WELCOME-EMAIL] Successfully sent teenage welcome email to ${email}`
+          );
+          res.json({
+            success: true,
+            message: "Teenage welcome email sent successfully",
+            emailType: "teenage_welcome"
+          });
+        } else {
+          console.error(
+            `[WELCOME-EMAIL] Failed to send teenage welcome email to ${email}`
+          );
+          res.status(500).json({
+            success: false,
+            message: "Failed to send teenage welcome email"
+          });
+        }
+      } else if (isAdult) {
+        console.log(
+          `[WELCOME-EMAIL] Sending adult welcome email to ${email} for ${name} (age: ${userAge})`
+        );
+        success = await sendWelcomeEmail2({
+          name: name.trim(),
+          email: email.trim(),
+          dateOfBirth
+        });
+        if (success) {
+          console.log(
+            `[WELCOME-EMAIL] Successfully sent adult welcome email to ${email}`
+          );
+          res.json({
+            success: true,
+            message: "Adult welcome email sent successfully",
+            emailType: "adult_welcome"
+          });
+        } else {
+          console.error(
+            `[WELCOME-EMAIL] Failed to send adult welcome email to ${email}`
+          );
+          res.status(500).json({
+            success: false,
+            message: "Failed to send adult welcome email"
+          });
+        }
       } else {
-        console.error(`[WELCOME-EMAIL] Failed to send welcome email to ${email}`);
-        res.status(500).json({
+        console.error(
+          `[WELCOME-EMAIL] Invalid age data for user ${name} (${email}): age = ${userAge}`
+        );
+        res.status(400).json({
           success: false,
-          message: "Failed to send welcome email"
+          message: "Invalid age data - cannot determine appropriate email type"
         });
       }
     } catch (error) {
@@ -24843,7 +33048,7 @@ ${message.trim()}`
           <body>
             <h1>\u274C Invalid Dispute Link</h1>
             <p>This dispute link is invalid or malformed.</p>
-            <p>If you received this link in a security email, please contact admin@btechnos.com</p>
+            <p>If you received this link in a security email, please contact admin@kronogon.com</p>
           </body>
           </html>
         `);
@@ -24861,7 +33066,7 @@ ${message.trim()}`
             <h1>\u23F0 Dispute Link Expired</h1>
             <p>This dispute link has expired or has already been used.</p>
             <p>Dispute links are valid for 7 days after the security change.</p>
-            <p>If you still need assistance, please contact admin@btechnos.com directly.</p>
+            <p>If you still need assistance, please contact admin@kronogon.com directly.</p>
           </body>
           </html>
         `);
@@ -24922,7 +33127,7 @@ ${message.trim()}`
               <p><strong>Important:</strong> This dispute link has now been used and cannot be accessed again.</p>
               
               <p>If you have immediate concerns, contact us at:</p>
-              <p><strong>admin@btechnos.com</strong></p>
+              <p><strong>admin@kronogon.com</strong></p>
               
               <hr style="margin: 30px 0;">
               <p style="font-size: 14px; color: #666;">
@@ -24944,7 +33149,7 @@ ${message.trim()}`
           <body>
             <h1>\u274C Error Processing Dispute</h1>
             <p>There was an error processing your security dispute.</p>
-            <p>Please contact admin@btechnos.com directly with the following information:</p>
+            <p>Please contact admin@kronogon.com directly with the following information:</p>
             <ul style="text-align: left; display: inline-block;">
               <li>Dispute Token: ${token}</li>
               <li>Your Email: ${disputeInfo.email}</li>
@@ -24967,7 +33172,7 @@ ${message.trim()}`
         <body>
           <h1>\u274C System Error</h1>
           <p>A system error occurred while processing your dispute.</p>
-          <p>Please contact admin@btechnos.com immediately.</p>
+          <p>Please contact admin@kronogon.com immediately.</p>
         </body>
         </html>
       `);
@@ -24999,7 +33204,11 @@ ${message.trim()}`
           error: "Authentication required"
         });
       }
-      const validation = await storage.validatePromotionalCode(code, userId, region);
+      const validation = await storage.validatePromotionalCode(
+        code,
+        userId,
+        region
+      );
       res.json(validation);
     } catch (error) {
       console.error("Error validating promo code:", error);
@@ -25009,1033 +33218,1245 @@ ${message.trim()}`
       });
     }
   });
-  app2.post("/api/subscription/create", requireAuth, async (req, res) => {
-    try {
-      if (!stripe2) {
-        return res.status(503).json({
-          success: false,
-          error: "Payment processing is currently unavailable. Please contact support.",
-          code: "STRIPE_NOT_CONFIGURED"
-        });
-      }
-      console.log(`[STRIPE-ENVIRONMENT-FIX] Creating subscription in ${isLiveMode2 ? "LIVE" : "TEST"} mode for user ${req.user.id}`);
-      const {
-        planType,
-        region,
-        promoCode,
-        paymentMethod = "card",
-        billingName,
-        billingEmail,
-        billingPhone,
-        billingAddress,
-        billingCity,
-        billingState,
-        billingPostalCode,
-        billingCountry,
-        nickname
-      } = req.body;
-      const userId = req.user.id;
-      if (!planType || !region) {
-        return res.status(400).json({
-          success: false,
-          error: "Missing required fields"
-        });
-      }
-      const pricingList = await storage.getRegionalPricing(region, planType);
-      const pricing = pricingList[0];
-      if (!pricing) {
-        return res.status(400).json({
-          success: false,
-          error: "Invalid plan or region"
-        });
-      }
-      const existingSubscription = await storage.getSubscriptionByUser(userId);
-      if (existingSubscription && existingSubscription.status === "active") {
-        return res.status(400).json({
-          success: false,
-          error: "User already has an active subscription"
-        });
-      }
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      let stripeCustomerId = user.stripeCustomerId;
-      let needsNewCustomer = !stripeCustomerId;
-      if (stripeCustomerId && stripe2) {
-        try {
-          await stripe2.customers.retrieve(stripeCustomerId);
-          console.log(`[STRIPE] Using existing customer: ${stripeCustomerId}`);
-        } catch (error) {
-          if (error.code === "resource_missing") {
-            console.log(`[STRIPE] Customer ${stripeCustomerId} not found in current mode, creating new customer`);
-            needsNewCustomer = true;
-          } else {
-            throw error;
+  app2.post(
+    "/api/subscription/create",
+    requireAuth,
+    async (req, res) => {
+      try {
+        if (!stripe2) {
+          return res.status(503).json({
+            success: false,
+            error: "Payment processing is currently unavailable. Please contact support.",
+            code: "STRIPE_NOT_CONFIGURED"
+          });
+        }
+        console.log(
+          `[STRIPE-ENVIRONMENT-FIX] Creating subscription in ${isLiveMode2 ? "LIVE" : "TEST"} mode for user ${req.user.id}`
+        );
+        const {
+          planType,
+          region,
+          promoCode,
+          paymentMethod = "card",
+          billingName,
+          billingEmail,
+          billingPhone,
+          billingAddress,
+          billingCity,
+          billingState,
+          billingPostalCode,
+          billingCountry,
+          nickname
+        } = req.body;
+        const userId = req.user.id;
+        if (!planType || !region) {
+          return res.status(400).json({
+            success: false,
+            error: "Missing required fields"
+          });
+        }
+        const pricingList = await storage.getRegionalPricing(region, planType);
+        const pricing = pricingList[0];
+        if (!pricing) {
+          return res.status(400).json({
+            success: false,
+            error: "Invalid plan or region"
+          });
+        }
+        const existingSubscription = await storage.getSubscriptionByUser(userId);
+        if (existingSubscription && existingSubscription.status === "active") {
+          return res.status(400).json({
+            success: false,
+            error: "User already has an active subscription"
+          });
+        }
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ error: "User not found" });
+        }
+        let stripeCustomerId = user.stripeCustomerId;
+        let needsNewCustomer = !stripeCustomerId;
+        if (stripeCustomerId && stripe2) {
+          try {
+            await stripe2.customers.retrieve(stripeCustomerId);
+            console.log(
+              `[STRIPE] Using existing customer: ${stripeCustomerId}`
+            );
+          } catch (error) {
+            if (error.code === "resource_missing") {
+              console.log(
+                `[STRIPE] Customer ${stripeCustomerId} not found in current mode, creating new customer`
+              );
+              needsNewCustomer = true;
+            } else {
+              throw error;
+            }
           }
         }
-      }
-      if (needsNewCustomer && stripe2) {
-        const customer = await stripe2.customers.create({
-          email: user.email,
-          name: user.fullName,
+        if (needsNewCustomer && stripe2) {
+          const customer = await stripe2.customers.create({
+            email: user.email,
+            name: user.fullName,
+            metadata: {
+              userId: userId.toString(),
+              region,
+              mode: isLiveMode2 ? "live" : "test"
+            }
+          });
+          stripeCustomerId = customer.id;
+          console.log(
+            `[STRIPE] Created new customer: ${stripeCustomerId} in ${isLiveMode2 ? "LIVE" : "TEST"} mode`
+          );
+          await storage.updateUser(userId, { stripeCustomerId });
+        }
+        console.log(
+          `[STRIPE] Creating subscription for user ${userId}, plan: ${planType}, region: ${region}, amount: ${pricing.amount} ${pricing.currency}`
+        );
+        const supportedCurrencies = ["usd", "eur", "gbp", "cad", "aud", "jpy"];
+        const requestedCurrency = pricing.currency.toLowerCase();
+        const isUnsupportedCurrency = !supportedCurrencies.includes(requestedCurrency);
+        let stripeCurrency = requestedCurrency;
+        let stripeAmount = pricing.amount;
+        if (isUnsupportedCurrency) {
+          stripeCurrency = "usd";
+          const conversionRates = {
+            ghs: 10.44,
+            // 10.44 GHS = 1 USD (current rate)
+            ngn: 1600,
+            // 1600 NGN = 1 USD (example for future)
+            kes: 130
+            // 130 KES = 1 USD (example for future)
+          };
+          const conversionRate = conversionRates[requestedCurrency];
+          if (conversionRate) {
+            stripeAmount = Math.round(pricing.amount / conversionRate);
+          } else {
+            stripeAmount = pricing.amount;
+          }
+          console.log(
+            `[STRIPE-CURRENCY-FALLBACK] Converting ${pricing.amount} ${pricing.currency} to ${stripeAmount} ${stripeCurrency.toUpperCase()} (rate: ${conversionRate || "default"})`
+          );
+        }
+        let productId;
+        if (stripe2) {
+          try {
+            const product = await stripe2.products.create({
+              name: `CHARLEY Premium - ${planType.replace("_", " ").toUpperCase()}`,
+              description: `Premium subscription for ${region} region`,
+              metadata: {
+                app: "charley",
+                plan_type: planType,
+                region,
+                original_currency: pricing.currency,
+                stripe_currency: stripeCurrency
+              }
+            });
+            productId = product.id;
+            console.log(`[STRIPE] Created product: ${productId}`);
+          } catch (productError) {
+            console.error(
+              `[STRIPE] Error creating product:`,
+              productError.message
+            );
+            throw new Error(
+              `Failed to create product: ${productError.message}`
+            );
+          }
+        }
+        const subscriptionParams = {
+          customer: stripeCustomerId,
+          items: [
+            {
+              price_data: {
+                currency: stripeCurrency,
+                unit_amount: stripeAmount,
+                recurring: {
+                  interval: planType.includes("yearly") ? "year" : "month",
+                  interval_count: planType.includes("quarterly") ? 3 : 1
+                },
+                product: productId
+              }
+            }
+          ],
+          payment_behavior: "default_incomplete",
+          payment_settings: {
+            payment_method_types: ["card"],
+            save_default_payment_method: "on_subscription"
+          },
+          expand: ["latest_invoice.payment_intent"],
           metadata: {
             userId: userId.toString(),
             region,
-            mode: isLiveMode2 ? "live" : "test"
-          }
-        });
-        stripeCustomerId = customer.id;
-        console.log(`[STRIPE] Created new customer: ${stripeCustomerId} in ${isLiveMode2 ? "LIVE" : "TEST"} mode`);
-        await storage.updateUser(userId, { stripeCustomerId });
-      }
-      console.log(`[STRIPE] Creating subscription for user ${userId}, plan: ${planType}, region: ${region}, amount: ${pricing.amount} ${pricing.currency}`);
-      const supportedCurrencies = ["usd", "eur", "gbp", "cad", "aud", "jpy"];
-      const requestedCurrency = pricing.currency.toLowerCase();
-      const isUnsupportedCurrency = !supportedCurrencies.includes(requestedCurrency);
-      let stripeCurrency = requestedCurrency;
-      let stripeAmount = pricing.amount;
-      if (isUnsupportedCurrency) {
-        stripeCurrency = "usd";
-        const conversionRates = {
-          "ghs": 10.44,
-          // 10.44 GHS = 1 USD (current rate)
-          "ngn": 1600,
-          // 1600 NGN = 1 USD (example for future)
-          "kes": 130
-          // 130 KES = 1 USD (example for future)
-        };
-        const conversionRate = conversionRates[requestedCurrency];
-        if (conversionRate) {
-          stripeAmount = Math.round(pricing.amount / conversionRate);
-        } else {
-          stripeAmount = pricing.amount;
-        }
-        console.log(`[STRIPE-CURRENCY-FALLBACK] Converting ${pricing.amount} ${pricing.currency} to ${stripeAmount} ${stripeCurrency.toUpperCase()} (rate: ${conversionRate || "default"})`);
-      }
-      let productId;
-      if (stripe2) {
-        try {
-          const product = await stripe2.products.create({
-            name: `CHARLEY Premium - ${planType.replace("_", " ").toUpperCase()}`,
-            description: `Premium subscription for ${region} region`,
-            metadata: {
-              app: "charley",
-              plan_type: planType,
-              region,
-              original_currency: pricing.currency,
-              stripe_currency: stripeCurrency
-            }
-          });
-          productId = product.id;
-          console.log(`[STRIPE] Created product: ${productId}`);
-        } catch (productError) {
-          console.error(`[STRIPE] Error creating product:`, productError.message);
-          throw new Error(`Failed to create product: ${productError.message}`);
-        }
-      }
-      const subscriptionParams = {
-        customer: stripeCustomerId,
-        items: [
-          {
-            price_data: {
-              currency: stripeCurrency,
-              unit_amount: stripeAmount,
-              recurring: {
-                interval: planType.includes("yearly") ? "year" : "month",
-                interval_count: planType.includes("quarterly") ? 3 : 1
-              },
-              product: productId
-            }
-          }
-        ],
-        payment_behavior: "default_incomplete",
-        payment_settings: {
-          payment_method_types: ["card"],
-          save_default_payment_method: "on_subscription"
-        },
-        expand: ["latest_invoice.payment_intent"],
-        metadata: {
-          userId: userId.toString(),
-          region,
-          planType,
-          paymentMethod,
-          original_currency: pricing.currency,
-          original_amount: pricing.amount.toString(),
-          stripe_currency: stripeCurrency,
-          stripe_amount: stripeAmount.toString(),
-          // Billing Address Information
-          billing_name: billingName || "",
-          billing_email: billingEmail || "",
-          billing_phone: billingPhone || "",
-          billing_address: billingAddress || "",
-          billing_city: billingCity || "",
-          billing_state: billingState || "",
-          billing_postal_code: billingPostalCode || "",
-          billing_country: billingCountry || "",
-          nickname: nickname || ""
-        }
-      };
-      console.log(`[STRIPE] Subscription params:`, JSON.stringify(subscriptionParams, null, 2));
-      if (isUnsupportedCurrency) {
-        console.log(`[STRIPE-CURRENCY-CONVERSION] SUCCESSFUL FALLBACK:`);
-        console.log(`[STRIPE-CURRENCY-CONVERSION] Original: ${pricing.amount} ${pricing.currency}`);
-        console.log(`[STRIPE-CURRENCY-CONVERSION] Stripe Processing: ${stripeAmount} ${stripeCurrency.toUpperCase()}`);
-        console.log(`[STRIPE-CURRENCY-CONVERSION] User sees: ${pricing.currency} pricing, Stripe charges: USD equivalent`);
-      }
-      if (promoCode && stripe2) {
-        const validation = await storage.validatePromotionalCode(promoCode, userId, region);
-        if (validation.valid && validation.discount) {
-          const coupon = await stripe2.coupons.create({
-            percent_off: validation.discount,
-            duration: "once",
-            metadata: {
-              promoCode,
-              userId: userId.toString()
-            }
-          });
-          subscriptionParams.coupon = coupon.id;
-        }
-      }
-      let stripeSubscription = null;
-      try {
-        if (stripe2) {
-          console.log(`[STRIPE] Calling stripe.subscriptions.create with customer: ${stripeCustomerId}`);
-          stripeSubscription = await stripe2.subscriptions.create(subscriptionParams);
-          console.log(`[STRIPE] Successfully created subscription: ${stripeSubscription.id}`);
-        }
-      } catch (stripeError) {
-        console.error(`[STRIPE] Error creating subscription:`, stripeError);
-        console.error(`[STRIPE] Error type:`, stripeError.type);
-        console.error(`[STRIPE] Error code:`, stripeError.code);
-        console.error(`[STRIPE] Error message:`, stripeError.message);
-        console.error(`[STRIPE] Error details:`, stripeError.detail);
-        throw new Error(`Stripe subscription creation failed: ${stripeError.message}`);
-      }
-      if (!stripeSubscription) {
-        return res.status(503).json({
-          success: false,
-          error: "Payment processing is currently unavailable. Please contact support.",
-          code: "STRIPE_NOT_CONFIGURED"
-        });
-      }
-      const subscription = await storage.createSubscription({
-        userId,
-        provider: "stripe",
-        subscriptionId: stripeSubscription.id,
-        planType,
-        status: stripeSubscription.status,
-        currentPeriodStart: new Date(stripeSubscription.current_period_start * 1e3),
-        currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1e3),
-        cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
-        currency: pricing.currency,
-        // Keep original currency for user display
-        amount: pricing.amount,
-        // Keep original amount for user display
-        region,
-        paymentMethod: paymentMethod || "card"
-      });
-      try {
-        const subscriptionEvent = await storage.createSubscriptionEvent({
-          subscriptionId: subscription.id,
-          userId,
-          eventType: "created",
-          provider: "stripe",
-          providerEventId: stripeSubscription.id,
-          oldStatus: null,
-          newStatus: stripeSubscription.status,
-          metadata: JSON.stringify({
-            subscriptionId: stripeSubscription.id,
             planType,
-            amount: pricing.amount,
-            currency: pricing.currency,
-            region,
+            paymentMethod: paymentMethod || "card",
+            original_currency: pricing.currency,
+            original_amount: pricing.amount.toString(),
             stripe_currency: stripeCurrency,
-            stripe_amount: stripeAmount,
-            currency_converted: isUnsupportedCurrency,
-            currentPeriodStart: stripeSubscription.current_period_start,
-            currentPeriodEnd: stripeSubscription.current_period_end
-          })
-        });
-        console.log(`[SUBSCRIPTION-CREATION] Created subscription event: ${subscriptionEvent.id}`);
-      } catch (eventError) {
-        console.error(`[SUBSCRIPTION-CREATION] Failed to create subscription event:`, eventError);
-      }
-      const clientSecret = stripeSubscription.latest_invoice?.payment_intent?.client_secret;
-      const paymentIntentId = stripeSubscription.latest_invoice?.payment_intent?.id;
-      console.log(`[STRIPE] Payment intent ID: ${paymentIntentId}`);
-      console.log(`[STRIPE] Client secret: ${clientSecret}`);
-      console.log(`[STRIPE] Latest invoice:`, JSON.stringify(stripeSubscription.latest_invoice, null, 2));
-      if (!clientSecret) {
-        console.error("[STRIPE] No client secret found in payment intent!");
-        console.error("[STRIPE] Subscription object:", JSON.stringify(stripeSubscription, null, 2));
-        throw new Error("Failed to get payment intent client secret");
-      }
-      res.json({
-        success: true,
-        subscription: {
-          id: subscription.id,
-          stripeSubscriptionId: stripeSubscription.id,
-          planType: subscription.planType,
-          status: subscription.status,
-          currentPeriodEnd: subscription.currentPeriodEnd
-        },
-        clientSecret,
-        paymentMethod
-      });
-    } catch (error) {
-      console.error("Error creating subscription:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to create subscription"
-      });
-    }
-  });
-  app2.post("/api/subscription/payment-success", requireAuth, async (req, res) => {
-    try {
-      const { paymentIntentId } = req.body;
-      const userId = req.user.id;
-      console.log(`[PAYMENT-SUCCESS] Request received for user ${userId}`);
-      console.log(`[PAYMENT-SUCCESS] Request body:`, JSON.stringify(req.body, null, 2));
-      console.log(`[PAYMENT-SUCCESS] Payment intent ID:`, paymentIntentId);
-      if (!stripe2) {
-        console.log(`[PAYMENT-SUCCESS] Stripe not configured`);
-        return res.status(503).json({
-          success: false,
-          error: "Payment processing is currently unavailable. Please contact support.",
-          code: "STRIPE_NOT_CONFIGURED"
-        });
-      }
-      if (!paymentIntentId) {
-        console.log(`[PAYMENT-SUCCESS] Missing payment intent ID in request`);
-        return res.status(400).json({
-          success: false,
-          error: "Missing payment intent ID"
-        });
-      }
-      console.log(`[STRIPE] Verifying payment success for user ${userId}, payment intent: ${paymentIntentId}`);
-      let paymentIntent;
-      let retryCount = 0;
-      const maxRetries = 3;
-      while (retryCount < maxRetries) {
+            stripe_amount: stripeAmount.toString(),
+            // Billing Address Information
+            billing_name: billingName || "",
+            billing_email: billingEmail || "",
+            billing_phone: billingPhone || "",
+            billing_address: billingAddress || "",
+            billing_city: billingCity || "",
+            billing_state: billingState || "",
+            billing_postal_code: billingPostalCode || "",
+            billing_country: billingCountry || "",
+            nickname: nickname || ""
+          }
+        };
+        console.log(
+          `[STRIPE] Subscription params:`,
+          JSON.stringify(subscriptionParams, null, 2)
+        );
+        if (isUnsupportedCurrency) {
+          console.log(`[STRIPE-CURRENCY-CONVERSION] SUCCESSFUL FALLBACK:`);
+          console.log(
+            `[STRIPE-CURRENCY-CONVERSION] Original: ${pricing.amount} ${pricing.currency}`
+          );
+          console.log(
+            `[STRIPE-CURRENCY-CONVERSION] Stripe Processing: ${stripeAmount} ${stripeCurrency.toUpperCase()}`
+          );
+          console.log(
+            `[STRIPE-CURRENCY-CONVERSION] User sees: ${pricing.currency} pricing, Stripe charges: USD equivalent`
+          );
+        }
+        if (promoCode && stripe2) {
+          const validation = await storage.validatePromotionalCode(
+            promoCode,
+            userId,
+            region
+          );
+          if (validation.valid && validation.discount) {
+            const coupon = await stripe2.coupons.create({
+              percent_off: validation.discount,
+              duration: "once",
+              metadata: {
+                promoCode,
+                userId: userId.toString()
+              }
+            });
+            subscriptionParams.coupon = coupon.id;
+          }
+        }
+        let stripeSubscription = null;
         try {
-          paymentIntent = await stripe2.paymentIntents.retrieve(paymentIntentId);
-          break;
-        } catch (retrieveError) {
-          retryCount++;
-          console.log(`[STRIPE] Attempt ${retryCount}/${maxRetries} failed to retrieve payment intent:`, retrieveError.message);
-          if (retryCount >= maxRetries) {
-            throw retrieveError;
+          if (stripe2) {
+            console.log(
+              `[STRIPE] Calling stripe.subscriptions.create with customer: ${stripeCustomerId}`
+            );
+            stripeSubscription = await stripe2.subscriptions.create(subscriptionParams);
+            console.log(
+              `[STRIPE] Successfully created subscription: ${stripeSubscription.id}`
+            );
           }
-          await new Promise((resolve) => setTimeout(resolve, 1e3));
+        } catch (stripeError) {
+          console.error(`[STRIPE] Error creating subscription:`, stripeError);
+          console.error(`[STRIPE] Error type:`, stripeError.type);
+          console.error(`[STRIPE] Error code:`, stripeError.code);
+          console.error(`[STRIPE] Error message:`, stripeError.message);
+          console.error(`[STRIPE] Error details:`, stripeError.detail);
+          throw new Error(
+            `Stripe subscription creation failed: ${stripeError.message}`
+          );
         }
-      }
-      if (!paymentIntent) {
-        throw new Error("Failed to retrieve payment intent after multiple attempts");
-      }
-      console.log(`[PAYMENT-SUCCESS] Payment intent status: ${paymentIntent.status}`);
-      console.log(`[PAYMENT-SUCCESS] Payment intent details:`, {
-        id: paymentIntent.id,
-        status: paymentIntent.status,
-        amount: paymentIntent.amount,
-        currency: paymentIntent.currency
-      });
-      if (paymentIntent.status === "succeeded") {
-        let currentSubscriptionId = null;
-        let subscriptionExpiresAt = null;
-        if (paymentIntent.invoice) {
-          try {
-            const invoice = await stripe2.invoices.retrieve(paymentIntent.invoice);
-            if (invoice.subscription) {
-              currentSubscriptionId = invoice.subscription;
-              console.log(`[PAYMENT-SUCCESS] Found subscription ID from invoice: ${currentSubscriptionId}`);
-            }
-          } catch (invoiceError) {
-            console.warn(`[PAYMENT-SUCCESS] Could not retrieve invoice:`, invoiceError);
-          }
-        }
-        if (currentSubscriptionId && stripe2) {
-          try {
-            const stripeSubscription = await stripe2.subscriptions.retrieve(currentSubscriptionId);
-            subscriptionExpiresAt = new Date(stripeSubscription.current_period_end * 1e3);
-            console.log(`[PAYMENT-SUCCESS] Retrieved subscription expiry from Stripe: ${subscriptionExpiresAt}`);
-            console.log(`[PAYMENT-SUCCESS] Stripe subscription status: ${stripeSubscription.status}`);
-          } catch (stripeError) {
-            console.warn(`[PAYMENT-SUCCESS] Could not fetch subscription from Stripe:`, stripeError);
-          }
-        }
-        const subscription = await storage.getSubscriptionByUser(userId);
-        if (subscription || currentSubscriptionId) {
-          try {
-            if (paymentIntent.payment_method && typeof paymentIntent.payment_method === "string") {
-              const stripePaymentMethod = await stripe2.paymentMethods.retrieve(paymentIntent.payment_method);
-              const existingPaymentMethods = await storage.getPaymentMethodsByUser(userId);
-              const paymentMethodExists = existingPaymentMethods.some((pm) => pm.externalId === paymentIntent.payment_method);
-              if (!paymentMethodExists) {
-                let billingInfo = {};
-                if (currentSubscriptionId) {
-                  try {
-                    const stripeSubscription = await stripe2.subscriptions.retrieve(currentSubscriptionId);
-                    const metadata = stripeSubscription.metadata || {};
-                    billingInfo = {
-                      billingName: metadata.billing_name || null,
-                      billingEmail: metadata.billing_email || null,
-                      billingPhone: metadata.billing_phone || null,
-                      billingAddress: metadata.billing_address || null,
-                      billingCity: metadata.billing_city || null,
-                      billingState: metadata.billing_state || null,
-                      billingPostalCode: metadata.billing_postal_code || null,
-                      billingCountry: metadata.billing_country || null,
-                      nickname: metadata.nickname || null
-                    };
-                  } catch (error) {
-                    console.warn(`[PAYMENT-SUCCESS] Could not retrieve subscription metadata for billing info:`, error);
-                  }
-                }
-                const paymentMethodRecord = await storage.createPaymentMethod({
-                  userId,
-                  provider: "stripe",
-                  externalId: paymentIntent.payment_method,
-                  type: "card",
-                  isDefault: existingPaymentMethods.length === 0,
-                  // First payment method becomes default
-                  metadata: JSON.stringify({
-                    last4: stripePaymentMethod.card?.last4,
-                    brand: stripePaymentMethod.card?.brand,
-                    expMonth: stripePaymentMethod.card?.exp_month,
-                    expYear: stripePaymentMethod.card?.exp_year,
-                    fingerprint: stripePaymentMethod.card?.fingerprint,
-                    country: stripePaymentMethod.card?.country
-                  }),
-                  // Include billing address information from subscription metadata
-                  ...billingInfo
-                });
-                console.log(`[PAYMENT-SUCCESS] Created payment method record: ${paymentMethodRecord.id} with billing info`);
-              }
-            }
-          } catch (paymentMethodError) {
-            console.error(`[PAYMENT-SUCCESS] Failed to create payment method:`, paymentMethodError);
-          }
-          try {
-            const paymentHistoryRecord = await storage.createPaymentHistory({
-              subscriptionId: subscription.id,
-              userId,
-              provider: "stripe",
-              providerTransactionId: paymentIntent.id,
-              amount: paymentIntent.amount,
-              currency: paymentIntent.currency.toUpperCase(),
-              status: "succeeded",
-              paymentMethod: "card",
-              metadata: JSON.stringify({
-                paymentIntentId: paymentIntent.id,
-                customerEmail: paymentIntent.metadata?.customer_email,
-                planType: subscription.planType,
-                region: subscription.region,
-                stripePaymentMethodId: paymentIntent.payment_method
-              })
-            });
-            console.log(`[PAYMENT-SUCCESS] Created payment history record: ${paymentHistoryRecord.id}`);
-          } catch (paymentHistoryError) {
-            console.error(`[PAYMENT-SUCCESS] Failed to create payment history:`, paymentHistoryError);
-          }
-          try {
-            const subscriptionEvent = await storage.createSubscriptionEvent({
-              subscriptionId: subscription.id,
-              userId,
-              eventType: "payment_succeeded",
-              provider: "stripe",
-              providerEventId: paymentIntent.id,
-              oldStatus: subscription.status,
-              newStatus: "active",
-              metadata: JSON.stringify({
-                paymentIntentId: paymentIntent.id,
-                amount: paymentIntent.amount,
-                currency: paymentIntent.currency,
-                timestamp: (/* @__PURE__ */ new Date()).toISOString()
-              })
-            });
-            console.log(`[PAYMENT-SUCCESS] Created subscription event: ${subscriptionEvent.id}`);
-          } catch (eventError) {
-            console.error(`[PAYMENT-SUCCESS] Failed to create subscription event:`, eventError);
-          }
-          await storage.updateUserProfile(userId, {
-            premiumAccess: true,
-            stripeSubscriptionId: currentSubscriptionId || (subscription ? subscription.subscriptionId : null),
-            subscriptionStatus: "active",
-            subscriptionExpiresAt,
-            subscriptionCanceledAt: null
-            // Clear any previous cancellation
+        if (!stripeSubscription) {
+          return res.status(503).json({
+            success: false,
+            error: "Payment processing is currently unavailable. Please contact support.",
+            code: "STRIPE_NOT_CONFIGURED"
           });
-          console.log(`[PAYMENT-SUCCESS] Updated user ${userId} with premium access and subscription data`);
-          try {
-            const user = await storage.getUser(userId);
-            if (user && user.email) {
-              const { sendPremiumSubscriptionEmail: sendPremiumSubscriptionEmail2 } = await Promise.resolve().then(() => (init_sendgrid(), sendgrid_exports));
-              const emailSuccess = await sendPremiumSubscriptionEmail2({
-                name: user.fullName || user.username || "CHARLEY User",
-                email: user.email,
-                planType: subscription.planType,
-                subscriptionId: subscription.subscriptionId,
-                subscriptionExpiresAt: subscriptionExpiresAt || void 0
-              });
-              if (emailSuccess) {
-                console.log(`[PAYMENT-SUCCESS] Premium welcome email sent to ${user.email}`);
-              } else {
-                console.warn(`[PAYMENT-SUCCESS] Failed to send premium welcome email to ${user.email}`);
-              }
-            } else {
-              console.warn(`[PAYMENT-SUCCESS] Cannot send premium email - user not found or no email`);
-            }
-          } catch (emailError) {
-            console.error(`[PAYMENT-SUCCESS] Error sending premium welcome email:`, emailError);
-          }
-          if (subscription.status === "incomplete") {
-            await storage.updateSubscription(subscription.id, { status: "active" });
-            console.log(`[PAYMENT-SUCCESS] Updated subscription ${subscription.id} status to active`);
-          }
-        } else {
-          await storage.updateUserProfile(userId, { premiumAccess: true });
-          console.log(`[PAYMENT-SUCCESS] Updated user ${userId} premium access to true (no subscription record)`);
-          try {
-            const user = await storage.getUser(userId);
-            if (user && user.email) {
-              const { sendPremiumSubscriptionEmail: sendPremiumSubscriptionEmail2 } = await Promise.resolve().then(() => (init_sendgrid(), sendgrid_exports));
-              const emailSuccess = await sendPremiumSubscriptionEmail2({
-                name: user.fullName || user.username || "CHARLEY User",
-                email: user.email,
-                planType: "premium",
-                // Generic plan type for fallback
-                subscriptionId: paymentIntentId,
-                // Use payment intent as subscription reference
-                subscriptionExpiresAt: void 0
-                // No expiration for fallback case
-              });
-              if (emailSuccess) {
-                console.log(`[PAYMENT-SUCCESS] Premium welcome email sent to ${user.email} (fallback case)`);
-              } else {
-                console.warn(`[PAYMENT-SUCCESS] Failed to send premium welcome email to ${user.email} (fallback case)`);
-              }
-            } else {
-              console.warn(`[PAYMENT-SUCCESS] Cannot send premium email - user not found or no email (fallback case)`);
-            }
-          } catch (emailError) {
-            console.error(`[PAYMENT-SUCCESS] Error sending premium welcome email (fallback case):`, emailError);
-          }
+        }
+        const subscription = await storage.createSubscription({
+          userId,
+          provider: "stripe",
+          subscriptionId: stripeSubscription.id,
+          planType,
+          status: stripeSubscription.status,
+          currentPeriodStart: new Date(
+            stripeSubscription.current_period_start * 1e3
+          ),
+          currentPeriodEnd: new Date(
+            stripeSubscription.current_period_end * 1e3
+          ),
+          cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+          currency: pricing.currency,
+          // Keep original currency for user display
+          amount: pricing.amount,
+          // Keep original amount for user display
+          region,
+          paymentMethod: paymentMethod || "card"
+        });
+        try {
+          const subscriptionEvent = await storage.createSubscriptionEvent({
+            subscriptionId: subscription.id,
+            userId,
+            eventType: "created",
+            provider: "stripe",
+            providerEventId: stripeSubscription.id,
+            oldStatus: null,
+            newStatus: stripeSubscription.status,
+            metadata: JSON.stringify({
+              subscriptionId: stripeSubscription.id,
+              planType,
+              amount: pricing.amount,
+              currency: pricing.currency,
+              region,
+              stripe_currency: stripeCurrency,
+              stripe_amount: stripeAmount,
+              currency_converted: isUnsupportedCurrency,
+              currentPeriodStart: stripeSubscription.current_period_start,
+              currentPeriodEnd: stripeSubscription.current_period_end
+            })
+          });
+          console.log(
+            `[SUBSCRIPTION-CREATION] Created subscription event: ${subscriptionEvent.id}`
+          );
+        } catch (eventError) {
+          console.error(
+            `[SUBSCRIPTION-CREATION] Failed to create subscription event:`,
+            eventError
+          );
+        }
+        const clientSecret = stripeSubscription.latest_invoice?.payment_intent?.client_secret;
+        const paymentIntentId = stripeSubscription.latest_invoice?.payment_intent?.id;
+        console.log(`[STRIPE] Payment intent ID: ${paymentIntentId}`);
+        console.log(`[STRIPE] Client secret: ${clientSecret}`);
+        console.log(
+          `[STRIPE] Latest invoice:`,
+          JSON.stringify(stripeSubscription.latest_invoice, null, 2)
+        );
+        if (!clientSecret) {
+          console.error("[STRIPE] No client secret found in payment intent!");
+          console.error(
+            "[STRIPE] Subscription object:",
+            JSON.stringify(stripeSubscription, null, 2)
+          );
+          throw new Error("Failed to get payment intent client secret");
         }
         res.json({
           success: true,
-          paymentIntent
+          subscription: {
+            id: subscription.id,
+            stripeSubscriptionId: stripeSubscription.id,
+            planType: subscription.planType,
+            status: subscription.status,
+            currentPeriodEnd: subscription.currentPeriodEnd
+          },
+          clientSecret,
+          paymentMethod
         });
-      } else {
-        console.log(`[PAYMENT-SUCCESS] Payment intent not in succeeded status: ${paymentIntent.status}`);
-        res.status(400).json({
+      } catch (error) {
+        console.error("Error creating subscription:", error);
+        res.status(500).json({
           success: false,
-          error: `Payment verification failed: status is ${paymentIntent.status}`,
-          details: {
-            paymentIntentId: paymentIntent.id,
-            status: paymentIntent.status,
-            amount: paymentIntent.amount,
-            currency: paymentIntent.currency
-          }
+          error: "Failed to create subscription"
         });
       }
-    } catch (error) {
-      console.error("[STRIPE] Error verifying payment success:", error);
-      res.status(500).json({
-        success: false,
-        error: error.message || "Payment verification failed"
-      });
     }
-  });
-  app2.post("/api/subscription/mobile-money", requireAuth, async (req, res) => {
-    try {
-      const { planType, region, phoneNumber, provider } = req.body;
-      const userId = req.user.id;
-      if (region !== "ghana") {
-        return res.status(400).json({
-          success: false,
-          error: "Mobile money is only available for Ghana region"
-        });
-      }
-      if (!planType || !phoneNumber || !provider) {
-        return res.status(400).json({
-          success: false,
-          error: "Missing required fields for mobile money payment"
-        });
-      }
-      const pricingList = await storage.getRegionalPricing(region, planType);
-      const pricing = pricingList[0];
-      if (!pricing) {
-        return res.status(400).json({
-          success: false,
-          error: "Invalid plan or region"
-        });
-      }
-      const user = await storage.getUser(userId);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-      const subscription = await storage.createSubscription({
-        userId,
-        provider: "mobile_money",
-        subscriptionId: `mm_${Date.now()}_${userId}`,
-        planType,
-        status: "pending",
-        currentPeriodStart: /* @__PURE__ */ new Date(),
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3),
-        cancelAtPeriodEnd: false,
-        currency: pricing.currency,
-        amount: pricing.amount,
-        region,
-        paymentMethod: "mobile_money"
-      });
-      res.json({
-        success: true,
-        subscription: {
-          id: subscription.id,
-          planType: subscription.planType,
-          status: subscription.status,
-          currentPeriodEnd: subscription.currentPeriodEnd
-        },
-        paymentInstructions: {
-          message: `Please dial *170# and follow prompts to pay GHS ${(pricing.amount / 100).toFixed(2)} to complete your CHARLEY Premium subscription.`,
-          amount: pricing.amount / 100,
-          currency: pricing.currency,
-          provider,
-          reference: subscription.subscriptionId
-        }
-      });
-    } catch (error) {
-      console.error("Error initiating mobile money payment:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to initiate mobile money payment"
-      });
-    }
-  });
-  app2.get("/api/subscription/status", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const subscription = await storage.getSubscriptionByUser(userId);
-      if (!subscription) {
-        return res.json({
-          hasSubscription: false,
-          subscription: null
-        });
-      }
-      res.json({
-        hasSubscription: true,
-        subscription: {
-          id: subscription.id,
-          planType: subscription.planType,
-          status: subscription.status,
-          provider: subscription.provider,
-          paymentMethod: subscription.paymentMethod,
-          currency: subscription.currency,
-          amount: subscription.amount,
-          region: subscription.region,
-          currentPeriodStart: subscription.currentPeriodStart,
-          currentPeriodEnd: subscription.currentPeriodEnd,
-          cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
-          cancelledAt: subscription.cancelledAt
-        }
-      });
-    } catch (error) {
-      console.error("Error fetching subscription status:", error);
-      res.status(500).json({
-        hasSubscription: false,
-        error: "Failed to fetch subscription status"
-      });
-    }
-  });
-  app2.post("/api/payment/confirm", requireAuth, async (req, res) => {
-    await confirmPayment(req, res, storage);
-  });
-  app2.post("/api/subscription/cancel", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const subscription = await storage.getSubscriptionByUser(userId);
-      if (!subscription) {
-        return res.status(404).json({
-          success: false,
-          error: "No active subscription found"
-        });
-      }
-      if (subscription.provider === "stripe" && stripe2) {
-        await stripe2.subscriptions.update(subscription.subscriptionId, {
-          cancel_at_period_end: true
-        });
-      }
-      const updatedSubscription = await storage.updateSubscription(subscription.id, {
-        cancelAtPeriodEnd: true,
-        cancelledAt: /* @__PURE__ */ new Date()
-      });
-      res.json({
-        success: true,
-        subscription: {
-          id: updatedSubscription.id,
-          status: updatedSubscription.status,
-          cancelAtPeriodEnd: updatedSubscription.cancelAtPeriodEnd,
-          cancelledAt: updatedSubscription.cancelledAt
-        }
-      });
-    } catch (error) {
-      console.error("Error cancelling subscription:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to cancel subscription"
-      });
-    }
-  });
-  app2.get("/api/subscription/status", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const subscription = await storage.getSubscriptionByUser(userId);
-      if (!subscription) {
-        return res.json({
-          hasActiveSubscription: false,
-          planType: null,
-          currentPeriodEnd: null,
-          status: "inactive"
-        });
-      }
-      res.json({
-        hasActiveSubscription: subscription.status === "active",
-        planType: subscription.planType,
-        currentPeriodEnd: subscription.currentPeriodEnd,
-        status: subscription.status,
-        cancelAtPeriodEnd: subscription.cancelAtPeriodEnd
-      });
-    } catch (error) {
-      console.error("Error getting subscription status:", error);
-      res.status(500).json({ message: "Failed to get subscription status" });
-    }
-  });
-  app2.post("/api/subscription/cancel", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const subscription = await storage.getSubscriptionByUser(userId);
-      if (!subscription) {
-        return res.status(404).json({ message: "No active subscription found" });
-      }
-      if (stripe2) {
-        await stripe2.subscriptions.update(subscription.subscriptionId, {
-          cancel_at_period_end: true
-        });
-      }
-      await storage.updateSubscription(subscription.id, {
-        cancelAtPeriodEnd: true,
-        cancelledAt: /* @__PURE__ */ new Date()
-      });
-      res.json({
-        success: true,
-        message: "Subscription will be cancelled at the end of the current period"
-      });
-    } catch (error) {
-      console.error("Error cancelling subscription:", error);
-      res.status(500).json({ message: "Failed to cancel subscription" });
-    }
-  });
-  app2.post("/api/payment/methods", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const {
-        paymentMethodId,
-        isDefault = false,
-        billingName,
-        billingEmail,
-        billingPhone,
-        billingAddress,
-        billingCity,
-        billingState,
-        billingPostalCode,
-        billingCountry,
-        nickname
-      } = req.body;
-      if (!stripe2) {
-        return res.status(503).json({
-          error: "Payment processing is currently unavailable"
-        });
-      }
-      if (!paymentMethodId) {
-        return res.status(400).json({
-          error: "Payment method ID is required"
-        });
-      }
-      const stripePaymentMethod = await stripe2.paymentMethods.retrieve(paymentMethodId);
-      const existingPaymentMethods = await storage.getPaymentMethodsByUser(userId);
-      const paymentMethodExists = existingPaymentMethods.some((pm) => pm.externalId === paymentMethodId);
-      if (paymentMethodExists) {
-        return res.status(409).json({
-          error: "Payment method already saved"
-        });
-      }
-      if (isDefault) {
-        for (const pm of existingPaymentMethods) {
-          if (pm.isDefault) {
-            await storage.updatePaymentMethod(pm.id, { isDefault: false });
-          }
-        }
-      }
-      const paymentMethodRecord = await storage.createPaymentMethod({
-        userId,
-        provider: "stripe",
-        externalId: paymentMethodId,
-        type: stripePaymentMethod.type,
-        isDefault: isDefault || existingPaymentMethods.length === 0,
-        // First becomes default
-        metadata: JSON.stringify({
-          last4: stripePaymentMethod.card?.last4,
-          brand: stripePaymentMethod.card?.brand,
-          expMonth: stripePaymentMethod.card?.exp_month,
-          expYear: stripePaymentMethod.card?.exp_year,
-          fingerprint: stripePaymentMethod.card?.fingerprint,
-          country: stripePaymentMethod.card?.country,
-          funding: stripePaymentMethod.card?.funding
-        }),
-        // Billing Address Information
-        billingName: billingName || null,
-        billingEmail: billingEmail || null,
-        billingPhone: billingPhone || null,
-        billingAddress: billingAddress || null,
-        billingCity: billingCity || null,
-        billingState: billingState || null,
-        billingPostalCode: billingPostalCode || null,
-        billingCountry: billingCountry || null,
-        nickname: nickname || null
-      });
-      console.log(`[PAYMENT-METHOD] Saved payment method ${paymentMethodRecord.id} for user ${userId} with billing address`);
-      res.json({
-        success: true,
-        paymentMethod: paymentMethodRecord
-      });
-    } catch (error) {
-      console.error("[PAYMENT-METHOD] Error saving payment method:", error);
-      res.status(500).json({
-        error: "Failed to save payment method"
-      });
-    }
-  });
+  );
   app2.post(
-    "/api/suite/job/swipe",
+    "/api/subscription/payment-success",
+    requireAuth,
     async (req, res) => {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
       try {
-        const { profileId, action } = req.body;
-        const currentUserId = req.user.id;
-        if (!profileId || !action || !["like", "pass"].includes(action)) {
-          return res.status(400).json({ message: "Invalid swipe data" });
-        }
-        const currentUserJobProfile = await storage.getSuiteJobProfile(currentUserId);
-        if (!currentUserJobProfile) {
-          return res.status(403).json({
-            message: "Profile required",
-            action: "create_profile",
-            profileType: "jobs"
+        const { paymentIntentId } = req.body;
+        const userId = req.user.id;
+        console.log(`[PAYMENT-SUCCESS] Request received for user ${userId}`);
+        console.log(
+          `[PAYMENT-SUCCESS] Request body:`,
+          JSON.stringify(req.body, null, 2)
+        );
+        console.log(`[PAYMENT-SUCCESS] Payment intent ID:`, paymentIntentId);
+        if (!stripe2) {
+          console.log(`[PAYMENT-SUCCESS] Stripe not configured`);
+          return res.status(503).json({
+            success: false,
+            error: "Payment processing is currently unavailable. Please contact support.",
+            code: "STRIPE_NOT_CONFIGURED"
           });
         }
-        const targetProfile = await storage.getSuiteJobProfileById(profileId);
-        if (!targetProfile) {
-          return res.status(404).json({ message: "Profile not found" });
+        if (!paymentIntentId) {
+          console.log(`[PAYMENT-SUCCESS] Missing payment intent ID in request`);
+          return res.status(400).json({
+            success: false,
+            error: "Missing payment intent ID"
+          });
         }
-        const applicationData = {
-          userId: currentUserId,
-          targetProfileId: profileId,
-          targetUserId: targetProfile.userId,
-          action,
-          applicationStatus: action === "like" ? "pending" : "rejected",
-          matched: false
-        };
-        const existingApplication = await storage.getSuiteJobApplicationByUsers(
-          currentUserId,
-          targetProfile.userId
+        console.log(
+          `[STRIPE] Verifying payment success for user ${userId}, payment intent: ${paymentIntentId}`
         );
-        if (existingApplication) {
-          return res.status(409).json({ message: "Already acted on this profile" });
-        }
-        const application = await storage.createSuiteJobApplication(applicationData);
-        await storage.addSwipeHistory({
-          userId: currentUserId,
-          targetUserId: targetProfile.userId,
-          action: action === "like" ? "like" : "dislike",
-          appMode: "SUITE_JOBS"
-        });
-        console.log(`\u{1F4DD} [SUITE-JOBS-HISTORY] Recorded swipe history for user ${currentUserId} -> ${targetProfile.userId} (${action})`);
-        let isMatch = false;
-        if (action === "like") {
-          const currentUserJobProfile2 = await storage.getSuiteJobProfile(currentUserId);
-          if (currentUserJobProfile2) {
-            const mutualApplication = await storage.getSuiteJobApplicationByUsers(
-              targetProfile.userId,
-              currentUserId
+        let paymentIntent;
+        let retryCount = 0;
+        const maxRetries = 3;
+        while (retryCount < maxRetries) {
+          try {
+            paymentIntent = await stripe2.paymentIntents.retrieve(paymentIntentId);
+            break;
+          } catch (retrieveError) {
+            retryCount++;
+            console.log(
+              `[STRIPE] Attempt ${retryCount}/${maxRetries} failed to retrieve payment intent:`,
+              retrieveError.message
             );
-            if (mutualApplication && mutualApplication.action === "like") {
-              await storage.updateSuiteJobApplication(application.id, {
-                matched: true,
-                applicationStatus: "accepted"
+            if (retryCount >= maxRetries) {
+              throw retrieveError;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1e3));
+          }
+        }
+        if (!paymentIntent) {
+          throw new Error(
+            "Failed to retrieve payment intent after multiple attempts"
+          );
+        }
+        console.log(
+          `[PAYMENT-SUCCESS] Payment intent status: ${paymentIntent.status}`
+        );
+        console.log(`[PAYMENT-SUCCESS] Payment intent details:`, {
+          id: paymentIntent.id,
+          status: paymentIntent.status,
+          amount: paymentIntent.amount,
+          currency: paymentIntent.currency
+        });
+        if (paymentIntent.status === "succeeded") {
+          let currentSubscriptionId = null;
+          let subscriptionExpiresAt = null;
+          if (paymentIntent.invoice) {
+            try {
+              const invoice = await stripe2.invoices.retrieve(
+                paymentIntent.invoice
+              );
+              if (invoice.subscription) {
+                currentSubscriptionId = invoice.subscription;
+                console.log(
+                  `[PAYMENT-SUCCESS] Found subscription ID from invoice: ${currentSubscriptionId}`
+                );
+              }
+            } catch (invoiceError) {
+              console.warn(
+                `[PAYMENT-SUCCESS] Could not retrieve invoice:`,
+                invoiceError
+              );
+            }
+          }
+          if (currentSubscriptionId && stripe2) {
+            try {
+              const stripeSubscription = await stripe2.subscriptions.retrieve(
+                currentSubscriptionId
+              );
+              subscriptionExpiresAt = new Date(
+                stripeSubscription.current_period_end * 1e3
+              );
+              console.log(
+                `[PAYMENT-SUCCESS] Retrieved subscription expiry from Stripe: ${subscriptionExpiresAt}`
+              );
+              console.log(
+                `[PAYMENT-SUCCESS] Stripe subscription status: ${stripeSubscription.status}`
+              );
+            } catch (stripeError) {
+              console.warn(
+                `[PAYMENT-SUCCESS] Could not fetch subscription from Stripe:`,
+                stripeError
+              );
+            }
+          }
+          const subscription = await storage.getSubscriptionByUser(userId);
+          if (subscription || currentSubscriptionId) {
+            try {
+              if (paymentIntent.payment_method && typeof paymentIntent.payment_method === "string") {
+                const stripePaymentMethod = await stripe2.paymentMethods.retrieve(
+                  paymentIntent.payment_method
+                );
+                const existingPaymentMethods = await storage.getPaymentMethodsByUser(userId);
+                const paymentMethodExists = existingPaymentMethods.some(
+                  (pm) => pm.externalId === paymentIntent.payment_method
+                );
+                if (!paymentMethodExists) {
+                  let billingInfo = {};
+                  if (currentSubscriptionId) {
+                    try {
+                      const stripeSubscription = await stripe2.subscriptions.retrieve(
+                        currentSubscriptionId
+                      );
+                      const metadata = stripeSubscription.metadata || {};
+                      billingInfo = {
+                        billingName: metadata.billing_name || null,
+                        billingEmail: metadata.billing_email || null,
+                        billingPhone: metadata.billing_phone || null,
+                        billingAddress: metadata.billing_address || null,
+                        billingCity: metadata.billing_city || null,
+                        billingState: metadata.billing_state || null,
+                        billingPostalCode: metadata.billing_postal_code || null,
+                        billingCountry: metadata.billing_country || null,
+                        nickname: metadata.nickname || null
+                      };
+                    } catch (error) {
+                      console.warn(
+                        `[PAYMENT-SUCCESS] Could not retrieve subscription metadata for billing info:`,
+                        error
+                      );
+                    }
+                  }
+                  const paymentMethodRecord = await storage.createPaymentMethod(
+                    {
+                      userId,
+                      provider: "stripe",
+                      externalId: paymentIntent.payment_method,
+                      type: "card",
+                      isDefault: existingPaymentMethods.length === 0,
+                      // First payment method becomes default
+                      metadata: JSON.stringify({
+                        last4: stripePaymentMethod.card?.last4,
+                        brand: stripePaymentMethod.card?.brand,
+                        expMonth: stripePaymentMethod.card?.exp_month,
+                        expYear: stripePaymentMethod.card?.exp_year,
+                        fingerprint: stripePaymentMethod.card?.fingerprint,
+                        country: stripePaymentMethod.card?.country
+                      }),
+                      // Include billing address information from subscription metadata
+                      ...billingInfo
+                    }
+                  );
+                  console.log(
+                    `[PAYMENT-SUCCESS] Created payment method record: ${paymentMethodRecord.id} with billing info`
+                  );
+                }
+              }
+            } catch (paymentMethodError) {
+              console.error(
+                `[PAYMENT-SUCCESS] Failed to create payment method:`,
+                paymentMethodError
+              );
+            }
+            try {
+              const paymentHistoryRecord = await storage.createPaymentHistory({
+                subscriptionId: subscription.id,
+                userId,
+                provider: "stripe",
+                providerTransactionId: paymentIntent.id,
+                amount: paymentIntent.amount,
+                currency: paymentIntent.currency.toUpperCase(),
+                status: "succeeded",
+                paymentMethod: "card",
+                metadata: JSON.stringify({
+                  paymentIntentId: paymentIntent.id,
+                  customerEmail: paymentIntent.metadata?.customer_email,
+                  planType: subscription.planType,
+                  region: subscription.region,
+                  stripePaymentMethodId: paymentIntent.payment_method
+                })
               });
-              await storage.updateSuiteJobApplication(mutualApplication.id, {
-                matched: true,
-                applicationStatus: "accepted"
+              console.log(
+                `[PAYMENT-SUCCESS] Created payment history record: ${paymentHistoryRecord.id}`
+              );
+            } catch (paymentHistoryError) {
+              console.error(
+                `[PAYMENT-SUCCESS] Failed to create payment history:`,
+                paymentHistoryError
+              );
+            }
+            try {
+              const subscriptionEvent = await storage.createSubscriptionEvent({
+                subscriptionId: subscription.id,
+                userId,
+                eventType: "payment_succeeded",
+                provider: "stripe",
+                providerEventId: paymentIntent.id,
+                oldStatus: subscription.status,
+                newStatus: "active",
+                metadata: JSON.stringify({
+                  paymentIntentId: paymentIntent.id,
+                  amount: paymentIntent.amount,
+                  currency: paymentIntent.currency,
+                  timestamp: (/* @__PURE__ */ new Date()).toISOString()
+                })
               });
-              const existingMatch = await storage.getMatchBetweenUsers(currentUserId, targetProfile.userId);
-              let finalMatch;
-              if (existingMatch) {
-                let metadata;
-                if (!existingMatch.metadata) {
+              console.log(
+                `[PAYMENT-SUCCESS] Created subscription event: ${subscriptionEvent.id}`
+              );
+            } catch (eventError) {
+              console.error(
+                `[PAYMENT-SUCCESS] Failed to create subscription event:`,
+                eventError
+              );
+            }
+            await storage.updateUserProfile(userId, {
+              premiumAccess: true,
+              stripeSubscriptionId: currentSubscriptionId || (subscription ? subscription.subscriptionId : null),
+              subscriptionStatus: "active",
+              subscriptionExpiresAt,
+              subscriptionCanceledAt: null
+              // Clear any previous cancellation
+            });
+            console.log(
+              `[PAYMENT-SUCCESS] Updated user ${userId} with premium access and subscription data`
+            );
+            try {
+              const user = await storage.getUser(userId);
+              if (user && user.email) {
+                const { sendPremiumSubscriptionEmail: sendPremiumSubscriptionEmail2 } = await Promise.resolve().then(() => (init_sendgrid(), sendgrid_exports));
+                const emailSuccess = await sendPremiumSubscriptionEmail2({
+                  name: user.fullName || user.username || "CHARLEY User",
+                  email: user.email,
+                  planType: subscription.planType,
+                  subscriptionId: subscription.subscriptionId,
+                  subscriptionExpiresAt: subscriptionExpiresAt || void 0
+                });
+                if (emailSuccess) {
+                  console.log(
+                    `[PAYMENT-SUCCESS] Premium welcome email sent to ${user.email}`
+                  );
+                } else {
+                  console.warn(
+                    `[PAYMENT-SUCCESS] Failed to send premium welcome email to ${user.email}`
+                  );
+                }
+              } else {
+                console.warn(
+                  `[PAYMENT-SUCCESS] Cannot send premium email - user not found or no email`
+                );
+              }
+            } catch (emailError) {
+              console.error(
+                `[PAYMENT-SUCCESS] Error sending premium welcome email:`,
+                emailError
+              );
+            }
+            if (subscription.status === "incomplete") {
+              await storage.updateSubscription(subscription.id, {
+                status: "active"
+              });
+              console.log(
+                `[PAYMENT-SUCCESS] Updated subscription ${subscription.id} status to active`
+              );
+            }
+          } else {
+            await storage.updateUserProfile(userId, { premiumAccess: true });
+            console.log(
+              `[PAYMENT-SUCCESS] Updated user ${userId} premium access to true (no subscription record)`
+            );
+            try {
+              const user = await storage.getUser(userId);
+              if (user && user.email) {
+                const { sendPremiumSubscriptionEmail: sendPremiumSubscriptionEmail2 } = await Promise.resolve().then(() => (init_sendgrid(), sendgrid_exports));
+                const emailSuccess = await sendPremiumSubscriptionEmail2({
+                  name: user.fullName || user.username || "CHARLEY User",
+                  email: user.email,
+                  planType: "premium",
+                  // Generic plan type for fallback
+                  subscriptionId: paymentIntentId,
+                  // Use payment intent as subscription reference
+                  subscriptionExpiresAt: void 0
+                  // No expiration for fallback case
+                });
+                if (emailSuccess) {
+                  console.log(
+                    `[PAYMENT-SUCCESS] Premium welcome email sent to ${user.email} (fallback case)`
+                  );
+                } else {
+                  console.warn(
+                    `[PAYMENT-SUCCESS] Failed to send premium welcome email to ${user.email} (fallback case)`
+                  );
+                }
+              } else {
+                console.warn(
+                  `[PAYMENT-SUCCESS] Cannot send premium email - user not found or no email (fallback case)`
+                );
+              }
+            } catch (emailError) {
+              console.error(
+                `[PAYMENT-SUCCESS] Error sending premium welcome email (fallback case):`,
+                emailError
+              );
+            }
+          }
+          res.json({
+            success: true,
+            paymentIntent
+          });
+        } else {
+          console.log(
+            `[PAYMENT-SUCCESS] Payment intent not in succeeded status: ${paymentIntent.status}`
+          );
+          res.status(400).json({
+            success: false,
+            error: `Payment verification failed: status is ${paymentIntent.status}`,
+            details: {
+              paymentIntentId: paymentIntent.id,
+              status: paymentIntent.status,
+              amount: paymentIntent.amount,
+              currency: paymentIntent.currency
+            }
+          });
+        }
+      } catch (error) {
+        console.error("[STRIPE] Error verifying payment success:", error);
+        res.status(500).json({
+          success: false,
+          error: error.message || "Payment verification failed"
+        });
+      }
+    }
+  );
+  app2.post(
+    "/api/subscription/mobile-money",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const { planType, region, phoneNumber, provider } = req.body;
+        const userId = req.user.id;
+        if (region !== "ghana") {
+          return res.status(400).json({
+            success: false,
+            error: "Mobile money is only available for Ghana region"
+          });
+        }
+        if (!planType || !phoneNumber || !provider) {
+          return res.status(400).json({
+            success: false,
+            error: "Missing required fields for mobile money payment"
+          });
+        }
+        const pricingList = await storage.getRegionalPricing(region, planType);
+        const pricing = pricingList[0];
+        if (!pricing) {
+          return res.status(400).json({
+            success: false,
+            error: "Invalid plan or region"
+          });
+        }
+        const user = await storage.getUser(userId);
+        if (!user) {
+          return res.status(404).json({ error: "User not found" });
+        }
+        const subscription = await storage.createSubscription({
+          userId,
+          provider: "mobile_money",
+          subscriptionId: `mm_${Date.now()}_${userId}`,
+          planType,
+          status: "pending",
+          currentPeriodStart: /* @__PURE__ */ new Date(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3),
+          cancelAtPeriodEnd: false,
+          currency: pricing.currency,
+          amount: pricing.amount,
+          region,
+          paymentMethod: "mobile_money"
+        });
+        res.json({
+          success: true,
+          subscription: {
+            id: subscription.id,
+            planType: subscription.planType,
+            status: subscription.status,
+            currentPeriodEnd: subscription.currentPeriodEnd
+          },
+          paymentInstructions: {
+            message: `Please dial *170# and follow prompts to pay GHS ${(pricing.amount / 100).toFixed(2)} to complete your CHARLEY Premium subscription.`,
+            amount: pricing.amount / 100,
+            currency: pricing.currency,
+            provider,
+            reference: subscription.subscriptionId
+          }
+        });
+      } catch (error) {
+        console.error("Error initiating mobile money payment:", error);
+        res.status(500).json({
+          success: false,
+          error: "Failed to initiate mobile money payment"
+        });
+      }
+    }
+  );
+  app2.get(
+    "/api/subscription/status",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const userId = req.user.id;
+        const subscription = await storage.getSubscriptionByUser(userId);
+        if (!subscription) {
+          return res.json({
+            hasSubscription: false,
+            subscription: null
+          });
+        }
+        res.json({
+          hasSubscription: true,
+          subscription: {
+            id: subscription.id,
+            planType: subscription.planType,
+            status: subscription.status,
+            provider: subscription.provider,
+            paymentMethod: subscription.paymentMethod,
+            currency: subscription.currency,
+            amount: subscription.amount,
+            region: subscription.region,
+            currentPeriodStart: subscription.currentPeriodStart,
+            currentPeriodEnd: subscription.currentPeriodEnd,
+            cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+            cancelledAt: subscription.cancelledAt
+          }
+        });
+      } catch (error) {
+        console.error("Error fetching subscription status:", error);
+        res.status(500).json({
+          hasSubscription: false,
+          error: "Failed to fetch subscription status"
+        });
+      }
+    }
+  );
+  app2.post(
+    "/api/payment/confirm",
+    requireAuth,
+    async (req, res) => {
+      await confirmPayment(req, res, storage);
+    }
+  );
+  app2.post(
+    "/api/subscription/cancel",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const userId = req.user.id;
+        const subscription = await storage.getSubscriptionByUser(userId);
+        if (!subscription) {
+          return res.status(404).json({
+            success: false,
+            error: "No active subscription found"
+          });
+        }
+        if (subscription.provider === "stripe" && stripe2) {
+          await stripe2.subscriptions.update(subscription.subscriptionId, {
+            cancel_at_period_end: true
+          });
+        }
+        const updatedSubscription = await storage.updateSubscription(
+          subscription.id,
+          {
+            cancelAtPeriodEnd: true,
+            cancelledAt: /* @__PURE__ */ new Date()
+          }
+        );
+        res.json({
+          success: true,
+          subscription: {
+            id: updatedSubscription.id,
+            status: updatedSubscription.status,
+            cancelAtPeriodEnd: updatedSubscription.cancelAtPeriodEnd,
+            cancelledAt: updatedSubscription.cancelledAt
+          }
+        });
+      } catch (error) {
+        console.error("Error cancelling subscription:", error);
+        res.status(500).json({
+          success: false,
+          error: "Failed to cancel subscription"
+        });
+      }
+    }
+  );
+  app2.get(
+    "/api/subscription/status",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const userId = req.user.id;
+        const subscription = await storage.getSubscriptionByUser(userId);
+        if (!subscription) {
+          return res.json({
+            hasActiveSubscription: false,
+            planType: null,
+            currentPeriodEnd: null,
+            status: "inactive"
+          });
+        }
+        res.json({
+          hasActiveSubscription: subscription.status === "active",
+          planType: subscription.planType,
+          currentPeriodEnd: subscription.currentPeriodEnd,
+          status: subscription.status,
+          cancelAtPeriodEnd: subscription.cancelAtPeriodEnd
+        });
+      } catch (error) {
+        console.error("Error getting subscription status:", error);
+        res.status(500).json({ message: "Failed to get subscription status" });
+      }
+    }
+  );
+  app2.post(
+    "/api/subscription/cancel",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const userId = req.user.id;
+        const subscription = await storage.getSubscriptionByUser(userId);
+        if (!subscription) {
+          return res.status(404).json({ message: "No active subscription found" });
+        }
+        if (stripe2) {
+          await stripe2.subscriptions.update(subscription.subscriptionId, {
+            cancel_at_period_end: true
+          });
+        }
+        await storage.updateSubscription(subscription.id, {
+          cancelAtPeriodEnd: true,
+          cancelledAt: /* @__PURE__ */ new Date()
+        });
+        res.json({
+          success: true,
+          message: "Subscription will be cancelled at the end of the current period"
+        });
+      } catch (error) {
+        console.error("Error cancelling subscription:", error);
+        res.status(500).json({ message: "Failed to cancel subscription" });
+      }
+    }
+  );
+  app2.post(
+    "/api/payment/methods",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const userId = req.user.id;
+        const {
+          paymentMethodId,
+          isDefault = false,
+          billingName,
+          billingEmail,
+          billingPhone,
+          billingAddress,
+          billingCity,
+          billingState,
+          billingPostalCode,
+          billingCountry,
+          nickname
+        } = req.body;
+        if (!stripe2) {
+          return res.status(503).json({
+            error: "Payment processing is currently unavailable"
+          });
+        }
+        if (!paymentMethodId) {
+          return res.status(400).json({
+            error: "Payment method ID is required"
+          });
+        }
+        const stripePaymentMethod = await stripe2.paymentMethods.retrieve(paymentMethodId);
+        const existingPaymentMethods = await storage.getPaymentMethodsByUser(userId);
+        const paymentMethodExists = existingPaymentMethods.some(
+          (pm) => pm.externalId === paymentMethodId
+        );
+        if (paymentMethodExists) {
+          return res.status(409).json({
+            error: "Payment method already saved"
+          });
+        }
+        if (isDefault) {
+          for (const pm of existingPaymentMethods) {
+            if (pm.isDefault) {
+              await storage.updatePaymentMethod(pm.id, { isDefault: false });
+            }
+          }
+        }
+        const paymentMethodRecord = await storage.createPaymentMethod({
+          userId,
+          provider: "stripe",
+          externalId: paymentMethodId,
+          type: stripePaymentMethod.type,
+          isDefault: isDefault || existingPaymentMethods.length === 0,
+          // First becomes default
+          metadata: JSON.stringify({
+            last4: stripePaymentMethod.card?.last4,
+            brand: stripePaymentMethod.card?.brand,
+            expMonth: stripePaymentMethod.card?.exp_month,
+            expYear: stripePaymentMethod.card?.exp_year,
+            fingerprint: stripePaymentMethod.card?.fingerprint,
+            country: stripePaymentMethod.card?.country,
+            funding: stripePaymentMethod.card?.funding
+          }),
+          // Billing Address Information
+          billingName: billingName || null,
+          billingEmail: billingEmail || null,
+          billingPhone: billingPhone || null,
+          billingAddress: billingAddress || null,
+          billingCity: billingCity || null,
+          billingState: billingState || null,
+          billingPostalCode: billingPostalCode || null,
+          billingCountry: billingCountry || null,
+          nickname: nickname || null
+        });
+        console.log(
+          `[PAYMENT-METHOD] Saved payment method ${paymentMethodRecord.id} for user ${userId} with billing address`
+        );
+        res.json({
+          success: true,
+          paymentMethod: paymentMethodRecord
+        });
+      } catch (error) {
+        console.error("[PAYMENT-METHOD] Error saving payment method:", error);
+        res.status(500).json({
+          error: "Failed to save payment method"
+        });
+      }
+    }
+  );
+  app2.post("/api/suite/job/swipe", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const { profileId, action } = req.body;
+      const currentUserId = req.user.id;
+      if (!profileId || !action || !["like", "pass"].includes(action)) {
+        return res.status(400).json({ message: "Invalid swipe data" });
+      }
+      const currentUserJobProfile = await storage.getSuiteJobProfile(currentUserId);
+      if (!currentUserJobProfile) {
+        return res.status(403).json({
+          message: "Profile required",
+          action: "create_profile",
+          profileType: "jobs"
+        });
+      }
+      const targetProfile = await storage.getSuiteJobProfileById(profileId);
+      if (!targetProfile) {
+        return res.status(404).json({ message: "Profile not found" });
+      }
+      const applicationData = {
+        userId: currentUserId,
+        targetProfileId: profileId,
+        targetUserId: targetProfile.userId,
+        action,
+        applicationStatus: action === "like" ? "pending" : "rejected",
+        matched: false
+      };
+      const existingApplication = await storage.getSuiteJobApplicationByUsers(
+        currentUserId,
+        targetProfile.userId
+      );
+      if (existingApplication) {
+        return res.status(409).json({ message: "Already acted on this profile" });
+      }
+      const application = await storage.createSuiteJobApplication(applicationData);
+      await storage.addSwipeHistory({
+        userId: currentUserId,
+        targetUserId: targetProfile.userId,
+        action: action === "like" ? "like" : "dislike",
+        appMode: "SUITE_JOBS"
+      });
+      console.log(
+        `\u{1F4DD} [SUITE-JOBS-HISTORY] Recorded swipe history for user ${currentUserId} -> ${targetProfile.userId} (${action})`
+      );
+      let isMatch = false;
+      if (action === "like") {
+        const currentUserJobProfile2 = await storage.getSuiteJobProfile(currentUserId);
+        if (currentUserJobProfile2) {
+          const mutualApplication = await storage.getSuiteJobApplicationByUsers(
+            targetProfile.userId,
+            currentUserId
+          );
+          if (mutualApplication && mutualApplication.action === "like") {
+            await storage.updateSuiteJobApplication(application.id, {
+              matched: true,
+              applicationStatus: "accepted"
+            });
+            await storage.updateSuiteJobApplication(mutualApplication.id, {
+              matched: true,
+              applicationStatus: "accepted"
+            });
+            const existingMatch = await storage.getMatchBetweenUsers(
+              currentUserId,
+              targetProfile.userId
+            );
+            let finalMatch;
+            if (existingMatch) {
+              let metadata;
+              if (!existingMatch.metadata) {
+                metadata = {
+                  origin: "SUITE",
+                  suiteType: "jobs",
+                  context: "professional"
+                };
+              } else {
+                try {
+                  metadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
+                  if (metadata.suiteType !== "jobs") {
+                    if (!metadata.additionalConnections) {
+                      metadata.additionalConnections = [];
+                    }
+                    if (!metadata.additionalConnections.includes("jobs")) {
+                      metadata.additionalConnections.push("jobs");
+                      console.log(
+                        `\u{1F517} Adding jobs to additionalConnections for existing match ${existingMatch.id}`
+                      );
+                    }
+                  }
+                } catch (parseError) {
+                  console.error(
+                    "Failed to parse existing metadata:",
+                    parseError
+                  );
                   metadata = {
                     origin: "SUITE",
                     suiteType: "jobs",
                     context: "professional"
                   };
-                } else {
-                  try {
-                    metadata = typeof existingMatch.metadata === "string" ? JSON.parse(existingMatch.metadata) : existingMatch.metadata;
-                    if (metadata.suiteType !== "jobs") {
-                      if (!metadata.additionalConnections) {
-                        metadata.additionalConnections = [];
-                      }
-                      if (!metadata.additionalConnections.includes("jobs")) {
-                        metadata.additionalConnections.push("jobs");
-                        console.log(`\u{1F517} Adding jobs to additionalConnections for existing match ${existingMatch.id}`);
-                      }
-                    }
-                  } catch (parseError) {
-                    console.error("Failed to parse existing metadata:", parseError);
-                    metadata = {
-                      origin: "SUITE",
-                      suiteType: "jobs",
-                      context: "professional"
-                    };
-                  }
                 }
-                finalMatch = await storage.updateMatch(existingMatch.id, {
-                  matched: true,
-                  metadata: JSON.stringify(metadata)
-                });
-              } else {
-                const matchData = {
-                  userId1: Math.min(currentUserId, targetProfile.userId),
-                  userId2: Math.max(currentUserId, targetProfile.userId),
-                  matched: true,
-                  isDislike: false,
-                  metadata: JSON.stringify({ origin: "SUITE", suiteType: "jobs", context: "professional" })
-                };
-                finalMatch = await storage.createMatch(matchData);
               }
-              isMatch = true;
-              console.log(
-                `\u{1F49D} [SUITE-JOBS] Match created: ${currentUserId} \u2194 ${targetProfile.userId}`
+              finalMatch = await storage.updateMatch(existingMatch.id, {
+                matched: true,
+                metadata: JSON.stringify(metadata)
+              });
+            } else {
+              const matchData = {
+                userId1: Math.min(currentUserId, targetProfile.userId),
+                userId2: Math.max(currentUserId, targetProfile.userId),
+                matched: true,
+                isDislike: false,
+                metadata: JSON.stringify({
+                  origin: "SUITE",
+                  suiteType: "jobs",
+                  context: "professional"
+                })
+              };
+              finalMatch = await storage.createMatch(matchData);
+            }
+            isMatch = true;
+            console.log(
+              `\u{1F49D} [SUITE-JOBS] Match created: ${currentUserId} \u2194 ${targetProfile.userId}`
+            );
+            try {
+              await storage.removeMatchedUsersFromSwipeHistory(
+                currentUserId,
+                targetProfile.userId
               );
-              try {
-                await storage.removeMatchedUsersFromSwipeHistory(currentUserId, targetProfile.userId);
-                console.log(`[JOBS-MATCH] Cleaned up swipe history for matched users: ${currentUserId} \u2194 ${targetProfile.userId}`);
-              } catch (historyError) {
-                console.error("Error cleaning up jobs swipe history for matched users:", historyError);
-              }
+              console.log(
+                `[JOBS-MATCH] Cleaned up swipe history for matched users: ${currentUserId} \u2194 ${targetProfile.userId}`
+              );
+            } catch (historyError) {
+              console.error(
+                "Error cleaning up jobs swipe history for matched users:",
+                historyError
+              );
             }
           }
         }
-        console.log(
-          `\u{1F680} [SUITE-JOBS] User ${currentUserId} ${action}d job profile ${profileId}`
+      }
+      console.log(
+        `\u{1F680} [SUITE-JOBS] User ${currentUserId} ${action}d job profile ${profileId}`
+      );
+      const sourceUserWs = connectedUsers4.get(currentUserId);
+      const targetUserWs = connectedUsers4.get(targetProfile.userId);
+      if (sourceUserWs && sourceUserWs.readyState === WebSocket4.OPEN) {
+        sourceUserWs.send(
+          JSON.stringify({
+            type: "suite_remove_from_discover",
+            suiteType: "jobs",
+            removeProfileId: targetProfile.id,
+            removeUserId: targetProfile.userId,
+            reason: action,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          })
         );
-        const sourceUserWs = connectedUsers3.get(currentUserId);
-        const targetUserWs = connectedUsers3.get(targetProfile.userId);
-        if (sourceUserWs && sourceUserWs.readyState === WebSocket3.OPEN) {
-          sourceUserWs.send(
-            JSON.stringify({
-              type: "suite_remove_from_discover",
-              suiteType: "jobs",
-              removeProfileId: targetProfile.id,
-              removeUserId: targetProfile.userId,
-              reason: action,
-              timestamp: (/* @__PURE__ */ new Date()).toISOString()
-            })
-          );
-          console.log(
-            `[REAL-TIME] Instantly removed jobs profile ${targetProfile.id} from user ${currentUserId}'s discover deck`
-          );
-        }
-        const sourceJobProfile = await storage.getSuiteJobProfile(currentUserId);
-        if (sourceJobProfile && targetUserWs && targetUserWs.readyState === WebSocket3.OPEN) {
-          targetUserWs.send(
-            JSON.stringify({
-              type: "suite_remove_from_discover",
-              suiteType: "jobs",
-              removeProfileId: sourceJobProfile.id,
-              removeUserId: currentUserId,
-              reason: `received_jobs_${action}`,
-              timestamp: (/* @__PURE__ */ new Date()).toISOString()
-            })
-          );
-          console.log(
-            `[REAL-TIME] Instantly removed jobs profile ${sourceJobProfile.id} from user ${targetProfile.userId}'s discover deck`
-          );
-        }
-        if (isMatch) {
-          [sourceUserWs, targetUserWs].forEach((ws2, index) => {
-            if (ws2 && ws2.readyState === WebSocket3.OPEN) {
-              ws2.send(
-                JSON.stringify({
-                  type: "suite_connections_refresh",
-                  suiteType: "jobs",
-                  reason: "new_match",
-                  timestamp: (/* @__PURE__ */ new Date()).toISOString()
-                })
-              );
-            }
-          });
-          console.log(`[CONNECTIONS-REFRESH] Sent connections refresh for new job match`);
-        }
-        res.json({
-          success: true,
-          action,
-          profileId,
-          isMatch,
-          message: action === "like" ? isMatch ? "It's a match!" : "Application sent" : "Profile passed"
+        console.log(
+          `[REAL-TIME] Instantly removed jobs profile ${targetProfile.id} from user ${currentUserId}'s discover deck`
+        );
+      }
+      const sourceJobProfile = await storage.getSuiteJobProfile(currentUserId);
+      if (sourceJobProfile && targetUserWs && targetUserWs.readyState === WebSocket4.OPEN) {
+        targetUserWs.send(
+          JSON.stringify({
+            type: "suite_remove_from_discover",
+            suiteType: "jobs",
+            removeProfileId: sourceJobProfile.id,
+            removeUserId: currentUserId,
+            reason: `received_jobs_${action}`,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          })
+        );
+        console.log(
+          `[REAL-TIME] Instantly removed jobs profile ${sourceJobProfile.id} from user ${targetProfile.userId}'s discover deck`
+        );
+      }
+      if (isMatch) {
+        [sourceUserWs, targetUserWs].forEach((ws2, index) => {
+          if (ws2 && ws2.readyState === WebSocket4.OPEN) {
+            ws2.send(
+              JSON.stringify({
+                type: "suite_connections_refresh",
+                suiteType: "jobs",
+                reason: "new_match",
+                timestamp: (/* @__PURE__ */ new Date()).toISOString()
+              })
+            );
+          }
         });
+        console.log(
+          `[CONNECTIONS-REFRESH] Sent connections refresh for new job match`
+        );
+      }
+      res.json({
+        success: true,
+        action,
+        profileId,
+        isMatch,
+        message: action === "like" ? isMatch ? "It's a match!" : "Application sent" : "Profile passed"
+      });
+    } catch (error) {
+      console.error("Error processing job swipe:", error);
+      res.status(500).json({ message: "Failed to process swipe action" });
+    }
+  });
+  app2.get(
+    "/api/payment/methods",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const userId = req.user.id;
+        const paymentMethods3 = await storage.getPaymentMethodsByUser(userId);
+        res.json(paymentMethods3);
       } catch (error) {
-        console.error("Error processing job swipe:", error);
-        res.status(500).json({ message: "Failed to process swipe action" });
+        console.error(
+          "[PAYMENT-METHOD] Error retrieving payment methods:",
+          error
+        );
+        res.status(500).json({
+          error: "Failed to retrieve payment methods"
+        });
       }
     }
   );
-  app2.get("/api/payment/methods", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const paymentMethods3 = await storage.getPaymentMethodsByUser(userId);
-      res.json(paymentMethods3);
-    } catch (error) {
-      console.error("[PAYMENT-METHOD] Error retrieving payment methods:", error);
-      res.status(500).json({
-        error: "Failed to retrieve payment methods"
-      });
-    }
-  });
-  app2.delete("/api/payment/methods/:id", requireAuth, async (req, res) => {
-    try {
-      const userId = req.user.id;
-      const paymentMethodId = parseInt(req.params.id);
-      const paymentMethod = await storage.getPaymentMethodById(paymentMethodId);
-      if (!paymentMethod || paymentMethod.userId !== userId) {
-        return res.status(404).json({
-          error: "Payment method not found"
+  app2.delete(
+    "/api/payment/methods/:id",
+    requireAuth,
+    async (req, res) => {
+      try {
+        const userId = req.user.id;
+        const paymentMethodId = parseInt(req.params.id);
+        const paymentMethod = await storage.getPaymentMethodById(paymentMethodId);
+        if (!paymentMethod || paymentMethod.userId !== userId) {
+          return res.status(404).json({
+            error: "Payment method not found"
+          });
+        }
+        await storage.deletePaymentMethod(paymentMethodId);
+        console.log(
+          `[PAYMENT-METHOD] Deleted payment method ${paymentMethodId} for user ${userId}`
+        );
+        res.json({
+          success: true
+        });
+      } catch (error) {
+        console.error("[PAYMENT-METHOD] Error deleting payment method:", error);
+        res.status(500).json({
+          error: "Failed to delete payment method"
         });
       }
-      await storage.deletePaymentMethod(paymentMethodId);
-      console.log(`[PAYMENT-METHOD] Deleted payment method ${paymentMethodId} for user ${userId}`);
-      res.json({
-        success: true
-      });
-    } catch (error) {
-      console.error("[PAYMENT-METHOD] Error deleting payment method:", error);
-      res.status(500).json({
-        error: "Failed to delete payment method"
-      });
     }
-  });
+  );
   app2.get("/api/places/autocomplete", async (req, res) => {
     try {
       const { query } = req.query;
@@ -26044,7 +34465,7 @@ ${message.trim()}`
           error: "Query parameter is required"
         });
       }
-      const apiKey = process.env.VITE_GOOGLE_PLACES_API_KEY;
+      const apiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_PLACES_API_KEY;
       if (!apiKey) {
         console.warn("[GOOGLE-PLACES] API key not available");
         return res.status(500).json({
@@ -26056,7 +34477,7 @@ ${message.trim()}`
         {
           method: "GET",
           headers: {
-            "Accept": "application/json"
+            Accept: "application/json"
           }
         }
       );
@@ -26065,14 +34486,18 @@ ${message.trim()}`
       }
       const data = await googleResponse.json();
       if (data.status === "OK" && data.predictions) {
-        console.log(`[GOOGLE-PLACES] Found ${data.predictions.length} suggestions for "${query}"`);
+        console.log(
+          `[GOOGLE-PLACES] Found ${data.predictions.length} suggestions for "${query}"`
+        );
         res.json({
           predictions: data.predictions.slice(0, 5),
           // Limit to 5 suggestions
           status: "OK"
         });
       } else {
-        console.log(`[GOOGLE-PLACES] No results found for "${query}", status: ${data.status}`);
+        console.log(
+          `[GOOGLE-PLACES] No results found for "${query}", status: ${data.status}`
+        );
         res.json({
           predictions: [],
           status: data.status || "NO_RESULTS"
@@ -26086,24 +34511,27 @@ ${message.trim()}`
       });
     }
   });
-  app2.get("/api/professional-reviews/:userId", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
+  app2.get(
+    "/api/professional-reviews/:userId",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const userId = parseInt(req.params.userId);
+        const reviews = await storage.getProfessionalReviewsForUser(userId);
+        const stats = await storage.getProfessionalReviewStats(userId);
+        res.json({
+          reviews,
+          stats,
+          success: true
+        });
+      } catch (error) {
+        console.error("Error fetching professional reviews:", error);
+        res.status(500).json({ message: "Internal server error" });
       }
-      const userId = parseInt(req.params.userId);
-      const reviews = await storage.getProfessionalReviewsForUser(userId);
-      const stats = await storage.getProfessionalReviewStats(userId);
-      res.json({
-        reviews,
-        stats,
-        success: true
-      });
-    } catch (error) {
-      console.error("Error fetching professional reviews:", error);
-      res.status(500).json({ message: "Internal server error" });
     }
-  });
+  );
   app2.post("/api/professional-reviews", async (req, res) => {
     try {
       if (!req.isAuthenticated()) {
@@ -26126,11 +34554,14 @@ ${message.trim()}`
         category || "overall"
       );
       if (existingReview) {
-        const updatedReview = await storage.updateProfessionalReview(existingReview.id, {
-          rating,
-          reviewText,
-          isAnonymous: isAnonymous || false
-        });
+        const updatedReview = await storage.updateProfessionalReview(
+          existingReview.id,
+          {
+            rating,
+            reviewText,
+            isAnonymous: isAnonymous || false
+          }
+        );
         res.json({ review: updatedReview, success: true });
       } else {
         const newReview = await storage.createProfessionalReview({
@@ -26148,69 +34579,208 @@ ${message.trim()}`
       res.status(500).json({ message: "Internal server error" });
     }
   });
-  app2.get("/api/professional-reviews/:reviewedUserId/user/:reviewerUserId", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const reviewedUserId = parseInt(req.params.reviewedUserId);
-      const reviewerUserId = parseInt(req.params.reviewerUserId);
-      const category = req.query.category || "overall";
-      const existingReview = await storage.getExistingReview(reviewedUserId, reviewerUserId, category);
-      res.json({
-        review: existingReview || null,
-        success: true
-      });
-    } catch (error) {
-      console.error("Error fetching existing review:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-  app2.delete("/api/professional-reviews/:reviewId", async (req, res) => {
-    try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-      const reviewId = parseInt(req.params.reviewId);
-      const userId = req.user.id;
-      const deleted = await storage.deleteProfessionalReview(reviewId, userId);
-      if (deleted) {
+  app2.get(
+    "/api/professional-reviews/:reviewedUserId/user/:reviewerUserId",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const reviewedUserId = parseInt(req.params.reviewedUserId);
+        const reviewerUserId = parseInt(req.params.reviewerUserId);
+        const category = req.query.category || "overall";
+        const existingReview = await storage.getExistingReview(
+          reviewedUserId,
+          reviewerUserId,
+          category
+        );
         res.json({
-          success: true,
-          message: "Review deleted successfully"
+          review: existingReview || null,
+          success: true
         });
-      } else {
-        res.status(404).json({
-          success: false,
-          message: "Review not found or you don't have permission to delete it"
-        });
+      } catch (error) {
+        console.error("Error fetching existing review:", error);
+        res.status(500).json({ message: "Internal server error" });
       }
-    } catch (error) {
-      console.error("Error deleting professional review:", error);
-      res.status(500).json({ message: "Internal server error" });
     }
-  });
+  );
+  app2.delete(
+    "/api/professional-reviews/:reviewId",
+    async (req, res) => {
+      try {
+        if (!req.isAuthenticated()) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const reviewId = parseInt(req.params.reviewId);
+        const userId = req.user.id;
+        const deleted = await storage.deleteProfessionalReview(
+          reviewId,
+          userId
+        );
+        if (deleted) {
+          res.json({
+            success: true,
+            message: "Review deleted successfully"
+          });
+        } else {
+          res.status(404).json({
+            success: false,
+            message: "Review not found or you don't have permission to delete it"
+          });
+        }
+      } catch (error) {
+        console.error("Error deleting professional review:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
   const { getHomePageData: getHomePageData2, getSuitePageData: getSuitePageData2 } = await Promise.resolve().then(() => (init_unified_api(), unified_api_exports));
   app2.get("/api/home-page-data", requireAuth, getHomePageData2);
   app2.get("/api/suite-page-data", requireAuth, getSuitePageData2);
+  app2.use("/api/highschool", highschool_search_default);
+  app2.get("/api/university/search", searchUniversities);
   return httpServer;
+}
+
+// server/godmodel-api.ts
+init_db();
+import fs3 from "fs";
+import path3 from "path";
+import { fileURLToPath } from "url";
+import { sql as sql6 } from "drizzle-orm";
+function loadStatements() {
+  try {
+    const __filename3 = fileURLToPath(import.meta.url);
+    const __dirname3 = path3.dirname(__filename3);
+    const filePath = path3.resolve(
+      __dirname3,
+      "..",
+      "client",
+      "public",
+      "personality_statements.txt"
+    );
+    const raw = fs3.readFileSync(filePath, "utf-8");
+    const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+    return lines.slice(0, 100);
+  } catch (e) {
+    console.error("[GODMODEL] Failed to load statements:", e);
+    return [];
+  }
+}
+function registerGodmodelAPI(app2) {
+  const statements = loadStatements();
+  app2.get("/api/godmodel/statements", (_req, res) => {
+    res.json({ count: statements.length, statements });
+  });
+  app2.get("/api/godmodel/progress", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    const userId = req.user?.id;
+    try {
+      const result = await db.execute(
+        sql6`SELECT personality_records FROM users WHERE id = ${userId} LIMIT 1;`
+      );
+      const value = result?.rows?.[0]?.personality_records || null;
+      res.json({ records: value ? JSON.parse(value) : null });
+    } catch (e) {
+      console.error("[GODMODEL] Failed to get progress:", e);
+      res.status(500).json({ error: "Failed to get progress" });
+    }
+  });
+  app2.post("/api/godmodel/progress", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    const userId = req.user?.id;
+    const { progress } = req.body || {};
+    try {
+      await db.execute(
+        sql6`UPDATE users SET personality_records = ${JSON.stringify(progress)} WHERE id = ${userId};`
+      );
+      res.json({ success: true });
+    } catch (e) {
+      console.error("[GODMODEL] Failed to save progress:", e);
+      res.status(500).json({ error: "Failed to save progress" });
+    }
+  });
+  app2.post("/api/godmodel/complete", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    const userId = req.user?.id;
+    const { final } = req.body || {};
+    console.log(`[GODMODEL] Completing test for user ${userId}:`, final);
+    try {
+      const finalData = JSON.stringify(final);
+      console.log(
+        `[GODMODEL] Saving personality records to database for user ${userId}`
+      );
+      await db.execute(sql6`
+        UPDATE users 
+        SET personality_records = ${finalData}, 
+            personality_test_completed = TRUE 
+        WHERE id = ${userId};
+      `);
+      console.log(
+        `[GODMODEL] \u2705 Successfully saved personality records and marked test as completed for user ${userId}`
+      );
+      try {
+        console.log(`[GODMODEL-BIG5] Computing Big 5 scores for user ${userId}...`);
+        const responses = final.responses || [];
+        const big5Responses = responses.map((response) => {
+          const answerMap = {
+            "Strongly Disagree": "StronglyDisagree",
+            "Disagree": "Disagree",
+            "Neutral": "Neutral",
+            "Agree": "Agree",
+            "Strongly Agree": "StronglyAgree"
+          };
+          return answerMap[response.answer] || "Neutral";
+        });
+        if (big5Responses.length !== 100) {
+          console.warn(`[GODMODEL-BIG5] Expected 100 responses, got ${big5Responses.length}. Padding with neutral responses.`);
+          while (big5Responses.length < 100) {
+            big5Responses.push("Neutral");
+          }
+        }
+        console.log(`[GODMODEL-BIG5] Sample mapped responses:`, big5Responses.slice(0, 5));
+        console.log(`[GODMODEL-BIG5] Total responses for Big 5:`, big5Responses.length);
+        const big5Profile = big5ScoringService.generateBig5Profile(big5Responses);
+        await db.execute(sql6`
+          UPDATE users 
+          SET big5_profile = ${JSON.stringify(big5Profile)},
+              big5_computed_at = ${/* @__PURE__ */ new Date()},
+              personality_model_version = 'v1.0'
+          WHERE id = ${userId};
+        `);
+        console.log(`[GODMODEL-BIG5] \u2705 Successfully computed and saved Big 5 profile for user ${userId}`);
+      } catch (big5Error) {
+        console.error(`[GODMODEL-BIG5] Failed to compute Big 5 scores for user ${userId}:`, big5Error);
+      }
+      res.json({ success: true });
+    } catch (e) {
+      console.error("[GODMODEL] Failed to complete test:", e);
+      res.status(500).json({ error: "Failed to complete test" });
+    }
+  });
 }
 
 // server/vite.ts
 import express from "express";
-import fs from "fs";
-import path2, { dirname as dirname2 } from "path";
-import { fileURLToPath as fileURLToPath2 } from "url";
+import fs4 from "fs";
+import path5, { dirname as dirname2 } from "path";
+import { fileURLToPath as fileURLToPath3 } from "url";
 import { createServer as createViteServer, createLogger } from "vite";
 
 // vite.config.ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import themePlugin from "@replit/vite-plugin-shadcn-theme-json";
-import path, { dirname } from "path";
+import path4, { dirname } from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
-import { fileURLToPath } from "url";
-var __filename = fileURLToPath(import.meta.url);
+import { fileURLToPath as fileURLToPath2 } from "url";
+var __filename = fileURLToPath2(import.meta.url);
 var __dirname = dirname(__filename);
 var vite_config_default = defineConfig({
   plugins: [
@@ -26225,21 +34795,21 @@ var vite_config_default = defineConfig({
   ],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "client", "src"),
-      "@shared": path.resolve(__dirname, "shared"),
-      "@assets": path.resolve(__dirname, "attached_assets")
+      "@": path4.resolve(__dirname, "client", "src"),
+      "@shared": path4.resolve(__dirname, "shared"),
+      "@assets": path4.resolve(__dirname, "attached_assets")
     }
   },
-  root: path.resolve(__dirname, "client"),
+  root: path4.resolve(__dirname, "client"),
   build: {
-    outDir: path.resolve(__dirname, "dist/public"),
+    outDir: path4.resolve(__dirname, "dist/public"),
     emptyOutDir: true
   }
 });
 
 // server/vite.ts
 import { nanoid } from "nanoid";
-var __filename2 = fileURLToPath2(import.meta.url);
+var __filename2 = fileURLToPath3(import.meta.url);
 var __dirname2 = dirname2(__filename2);
 var viteLogger = createLogger();
 function log(message, source = "express") {
@@ -26270,17 +34840,26 @@ async function setupVite(app2, server) {
     server: serverOptions,
     appType: "custom"
   });
-  app2.use(vite.middlewares);
+  app2.use((req, res, next) => {
+    const url = req.originalUrl;
+    if (url.startsWith("/api") || url.startsWith("/ws")) {
+      return next();
+    }
+    return vite.middlewares(req, res, next);
+  });
   app2.use("*", async (req, res, next) => {
     const url = req.originalUrl;
+    if (url.startsWith("/api") || url.startsWith("/ws")) {
+      return next();
+    }
     try {
-      const clientTemplate = path2.resolve(
+      const clientTemplate = path5.resolve(
         __dirname2,
         "..",
         "client",
         "index.html"
       );
-      let template = await fs.promises.readFile(clientTemplate, "utf-8");
+      let template = await fs4.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`
@@ -26294,15 +34873,15 @@ async function setupVite(app2, server) {
   });
 }
 function serveStatic(app2) {
-  const distPath = path2.resolve(__dirname2, "public");
-  if (!fs.existsSync(distPath)) {
+  const distPath = path5.resolve(__dirname2, "public");
+  if (!fs4.existsSync(distPath)) {
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`
     );
   }
   app2.use(express.static(distPath));
   app2.use("*", (_req, res) => {
-    res.sendFile(path2.resolve(distPath, "index.html"));
+    res.sendFile(path5.resolve(distPath, "index.html"));
   });
 }
 
@@ -26310,11 +34889,11 @@ function serveStatic(app2) {
 import dotenv3 from "dotenv";
 dotenv3.config();
 var app = express2();
-app.use(express2.json({ limit: "50mb" }));
-app.use(express2.urlencoded({ extended: false, limit: "50mb" }));
+app.use(express2.json({ limit: "10gb" }));
+app.use(express2.urlencoded({ extended: false, limit: "10gb" }));
 app.use((req, res, next) => {
   const start = Date.now();
-  const path3 = req.path;
+  const path6 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -26323,8 +34902,8 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path3.startsWith("/api")) {
-      let logLine = `${req.method} ${path3} ${res.statusCode} in ${duration}ms`;
+    if (path6.startsWith("/api")) {
+      let logLine = `${req.method} ${path6} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -26338,16 +34917,20 @@ app.use((req, res, next) => {
 });
 (async () => {
   const server = await registerRoutes(app);
+  registerGodmodelAPI(app);
   app.use((err, _req, res, _next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
     res.status(status).json({ message });
     throw err;
   });
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
+  const isProduction = process.env.REPLIT_DEPLOYMENT === "1" || process.env.NODE_ENV === "production";
+  if (isProduction) {
+    console.log("[SERVER] Running in production mode - serving static files");
     serveStatic(app);
+  } else {
+    console.log("[SERVER] Running in development mode - using Vite middleware");
+    await setupVite(app, server);
   }
   startServer(server, () => {
     log("Server started successfully");

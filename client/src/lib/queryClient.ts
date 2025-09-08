@@ -46,10 +46,12 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+// API Base URL configuration for both development and production
+// In production deployments, we serve both frontend and backend from same origin
 const API_BASE =
   (typeof window !== "undefined" && (window as any).__API_BASE__) ||
   (import.meta as any).env?.VITE_API_BASE_URL ||
-  "";
+  ""; // Empty string for same-origin requests (correct for our setup)
 
 export async function apiRequest(
   url: string,

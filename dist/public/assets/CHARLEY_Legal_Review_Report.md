@@ -301,7 +301,7 @@ CHARLEY's current legal framework provides basic protections but falls short of 
 
 **Report Prepared By:** CHARLEY Legal Analysis Team  
 **Next Review Date:** October 14, 2025  
-**Contact:** legal@btechnos.com
+**Contact:** legal@kronogon.com
 
 ---
 
