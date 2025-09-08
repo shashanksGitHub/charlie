@@ -158,20 +158,29 @@ export function setupAuth(app: Express) {
   const userDeserializeCache = new Map<number, { user: any; expiry: number }>();
   const USER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
-  passport.serializeUser((user, done) => done(null, user.id));
+  passport.serializeUser((user, done) => {
+    console.log(`[AUTH-SERIALIZE] Serializing user ID: ${user.id}`);
+    done(null, user.id);
+  });
+  
   passport.deserializeUser(async (id: number, done) => {
+    console.log(`[AUTH-DESERIALIZE] Attempting to deserialize user ID: ${id}`);
     try {
       // Check cache first to avoid database query
       const cached = userDeserializeCache.get(id);
       if (cached && cached.expiry > Date.now()) {
+        console.log(`[AUTH-DESERIALIZE] Using cached user for ID: ${id}`);
         return done(null, cached.user);
       }
 
+      console.log(`[AUTH-DESERIALIZE] Cache miss, fetching user ${id} from database`);
       const user = await storage.getUser(id);
       if (!user) {
         console.log(`[AUTH-DESERIALIZE] User not found for ID: ${id}`);
         return done(null, false);
       }
+      
+      console.log(`[AUTH-DESERIALIZE] Successfully fetched user ${id}: ${user.username}`);
       
       // Cache the user for 5 minutes
       userDeserializeCache.set(id, {
