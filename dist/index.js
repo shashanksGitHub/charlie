@@ -12726,13 +12726,19 @@ __export(user_behavior_patterns_exports, {
 });
 import { neon } from "@neondatabase/serverless";
 import dotenv2 from "dotenv";
+function getSql() {
+  if (!sql3) {
+    sql3 = neon(process.env.DATABASE_URL);
+  }
+  return sql3;
+}
 var sql3, UserBehaviorPatterns, userBehaviorPatterns;
 var init_user_behavior_patterns = __esm({
   "server/user-behavior-patterns.ts"() {
     "use strict";
     init_geocoding_service();
     dotenv2.config();
-    sql3 = neon(process.env.DATABASE_URL);
+    sql3 = null;
     UserBehaviorPatterns = class {
       /**
        * TEMPORAL FACTOR 1: Online Status Detection
@@ -12741,7 +12747,7 @@ var init_user_behavior_patterns = __esm({
       async calculateOnlineStatus(userId) {
         try {
           console.log(`[USER-BEHAVIOR] Calculating online status for user ${userId}`);
-          const userActivity = await sql3`
+          const userActivity = await getSql()`
         SELECT 
           id,
           last_active,
@@ -12792,7 +12798,7 @@ var init_user_behavior_patterns = __esm({
       async calculateRecencyScore(userId) {
         try {
           console.log(`[USER-BEHAVIOR] Calculating recency score for user ${userId}`);
-          const userRecency = await sql3`
+          const userRecency = await getSql()`
         SELECT 
           id,
           last_active,
@@ -12828,7 +12834,7 @@ var init_user_behavior_patterns = __esm({
       async calculateProfileFreshness(userId) {
         try {
           console.log(`[USER-BEHAVIOR] Calculating profile freshness for user ${userId}`);
-          const updateTimestamp = await sql3`
+          const updateTimestamp = await getSql()`
         SELECT 
           id,
           updated_at,
@@ -12869,7 +12875,7 @@ var init_user_behavior_patterns = __esm({
       async analyzePeakActivityHours(userId) {
         try {
           console.log(`[USER-BEHAVIOR] Analyzing peak activity hours for user ${userId}`);
-          const messageActivity = await sql3`
+          const messageActivity = await getSql()`
         SELECT 
           EXTRACT(HOUR FROM created_at) as activity_hour,
           COUNT(*) as message_count
@@ -12880,7 +12886,7 @@ var init_user_behavior_patterns = __esm({
         ORDER BY message_count DESC
         LIMIT 5
       `;
-          const swipeActivity = await sql3`
+          const swipeActivity = await getSql()`
         SELECT 
           EXTRACT(HOUR FROM timestamp) as activity_hour,
           COUNT(*) as swipe_count
@@ -13165,7 +13171,7 @@ var init_user_behavior_patterns = __esm({
       async calculateTemporalContextProfile(userId) {
         try {
           console.log(`[TEMPORAL-CONTEXT] Calculating temporal factors for user ${userId}`);
-          const userResult = await sql3`SELECT * FROM users WHERE id = ${userId}`;
+          const userResult = await getSql()`SELECT * FROM users WHERE id = ${userId}`;
           if (userResult.length === 0) {
             return {
               activityPatternScore: 0.5,
@@ -13348,7 +13354,7 @@ var init_user_behavior_patterns = __esm({
       async calculateHistoricalResponseRate(userId, targetUserId) {
         try {
           console.log(`[RECIPROCITY] Calculating response rate: ${userId} \u2194 ${targetUserId}`);
-          const responseAnalysis = await sql3`
+          const responseAnalysis = await getSql()`
         WITH conversation_threads AS (
           SELECT 
             sender_id,
@@ -13397,7 +13403,7 @@ var init_user_behavior_patterns = __esm({
       async calculateMessageEngagementQuality(userId, targetUserId) {
         try {
           console.log(`[ENGAGEMENT] Calculating message engagement: ${userId} \u2194 ${targetUserId}`);
-          const engagementAnalysis = await sql3`
+          const engagementAnalysis = await getSql()`
         SELECT 
           COUNT(*) as total_messages,
           AVG(LENGTH(content)) as avg_message_length,
@@ -13443,14 +13449,14 @@ var init_user_behavior_patterns = __esm({
       async calculateProfileViewFrequency(userId, targetUserId) {
         try {
           console.log(`[PROFILE-VIEWS] Calculating view frequency: ${userId} \u2192 ${targetUserId}`);
-          const profileViewsExists = await sql3`
+          const profileViewsExists = await getSql()`
         SELECT EXISTS (
           SELECT FROM information_schema.tables 
           WHERE table_schema = 'public' AND table_name = 'profile_views'
         )
       `;
           if (profileViewsExists[0]?.exists) {
-            const viewData = await sql3`
+            const viewData = await getSql()`
           SELECT 
             view_count,
             last_viewed_at,
@@ -13468,7 +13474,7 @@ var init_user_behavior_patterns = __esm({
               return viewScore;
             }
           }
-          const swipeInteractions = await sql3`
+          const swipeInteractions = await getSql()`
         SELECT 
           COUNT(*) as total_interactions,
           MAX(timestamp) as last_interaction,
@@ -13501,7 +13507,7 @@ var init_user_behavior_patterns = __esm({
       async calculateStarLikeProbability(userId, targetUserId) {
         try {
           console.log(`[LIKE-PROBABILITY] Calculating like probability: ${userId} \u2192 ${targetUserId}`);
-          const userProfiles = await sql3`
+          const userProfiles = await getSql()`
         SELECT 
           id,
           ethnicity,
@@ -13519,7 +13525,7 @@ var init_user_behavior_patterns = __esm({
           }
           const userProfile = userProfiles.find((u) => u.id === userId);
           const targetProfile = userProfiles.find((u) => u.id === targetUserId);
-          const similarityPatterns = await sql3`
+          const similarityPatterns = await getSql()`
         WITH user_similarities AS (
           SELECT 
             sh.user_id,
