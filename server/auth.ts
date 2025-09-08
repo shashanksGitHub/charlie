@@ -67,7 +67,7 @@ export function setupAuth(app: Express) {
   
   const sessionStore = new PgSession({
     pool: pgPool,
-    tableName: 'session',
+    tableName: 'user_sessions', // Match the actual table name
     createTableIfMissing: true,
     ttl: 24 * 60 * 60, // 24 hours in seconds
   });
