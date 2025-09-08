@@ -46,22 +46,29 @@ export const touchSession = (req: Request, res: Response, next: NextFunction) =>
 };
 
 export function setupAuth(app: Express) {
+  const isProduction = process.env.NODE_ENV === "production";
+  
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "charley-app-secret-key",
-    resave: true, // Save session on each request
+    resave: false, // Don't save session if unmodified
     saveUninitialized: false, // Don't create session until something is stored
     store: storage.sessionStore, // Using PostgreSQL store for persistence
     cookie: {
       maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year expiration for long-term persistence
-      secure: process.env.NODE_ENV === "production",
+      secure: false, // Always false for development - HTTPS not available in Replit dev
       sameSite: "lax",
       httpOnly: true, // Prevent JavaScript access to cookies
       path: '/'
     },
     rolling: true, // Reset expiration with each request to keep session alive
+    name: 'connect.sid', // Explicit session cookie name
   };
 
-  app.set("trust proxy", 1);
+  // Only set trust proxy in production
+  if (isProduction) {
+    app.set("trust proxy", 1);
+  }
+  
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
