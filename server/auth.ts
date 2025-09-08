@@ -46,28 +46,20 @@ export const touchSession = (req: Request, res: Response, next: NextFunction) =>
 };
 
 export function setupAuth(app: Express) {
-  const isProduction = process.env.NODE_ENV === "production";
-  
+  // SIMPLIFIED SESSION CONFIG - NO TRUST PROXY ISSUES
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || "charley-app-secret-key",
-    resave: true, // Force session save to ensure persistence
-    saveUninitialized: true, // Create session immediately to maintain ID
-    store: storage.sessionStore, // Using PostgreSQL store for persistence
+    secret: process.env.SESSION_SECRET || "charley-app-secret-key-fixed",
+    resave: false,
+    saveUninitialized: false,
     cookie: {
-      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year expiration for long-term persistence
-      secure: false, // Must be false for development HTTP
-      sameSite: "lax", // Compatible with HTTP development
-      httpOnly: false, // Allow JavaScript access for debugging
-      path: '/',
-      domain: undefined // Let browser set domain automatically
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      secure: false,
+      httpOnly: true,
+      sameSite: "lax"
     },
-    rolling: false, // Don't reset expiration - preserve session ID
-    name: 'sessionId', // Different session name to avoid conflicts
+    name: 'connect.sid'
   };
 
-  // Set trust proxy for all environments to handle headers properly
-  app.set("trust proxy", 1);
-  
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
@@ -165,14 +157,6 @@ export function setupAuth(app: Express) {
   passport.deserializeUser(async (id: number, done) => {
     console.log(`[AUTH-DESERIALIZE] Attempting to deserialize user ID: ${id}`);
     try {
-      // Check cache first to avoid database query
-      const cached = userDeserializeCache.get(id);
-      if (cached && cached.expiry > Date.now()) {
-        console.log(`[AUTH-DESERIALIZE] Using cached user for ID: ${id}`);
-        return done(null, cached.user);
-      }
-
-      console.log(`[AUTH-DESERIALIZE] Cache miss, fetching user ${id} from database`);
       const user = await storage.getUser(id);
       if (!user) {
         console.log(`[AUTH-DESERIALIZE] User not found for ID: ${id}`);
@@ -180,17 +164,10 @@ export function setupAuth(app: Express) {
       }
       
       console.log(`[AUTH-DESERIALIZE] Successfully fetched user ${id}: ${user.username}`);
-      
-      // Cache the user for 5 minutes
-      userDeserializeCache.set(id, {
-        user,
-        expiry: Date.now() + USER_CACHE_TTL
-      });
-      
       done(null, user);
     } catch (error) {
       console.error(`[AUTH-DESERIALIZE] Error deserializing user ${id}:`, error);
-      done(null, false); // Don't pass error to prevent session destruction
+      done(null, false);
     }
   });
 
