@@ -55,13 +55,14 @@ export function setupAuth(app: Express) {
     store: storage.sessionStore, // Using PostgreSQL store for persistence
     cookie: {
       maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year expiration for long-term persistence
-      secure: false, // Always false for development - HTTPS not available in Replit dev
-      sameSite: "lax",
-      httpOnly: true, // Prevent JavaScript access to cookies
-      path: '/'
+      secure: false, // Must be false for development HTTP
+      sameSite: "lax", // Compatible with HTTP development
+      httpOnly: false, // Allow JavaScript access for debugging
+      path: '/',
+      domain: undefined // Let browser set domain automatically
     },
     rolling: false, // Don't reset expiration - preserve session ID
-    name: 'connect.sid', // Explicit session cookie name
+    name: 'sessionId', // Different session name to avoid conflicts
   };
 
   // Set trust proxy for all environments to handle headers properly
