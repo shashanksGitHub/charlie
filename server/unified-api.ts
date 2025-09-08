@@ -73,7 +73,16 @@ export async function getHomePageData(req: Request, res: Response) {
     res.json(responseData);
   } catch (error) {
     console.error("[UNIFIED-API] Error in getHomePageData:", error);
-    res.status(500).json({ message: "Internal server error" });
+    console.error("[UNIFIED-API] Error stack:", error instanceof Error ? error.stack : 'No stack trace');
+    console.error("[UNIFIED-API] Error details:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      userId: req.user?.id,
+      timestamp: new Date().toISOString()
+    });
+    res.status(500).json({ 
+      message: "Internal server error",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
   }
 }
 
