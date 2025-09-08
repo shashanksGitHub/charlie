@@ -2,8 +2,6 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import express, { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
-import { Pool } from "pg";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
@@ -48,47 +46,22 @@ export const touchSession = (req: Request, res: Response, next: NextFunction) =>
 };
 
 export function setupAuth(app: Express) {
-  // PRODUCTION-READY SESSION CONFIG  
-  // Detect if running on HTTPS (Replit domain) vs HTTP (preview)
-  const isProduction = Boolean(process.env.REPL_SLUG || process.env.REPLIT_SLUG || process.env.NODE_ENV === 'production');
-  const isHTTPS = Boolean(process.env.REPLIT_DOMAINS || process.env.REPLIT_DB_URL || isProduction);
-  
-  console.log(`[SESSION-CONFIG] Environment detection: production=${isProduction}, https=${isHTTPS}`);
-  
-  // Enable trust proxy for Replit deployments
-  if (isProduction) {
-    app.set('trust proxy', 1);
-  }
-  
-  // Setup PostgreSQL session store for persistent sessions
-  const PgSession = connectPgSimple(session);
-  const pgPool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
-  });
-  
-  const sessionStore = new PgSession({
-    pool: pgPool,
-    tableName: 'user_sessions', // Match the actual table name
-    createTableIfMissing: true,
-    ttl: 24 * 60 * 60, // 24 hours in seconds
-  });
-  
   const sessionSettings: session.SessionOptions = {
-    store: sessionStore, // Use PostgreSQL store instead of memory
-    secret: process.env.SESSION_SECRET || "charley-app-secret-key-fixed",
-    resave: false,
-    saveUninitialized: false,
+    secret: process.env.SESSION_SECRET || "charley-app-secret-key",
+    resave: true, // Save session on each request
+    saveUninitialized: false, // Don't create session until something is stored
+    store: storage.sessionStore, // Using PostgreSQL store for persistence
     cookie: {
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      secure: Boolean(isHTTPS), // Use secure cookies on HTTPS (Replit domain)
-      httpOnly: true,
-      sameSite: (isProduction ? "none" : "lax") as "none" | "lax", // Allow cross-site for production
-      domain: undefined // Let browser handle domain automatically
+      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year expiration for long-term persistence
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      httpOnly: true, // Prevent JavaScript access to cookies
+      path: '/'
     },
-    name: 'connect.sid'
+    rolling: true, // Reset expiration with each request to keep session alive
   };
 
+  app.set("trust proxy", 1);
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
@@ -178,25 +151,31 @@ export function setupAuth(app: Express) {
   const userDeserializeCache = new Map<number, { user: any; expiry: number }>();
   const USER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
-  passport.serializeUser((user, done) => {
-    console.log(`[AUTH-SERIALIZE] Serializing user ID: ${user.id}`);
-    done(null, user.id);
-  });
-  
+  passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: number, done) => {
-    console.log(`[AUTH-DESERIALIZE] Attempting to deserialize user ID: ${id}`);
     try {
+      // Check cache first to avoid database query
+      const cached = userDeserializeCache.get(id);
+      if (cached && cached.expiry > Date.now()) {
+        return done(null, cached.user);
+      }
+
       const user = await storage.getUser(id);
       if (!user) {
         console.log(`[AUTH-DESERIALIZE] User not found for ID: ${id}`);
         return done(null, false);
       }
       
-      console.log(`[AUTH-DESERIALIZE] Successfully fetched user ${id}: ${user.username}`);
+      // Cache the user for 5 minutes
+      userDeserializeCache.set(id, {
+        user,
+        expiry: Date.now() + USER_CACHE_TTL
+      });
+      
       done(null, user);
     } catch (error) {
       console.error(`[AUTH-DESERIALIZE] Error deserializing user ${id}:`, error);
-      done(null, false);
+      done(null, false); // Don't pass error to prevent session destruction
     }
   });
 
@@ -218,15 +197,15 @@ export function setupAuth(app: Express) {
         
         // Check email uniqueness across multiple sources
         existenceChecks.push(
-          storage.getUserByEmail(normalizedEmail).then(user => ({ type: 'email' as const, user, source: 'users' as const }))
+          storage.getUserByEmail(normalizedEmail).then(user => ({ type: 'email', user, source: 'users' }))
         );
         
         // CRITICAL: Also check if email exists in blocked phone numbers table
         existenceChecks.push(
           storage.isEmailInBlockedPhoneNumbers(normalizedEmail).then(blockedRecord => ({ 
-            type: 'email' as const, 
+            type: 'email', 
             user: blockedRecord, 
-            source: 'blocked_phones' as const
+            source: 'blocked_phones' 
           }))
         );
       }
@@ -242,7 +221,7 @@ export function setupAuth(app: Express) {
             if (result.type === 'phone') {
               errorMessage = 'Phone number already in use by another account';
             } else if (result.type === 'email') {
-              if ((result as any).source === 'blocked_phones') {
+              if (result.source === 'blocked_phones') {
                 // Email was found in blocked phone numbers - provide specific guidance
                 errorMessage = 'This email is associated with a blocked account. Please use a different email address or contact support if you believe this is an error.';
                 console.log(`[EMAIL-UNIQUENESS] Blocked email duplicate attempt: ${req.body.email} (found in blocked phone numbers table)`);
@@ -254,7 +233,7 @@ export function setupAuth(app: Express) {
             }
             
             // Log duplicate account creation attempts for security monitoring
-            console.log(`[DUPLICATE-ACCOUNT-PREVENTION] Blocked ${result.type} duplicate from ${(result as any).source}: ${result.type === 'phone' ? req.body.phoneNumber : req.body.email}`);
+            console.log(`[DUPLICATE-ACCOUNT-PREVENTION] Blocked ${result.type} duplicate from ${result.source}: ${result.type === 'phone' ? req.body.phoneNumber : req.body.email}`);
             
             return res.status(400).send(errorMessage);
           }
@@ -394,11 +373,6 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/user", async (req, res) => {
-    console.log(`[API-USER] Request received, sessionID: ${req.sessionID}, session exists: ${!!req.session}`);
-    console.log(`[API-USER] req.user: ${req.user ? `User ID ${req.user.id}` : 'null'}`);
-    console.log(`[API-USER] req.isAuthenticated(): ${req.isAuthenticated()}`);
-    console.log(`[API-USER] Session passport: ${(req.session as any)?.passport ? JSON.stringify((req.session as any).passport) : 'none'}`);
-    
     if (!req.isAuthenticated()) {
       console.log("User authentication check failed");
       return res.status(401).json({ message: "Unauthorized", status: "login_required" });
