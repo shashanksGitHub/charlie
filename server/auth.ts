@@ -389,6 +389,11 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/user", async (req, res) => {
+    console.log(`[API-USER] Request received, sessionID: ${req.sessionID}, session exists: ${!!req.session}`);
+    console.log(`[API-USER] req.user: ${req.user ? `User ID ${req.user.id}` : 'null'}`);
+    console.log(`[API-USER] req.isAuthenticated(): ${req.isAuthenticated()}`);
+    console.log(`[API-USER] Session passport: ${req.session?.passport ? JSON.stringify(req.session.passport) : 'none'}`);
+    
     if (!req.isAuthenticated()) {
       console.log("User authentication check failed");
       return res.status(401).json({ message: "Unauthorized", status: "login_required" });
