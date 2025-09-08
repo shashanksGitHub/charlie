@@ -2,6 +2,8 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import express, { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { Pool } from "pg";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
 import { storage } from "./storage";
@@ -56,7 +58,22 @@ export function setupAuth(app: Express) {
     app.set('trust proxy', 1);
   }
   
+  // Setup PostgreSQL session store for persistent sessions
+  const PgSession = connectPgSimple(session);
+  const pgPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
+  });
+  
+  const sessionStore = new PgSession({
+    pool: pgPool,
+    tableName: 'session',
+    createTableIfMissing: true,
+    ttl: 24 * 60 * 60, // 24 hours in seconds
+  });
+  
   const sessionSettings: session.SessionOptions = {
+    store: sessionStore, // Use PostgreSQL store instead of memory
     secret: process.env.SESSION_SECRET || "charley-app-secret-key-fixed",
     resave: false,
     saveUninitialized: false,
