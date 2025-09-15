@@ -527,6 +527,54 @@ class KwameAIService {
   }
 
   /**
+   * Classify if a user message is related to images, photos, or visual content
+   * Uses OpenAI to dynamically determine intent instead of hardcoded patterns
+   */
+  async classifyImageIntent(message: string): Promise<boolean> {
+    try {
+      const classificationPrompt = `Analyze this user message and determine if it's related to images, photos, pictures, visual content, or image editing.
+
+User message: "${message}"
+
+Consider these as image-related:
+- Requests to edit, change, or modify images/photos/pictures
+- Questions about what's in images or photos
+- Requests to add, remove, or change elements in images
+- Asking about people, objects, or details in photos
+- Requests to generate, create, or make images/photos/avatars
+- Questions about visual appearance or styling
+- References to "she/he/they" in context of photos
+- Any visual editing or generation requests
+
+Answer with only "YES" or "NO".`;
+
+      const response = await getOpenAIClient().chat.completions.create({
+        model: "gpt-4o-mini", // Fast and cost-effective for classification
+        messages: [
+          {
+            role: "system",
+            content: "You are a classification assistant. Respond only with YES or NO.",
+          },
+          {
+            role: "user",
+            content: classificationPrompt,
+          },
+        ],
+        temperature: 0.1, // Low temperature for consistent classification
+        max_tokens: 5, // We only need YES or NO
+      });
+
+      const result = response.choices[0]?.message?.content?.trim().toUpperCase();
+      return result === "YES";
+    } catch (error) {
+      console.error("[KWAME-AI] Image intent classification failed:", error);
+      // Fallback to basic keyword detection if AI classification fails
+      const lower = message.toLowerCase();
+      return /(image|photo|picture|avatar|edit|generate|create|make|add|remove|change|transform|style)/i.test(lower);
+    }
+  }
+
+  /**
    * Generate a Pixar-style transformation from a source image using OpenAI gpt-image-1
    * Accepts http/https URLs or data URLs. Returns a PNG data URL.
    */
