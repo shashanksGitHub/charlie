@@ -305,13 +305,13 @@ export function registerKwameAPI(app: Express): void {
 
       // Allow longer messages for image uploads (they contain base64 data)
       const isImageMessage = message.startsWith("_!_IMAGE_!_");
-      // Increased limit to 10GB for image uploads, 2000 chars for text
-      const maxLength = isImageMessage ? 10 * 1024 * 1024 * 1024 : 2000; // 10GB for images, 2000 chars for text
+      // Reasonable limit for image uploads to prevent DoS attacks
+      const maxLength = isImageMessage ? 20 * 1024 * 1024 : 2000; // 20MB for images, 2000 chars for text
 
       if (message.length > maxLength) {
         return res.status(400).json({
           error: isImageMessage
-            ? "Image too large (max 10GB)"
+            ? "Image too large (max 20MB)"
             : "Message too long (max 2000 characters)",
           code: "MESSAGE_TOO_LONG",
         });
@@ -396,13 +396,26 @@ export function registerKwameAPI(app: Express): void {
         }
       }
 
-      // Dynamic AI-powered image intent detection
+      // Dynamic AI-powered image intent detection with pre-filtering
       console.log("[KWAME-API] 📥 Analyzing message for image intent:", message.trim());
       
-      // Check if this message is image-related using AI classification
-      const isImageRelated = await kwameAI.classifyImageIntent(message);
+      // Pre-filter: Check for obvious image keywords to avoid unnecessary AI calls
+      const hasImageKeywords = /(image|photo|picture|avatar|edit|generate|create|make|add|remove|change|transform|style|pixar|anime|cartoon|where.*is|show.*me)/i.test(message.toLowerCase());
       
-      console.log("[KWAME-API] 🧠 AI Classification result:", { 
+      let isImageRelated = false;
+      if (hasImageKeywords) {
+        try {
+          // Only call AI for messages with potential image intent
+          isImageRelated = await kwameAI.classifyImageIntent(message);
+        } catch (error) {
+          console.error("[KWAME-API] AI classification failed, using keyword fallback:", error);
+          // Fallback to basic keyword detection if AI fails
+          isImageRelated = /(edit|change|add|remove|generate|create|make).*\b(image|photo|picture|avatar)\b/i.test(message.toLowerCase());
+        }
+      }
+      
+      console.log("[KWAME-API] 🧠 Image intent analysis:", { 
+        hasImageKeywords,
         isImageRelated, 
         message: message.substring(0, 100) + "..." 
       });

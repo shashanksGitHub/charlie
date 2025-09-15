@@ -548,7 +548,8 @@ Consider these as image-related:
 
 Answer with only "YES" or "NO".`;
 
-      const response = await getOpenAIClient().chat.completions.create({
+      // Create classification request with timeout
+      const classificationPromise = getOpenAIClient().chat.completions.create({
         model: "gpt-4o-mini", // Fast and cost-effective for classification
         messages: [
           {
@@ -563,6 +564,13 @@ Answer with only "YES" or "NO".`;
         temperature: 0.1, // Low temperature for consistent classification
         max_tokens: 5, // We only need YES or NO
       });
+
+      // Add 3-second timeout to prevent hanging requests
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("AI classification timeout")), 3000)
+      );
+
+      const response = await Promise.race([classificationPromise, timeoutPromise]) as any;
 
       const result = response.choices[0]?.message?.content?.trim().toUpperCase();
       return result === "YES";
