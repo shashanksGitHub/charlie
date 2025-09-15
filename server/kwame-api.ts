@@ -396,59 +396,22 @@ export function registerKwameAPI(app: Express): void {
         }
       }
 
-      // Image intent routing (edit or generate)
-      const lower = message.toLowerCase();
+      // Dynamic AI-powered image intent detection
+      console.log("[KWAME-API] 📥 Analyzing message for image intent:", message.trim());
       
-      // Detect stylized avatar requests (anime, pixar, disney, cartoon, etc.)
-      const avatarStyleMatch = message.match(/(create|generate|make|draw|design|turn)[^\n]{0,80}(anime|cartoon|manga|pixar|disney|comic|illustration)[^\n]{0,80}(avatar|image|photo|picture)/i) ||
-        message.match(/(anime|cartoon|manga|pixar|disney|comic|illustration)[^\n]{0,80}(avatar|image|photo|picture)[^\n]{0,80}(of me|for me)/i) ||
-        message.match(/create.*(anime|cartoon|manga|pixar|disney|comic|illustration).*avatar.*me/i);
+      // Check if this message is image-related using AI classification
+      const isImageRelated = await kwameAI.classifyImageIntent(message);
       
-      const wantsStylizedAvatar = !!avatarStyleMatch;
-      const requestedStyle = avatarStyleMatch ? avatarStyleMatch[2]?.toLowerCase() || avatarStyleMatch[1]?.toLowerCase() : null;
-      
-      // More flexible matching: allow adjectives/words between verbs and target nouns
-      const wantsImageEdit =
-        /(edit|change|update|transform|improve|enhance|styl(?:e|ize)|turn)[^\n]{0,80}\b(my|the|this|her|his|their|it|she|he|they)\b[^\n]{0,80}\b(photo|picture|image|avatar|primary\s+photo)\b/i.test(
-          lower,
-        ) ||
-        // Also catch cases like "edit so that she/he/they is/are wearing..."
-        /(edit|change|update|transform|improve|enhance|styl(?:e|ize)|turn)[^\n]{0,80}so\s+that[^\n]{0,80}(she|he|they|it|the\s+person)[^\n]{0,80}(is|are|has|wearing|holding)/i.test(
-          lower,
-        ) ||
-        // Catch general image editing without specific pronouns
-        /(edit|change|update|transform|improve|enhance)[^\n]{0,80}(to\s+add|to\s+remove|to\s+include|to\s+have|so\s+that)/i.test(
-          lower,
-        );
-      let wantsImageGenerate =
-        /(create|generate|make|draw|design)[^\n]{0,80}\b(image|picture|photo|avatar|logo|banner|poster)\b/i.test(
-          lower,
-        );
-      const animeAvatarSignal =
-        /(anime|cartoon|pixar|comic)/.test(lower) &&
-        /(avatar|image|photo|picture)/.test(lower);
-      const forceImageGenerate =
-        /^\s*(create|generate|make|turn)[^\n]{0,80}(anime|cartoon|pixar|manga)[^\n]{0,80}(avatar|image|photo|picture)/i.test(
-          message,
-        );
-      if (animeAvatarSignal) wantsImageGenerate = true;
-      const wantsAnyImageAction =
-        /(avatar|image|photo|picture)/.test(lower) &&
-        /(create|generate|make|draw|design|turn|transform|styl|style|edit|change|update|improve|enhance)/.test(
-          lower,
-        );
+      console.log("[KWAME-API] 🧠 AI Classification result:", { 
+        isImageRelated, 
+        message: message.substring(0, 100) + "..." 
+      });
 
-      // Debug trace for detection
-      console.log("[KWAME-API] 📥 Incoming message (trimmed):", message.trim());
-      if (/(avatar|image|photo|picture)/.test(lower)) {
-        console.log("[KWAME-API] 🔎 Image keywords present", { lower });
-      }
-
-      // Handle stylized avatar requests with immediate response
-      if (wantsStylizedAvatar) {
-        console.log("[KWAME-API] 🎨 Stylized avatar request detected:", message, "Style:", requestedStyle);
+      // Handle all image-related requests with AI processing
+      if (isImageRelated) {
+        console.log("[KWAME-API] 🖼️ Image intent detected - processing with AI");
         try {
-          // Get conversation history to find last shared image
+          // Get conversation history to find context and previous images
           const dbConversationHistory = await storage.getRecentKwameContext(
             userId,
             20,
@@ -463,9 +426,7 @@ export function registerKwameAPI(app: Express): void {
           // Find source image: last shared image in history, else section primary, else user photoUrl
           let sourceImage: string | null = null;
           for (let i = conversationHistory.length - 1; i >= 0; i--) {
-            const c = conversationHistory[i]?.content as unknown as
-              | string
-              | undefined;
+            const c = conversationHistory[i]?.content as unknown as string | undefined;
             if (typeof c === "string" && c.startsWith("_!_IMAGE_!_")) {
               sourceImage = c.substring("_!_IMAGE_!_".length);
               break;
@@ -476,142 +437,29 @@ export function registerKwameAPI(app: Express): void {
               userId,
               (appMode || "MEET").toLowerCase(),
             );
-            sourceImage =
-              primary?.photoUrl ||
-              (await storage.getUser(userId))?.photoUrl ||
-              null;
+            sourceImage = primary?.photoUrl || 
+              (await storage.getUser(userId))?.photoUrl || null;
           }
 
-          // Generate stylized avatar using the dedicated method with requested style
-          const dataUrl = await kwameAI.generateStylizedAvatar(sourceImage || undefined, requestedStyle || "anime");
-          const photoMessage = `_!_IMAGE_!_${dataUrl}`;
-
-          // Persist messages
-          await storage.createKwameConversation({
-            userId,
-            role: "user",
-            content: message.trim(),
-            context: context?.currentScreen ? JSON.stringify(context) : null,
-            appMode: appMode || "MEET",
-          });
-          const assistantConversation = await storage.createKwameConversation({
-            userId,
-            role: "assistant",
-            content: photoMessage,
-            context: null,
-            appMode: appMode || "MEET",
-          });
-
-          // WebSocket notify
-          const userSocket = connectedUsers.get(userId);
-          if (userSocket && userSocket.readyState === WebSocket.OPEN) {
-            try {
-              userSocket.send(
-                JSON.stringify({
-                  type: "new_message",
-                  message: {
-                    id: assistantConversation.id,
-                    matchId: -1,
-                    senderId: -1,
-                    receiverId: userId,
-                    content: photoMessage,
-                    createdAt:
-                      assistantConversation.createdAt?.toISOString() ||
-                      new Date().toISOString(),
-                    messageType: "text",
-                  },
-                  for: "recipient",
-                  timestamp: new Date().toISOString(),
-                }),
-              );
-            } catch {}
-          }
-
-          // Return only the image response in the specified format
-          return res.json({ message: photoMessage });
-        } catch (err) {
-          console.error("[KWAME-API] Anime avatar generation failed:", err);
-          // Fall through to normal chat if anime generation fails
-        }
-      }
-
-      if (
-        wantsImageEdit ||
-        wantsImageGenerate ||
-        wantsAnyImageAction ||
-        forceImageGenerate
-      ) {
-        console.log("[KWAME-API] 🖼️ Image intent detected", {
-          wantsImageEdit,
-          wantsImageGenerate,
-          wantsAnyImageAction,
-          animeAvatarSignal,
-          forceImageGenerate,
-          wantsStylizedAvatar,
-          requestedStyle,
-          message,
-        });
-        try {
-          // Get conversation history from DB to search for last image
-          const dbConversationHistory = await storage.getRecentKwameContext(
-            userId,
-            20,
-          );
-          const conversationHistory = dbConversationHistory.map((conv) => ({
-            role: conv.role as "user" | "assistant",
-            content: conv.content,
-            timestamp: conv.createdAt!,
-            context: conv.context || undefined,
-          }));
-
-          // Extract style/instruction after keywords like "to", "into", "in", "as"
-          const styleMatch = message.match(/(?:to|into|in|as)\s+(.+)$/i);
-          let styleInstruction = styleMatch
-            ? styleMatch[1].trim()
-            : "tasteful high-quality portrait";
-          if (
-            animeAvatarSignal &&
-            !/anime|cartoon|manga/i.test(styleInstruction)
-          ) {
-            styleInstruction = `anime-style portrait, clean line art, soft cel-shading, expressive eyes, preserve identity. ${styleInstruction}`;
-          }
-
-          // Resolve source image: last shared image in history, else section primary, else user photoUrl
-          let sourceImage: string | null = null;
-          for (let i = conversationHistory.length - 1; i >= 0; i--) {
-            const c = conversationHistory[i]?.content as unknown as
-              | string
-              | undefined;
-            if (typeof c === "string" && c.startsWith("_!_IMAGE_!_")) {
-              sourceImage = c.substring("_!_IMAGE_!_".length);
-              break;
-            }
-          }
-          if (!sourceImage) {
-            const primary = await storage.getSectionPrimaryPhoto(
-              userId,
-              (appMode || "MEET").toLowerCase(),
-            );
-            sourceImage =
-              primary?.photoUrl ||
-              (await storage.getUser(userId))?.photoUrl ||
-              null;
-          }
-
+          // Use AI to intelligently process the image request
           let dataUrl: string;
-          if (
-            (wantsImageEdit || /avatar|photo|picture|image/.test(lower)) &&
-            sourceImage
-          ) {
-            dataUrl = await kwameAI.generatePixarStyleImage(
-              sourceImage,
-              styleInstruction,
-            );
+          
+          // Check for specific style requests (anime, pixar, etc.)
+          const styleMatch = message.match(/(anime|cartoon|manga|pixar|disney|comic|illustration)/i);
+          const requestedStyle = styleMatch ? styleMatch[1].toLowerCase() : null;
+          
+          if (requestedStyle && (message.match(/(create|generate|make|turn.*into)/i))) {
+            // Stylized avatar generation
+            console.log("[KWAME-API] 🎨 Generating stylized avatar:", requestedStyle);
+            dataUrl = await kwameAI.generateStylizedAvatar(sourceImage || undefined, requestedStyle);
+          } else if (sourceImage) {
+            // Image editing/transformation with source image
+            console.log("[KWAME-API] ✏️ Editing existing image with prompt:", message);
+            dataUrl = await kwameAI.generatePixarStyleImage(sourceImage, message);
           } else {
-            const prompt = styleInstruction.includes("photo")
-              ? styleInstruction
-              : `Generate ${styleInstruction}`;
-            dataUrl = await kwameAI.generateImageFromPrompt(prompt);
+            // Text-to-image generation
+            console.log("[KWAME-API] 🆕 Generating new image from prompt:", message);
+            dataUrl = await kwameAI.generateImageFromPrompt(message);
           }
 
           const photoMessage = `_!_IMAGE_!_${dataUrl}`;
@@ -659,8 +507,8 @@ export function registerKwameAPI(app: Express): void {
 
           return res.json({ message: photoMessage });
         } catch (err) {
-          console.error("[KWAME-API] Image intent handling failed:", err);
-          // Fall through to normal chat if image generation fails
+          console.error("[KWAME-API] Image processing failed:", err);
+          // Fall through to normal chat if image processing fails
         }
       }
 
