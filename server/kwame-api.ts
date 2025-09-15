@@ -409,7 +409,15 @@ export function registerKwameAPI(app: Express): void {
       
       // More flexible matching: allow adjectives/words between verbs and target nouns
       const wantsImageEdit =
-        /(edit|change|update|transform|improve|enhance|styl(?:e|ize)|turn)[^\n]{0,80}\b(my|the|this)\b[^\n]{0,80}\b(photo|picture|image|avatar|primary\s+photo)\b/i.test(
+        /(edit|change|update|transform|improve|enhance|styl(?:e|ize)|turn)[^\n]{0,80}\b(my|the|this|her|his|their|it|she|he|they)\b[^\n]{0,80}\b(photo|picture|image|avatar|primary\s+photo)\b/i.test(
+          lower,
+        ) ||
+        // Also catch cases like "edit so that she/he/they is/are wearing..."
+        /(edit|change|update|transform|improve|enhance|styl(?:e|ize)|turn)[^\n]{0,80}so\s+that[^\n]{0,80}(she|he|they|it|the\s+person)[^\n]{0,80}(is|are|has|wearing|holding)/i.test(
+          lower,
+        ) ||
+        // Catch general image editing without specific pronouns
+        /(edit|change|update|transform|improve|enhance)[^\n]{0,80}(to\s+add|to\s+remove|to\s+include|to\s+have|so\s+that)/i.test(
           lower,
         );
       let wantsImageGenerate =
