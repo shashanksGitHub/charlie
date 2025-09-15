@@ -730,13 +730,25 @@ export class DatabaseStorage implements IStorage {
 
   constructor() {
     // Use PostgreSQL session store for persistent sessions across server restarts
-    this.sessionStore = new PostgresSessionStore({
-      pool,
-      createTableIfMissing: true,
-      tableName: "user_sessions",
-      // Increased prune interval to keep more inactive sessions available
-      pruneSessionInterval: 24 * 60 * 60, // 24 hours in seconds
-    });
+    // Use connection string to avoid ES module import/export issues with Pool objects
+    if (!process.env.DATABASE_URL) {
+      console.error("[STORAGE] DATABASE_URL not set, cannot initialize PostgreSQL session store");
+      throw new Error("DATABASE_URL environment variable is required");
+    }
+
+    try {
+      this.sessionStore = new PostgresSessionStore({
+        conString: process.env.DATABASE_URL,
+        createTableIfMissing: true,
+        tableName: "user_sessions",
+        // Increased prune interval to keep more inactive sessions available
+        pruneSessionInterval: 24 * 60 * 60, // 24 hours in seconds
+      });
+      console.log("[STORAGE] ✅ PostgreSQL session store initialized with connection string");
+    } catch (error) {
+      console.error("[STORAGE] Failed to initialize PostgreSQL session store:", error);
+      throw new Error(`Failed to initialize PostgreSQL session store: ${error.message}`);
+    }
   }
 
   // User operations
