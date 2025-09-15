@@ -9,22 +9,17 @@ import big5ScoringService, {
 
 // Initialize OpenAI client - will be created when needed
 let openai: OpenAI | null = null;
-let cachedApiKey: string | undefined = undefined;
 
 function getOpenAIClient(): OpenAI {
-  const currentApiKey = process.env.OPENAI_API_KEY;
-  
-  // Recreate client if API key has changed or client doesn't exist
-  if (!openai || cachedApiKey !== currentApiKey) {
-    if (!currentApiKey) {
+  if (!openai) {
+    if (!process.env.OPENAI_API_KEY) {
       throw new Error(
         "OPENAI_API_KEY environment variable is required for KWAME AI",
       );
     }
     openai = new OpenAI({
-      apiKey: currentApiKey,
+      apiKey: process.env.OPENAI_API_KEY,
     });
-    cachedApiKey = currentApiKey;
   }
   return openai;
 }
