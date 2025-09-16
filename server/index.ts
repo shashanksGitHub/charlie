@@ -8,6 +8,10 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
+
+// Trust first proxy (required for Replit's reverse proxy setup)
+app.set('trust proxy', 1);
+
 app.use(express.json({ limit: "10gb" }));
 app.use(express.urlencoded({ extended: false, limit: "10gb" }));
 
