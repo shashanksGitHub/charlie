@@ -45,10 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } = useQuery<SelectUser | null, Error>({
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
-    staleTime: 0, // Always check for fresh data to prevent stale state
+    staleTime: 5 * 60 * 1000, // 5 minutes - authentication doesn't change frequently
     gcTime: 10 * 60 * 1000, // 10 minutes cache time
-    refetchOnWindowFocus: true, // Refetch on window focus to ensure fresh state
-    refetchOnMount: true, // Always refetch on mount to prevent stale data
+    refetchOnWindowFocus: false, // Don't refetch on every window focus
+    refetchOnMount: false, // Don't refetch on every component mount
     retry: 2, // Reduce retry attempts for faster failure detection
   });
 

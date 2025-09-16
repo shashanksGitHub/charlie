@@ -2682,22 +2682,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.deleteMatch(matchId);
 
             // Create bidirectional dislike records to prevent future matching
-            await db().insert(matchesTable).values([
-              {
-                userId1: reportingUserId,
-                userId2: validatedData.reportedUserId,
-                matched: false,
-                isDislike: true,
-                createdAt: new Date(),
-              },
-              {
-                userId1: validatedData.reportedUserId,
-                userId2: reportingUserId,
-                matched: false,
-                isDislike: true,
-                createdAt: new Date(),
-              },
-            ]);
+            await db()
+              .insert(matchesTable)
+              .values([
+                {
+                  userId1: reportingUserId,
+                  userId2: validatedData.reportedUserId,
+                  matched: false,
+                  isDislike: true,
+                  createdAt: new Date(),
+                },
+                {
+                  userId1: validatedData.reportedUserId,
+                  userId2: reportingUserId,
+                  matched: false,
+                  isDislike: true,
+                  createdAt: new Date(),
+                },
+              ]);
 
             console.log(
               `[REPORT-USER] Successfully unmatched and created dislike records`,
@@ -4549,10 +4551,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/photos/:userId", async (req: Request, res: Response) => {
     try {
       const { userId } = req.params;
-      const photos = await storage.getUserPhotos(parseInt(userId));
+
+      // Validate userId parameter
+      if (!userId || userId === "undefined" || userId === "null") {
+        console.error("Invalid userId parameter:", userId);
+        return res.status(400).json({ error: "Valid user ID is required" });
+      }
+
+      const userIdNum = parseInt(userId);
+      if (isNaN(userIdNum)) {
+        console.error("Invalid userId - not a number:", userId);
+        return res
+          .status(400)
+          .json({ error: "User ID must be a valid number" });
+      }
+
+      const photos = await storage.getUserPhotos(userIdNum);
       res.json(photos);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching user photos:", err);
       res
         .status(500)
         .json({ error: "An error occurred while fetching user photos" });
@@ -13697,7 +13714,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const apiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_PLACES_API_KEY;
+      const apiKey =
+        process.env.GOOGLE_PLACES_API_KEY ||
+        process.env.VITE_GOOGLE_PLACES_API_KEY;
       if (!apiKey) {
         console.warn("[GOOGLE-PLACES] API key not available");
         return res.status(500).json({
