@@ -2682,24 +2682,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.deleteMatch(matchId);
 
             // Create bidirectional dislike records to prevent future matching
-            await db()
-              .insert(matchesTable)
-              .values([
-                {
-                  userId1: reportingUserId,
-                  userId2: validatedData.reportedUserId,
-                  matched: false,
-                  isDislike: true,
-                  createdAt: new Date(),
-                },
-                {
-                  userId1: validatedData.reportedUserId,
-                  userId2: reportingUserId,
-                  matched: false,
-                  isDislike: true,
-                  createdAt: new Date(),
-                },
-              ]);
+            await db().insert(matchesTable).values([
+              {
+                userId1: reportingUserId,
+                userId2: validatedData.reportedUserId,
+                matched: false,
+                isDislike: true,
+                createdAt: new Date(),
+              },
+              {
+                userId1: validatedData.reportedUserId,
+                userId2: reportingUserId,
+                matched: false,
+                isDislike: true,
+                createdAt: new Date(),
+              },
+            ]);
 
             console.log(
               `[REPORT-USER] Successfully unmatched and created dislike records`,
@@ -13699,9 +13697,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const apiKey =
-        process.env.GOOGLE_PLACES_API_KEY ||
-        process.env.VITE_GOOGLE_PLACES_API_KEY;
+      const apiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_PLACES_API_KEY;
       if (!apiKey) {
         console.warn("[GOOGLE-PLACES] API key not available");
         return res.status(500).json({

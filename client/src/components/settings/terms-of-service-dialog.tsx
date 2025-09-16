@@ -22,7 +22,7 @@ export function TermsOfServiceDialog({
   onOpenChange,
 }: TermsOfServiceDialogProps) {
   const { translate } = useLanguage();
-
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[90vw] sm:max-w-[650px] max-h-[85vh] border-none bg-gradient-to-br from-gray-900/95 to-purple-900/95 backdrop-blur-xl text-white rounded-xl shadow-[0_0_40px_rgba(139,92,246,0.25)]">
@@ -35,8 +35,7 @@ export function TermsOfServiceDialog({
             </DialogTitle>
           </div>
           <DialogDescription className="text-white/70 pt-2">
-            {translate("auth.lastUpdated")}: July 14, 2025 |{" "}
-            {translate("auth.effectiveDate")}: July 14, 2025
+            {translate("auth.lastUpdated")}: July 14, 2025 | {translate("auth.effectiveDate")}: July 14, 2025
           </DialogDescription>
         </DialogHeader>
 
@@ -44,12 +43,13 @@ export function TermsOfServiceDialog({
           <div className="space-y-4 text-white/80 text-sm">
             <div className="bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-500/30 rounded-lg p-3 mb-4">
               <p className="text-red-200 font-medium text-xs">
-                <strong>{translate("auth.importantNotice")}:</strong>{" "}
-                {translate("auth.termsContainArbitration")}
+                <strong>{translate("auth.importantNotice")}:</strong> {translate("auth.termsContainArbitration")}
               </p>
             </div>
 
-            <p>{translate("auth.termsOfServiceContent.welcomeText")}</p>
+            <p>
+              {translate("auth.termsOfServiceContent.welcomeText")}
+            </p>
 
             <h2 className="text-lg font-semibold text-white mt-6">
               {translate("auth.termsOfServiceContent.acceptanceAndEligibility")}
@@ -61,24 +61,18 @@ export function TermsOfServiceDialog({
               {translate("auth.termsOfServiceContent.agreementToTermsText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.ageRequirements")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.ageRequirements")}</strong>{" "}
               {translate("auth.termsOfServiceContent.ageRequirementsText")}
             </p>
             <p className="mt-2">
               <strong className="text-indigo-300">
                 {translate("auth.termsOfServiceContent.geographicRestrictions")}
               </strong>{" "}
-              {translate(
-                "auth.termsOfServiceContent.geographicRestrictionsText",
-              )}
+              {translate("auth.termsOfServiceContent.geographicRestrictionsText")}
             </p>
 
             <h2 className="text-lg font-semibold text-white mt-6">
-              {translate(
-                "auth.termsOfServiceContent.accountCreationAndSecurity",
-              )}
+              {translate("auth.termsOfServiceContent.accountCreationAndSecurity")}
             </h2>
             <p>
               <strong className="text-indigo-300">
@@ -87,9 +81,7 @@ export function TermsOfServiceDialog({
               {translate("auth.termsOfServiceContent.accountRegistrationText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.accountSecurity")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.accountSecurity")}</strong>{" "}
               {translate("auth.termsOfServiceContent.accountSecurityText")}
             </p>
             <p className="mt-2">
@@ -109,9 +101,7 @@ export function TermsOfServiceDialog({
               {translate("auth.termsOfServiceContent.userContentAndConduct")}
             </h2>
             <p>
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.contentLicense")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.contentLicense")}</strong>{" "}
               {translate("auth.termsOfServiceContent.contentLicenseText")}
             </p>
             <p className="mt-2">
@@ -121,42 +111,15 @@ export function TermsOfServiceDialog({
               {translate("auth.termsOfServiceContent.contentStandardsText")}
             </p>
             <ul className="list-disc pl-6 space-y-1 mt-2 text-xs">
-              <li>
-                •{" "}
-                {translate("auth.termsOfServiceContent.contentStandardsList.0")}
-              </li>
-              <li>
-                •{" "}
-                {translate("auth.termsOfServiceContent.contentStandardsList.1")}
-              </li>
-              <li>
-                •{" "}
-                {translate("auth.termsOfServiceContent.contentStandardsList.2")}
-              </li>
-              <li>
-                •{" "}
-                {translate("auth.termsOfServiceContent.contentStandardsList.3")}
-              </li>
-              <li>
-                •{" "}
-                {translate("auth.termsOfServiceContent.contentStandardsList.4")}
-              </li>
-              <li>
-                •{" "}
-                {translate("auth.termsOfServiceContent.contentStandardsList.5")}
-              </li>
-              <li>
-                •{" "}
-                {translate("auth.termsOfServiceContent.contentStandardsList.6")}
-              </li>
-              <li>
-                •{" "}
-                {translate("auth.termsOfServiceContent.contentStandardsList.7")}
-              </li>
-              <li>
-                •{" "}
-                {translate("auth.termsOfServiceContent.contentStandardsList.8")}
-              </li>
+              <li>• {translate("auth.termsOfServiceContent.contentStandardsList.0")}</li>
+              <li>• {translate("auth.termsOfServiceContent.contentStandardsList.1")}</li>
+              <li>• {translate("auth.termsOfServiceContent.contentStandardsList.2")}</li>
+              <li>• {translate("auth.termsOfServiceContent.contentStandardsList.3")}</li>
+              <li>• {translate("auth.termsOfServiceContent.contentStandardsList.4")}</li>
+              <li>• {translate("auth.termsOfServiceContent.contentStandardsList.5")}</li>
+              <li>• {translate("auth.termsOfServiceContent.contentStandardsList.6")}</li>
+              <li>• {translate("auth.termsOfServiceContent.contentStandardsList.7")}</li>
+              <li>• {translate("auth.termsOfServiceContent.contentStandardsList.8")}</li>
             </ul>
             <p className="mt-2">
               <strong className="text-indigo-300">
@@ -165,77 +128,23 @@ export function TermsOfServiceDialog({
               {translate("auth.termsOfServiceContent.prohibitedConductText")}
             </p>
             <ul className="list-disc pl-6 space-y-1 mt-2 text-xs">
-              <li>
-                •{" "}
-                {translate(
-                  "auth.termsOfServiceContent.prohibitedConductList.0",
-                )}
-              </li>
-              <li>
-                •{" "}
-                {translate(
-                  "auth.termsOfServiceContent.prohibitedConductList.1",
-                )}
-              </li>
-              <li>
-                •{" "}
-                {translate(
-                  "auth.termsOfServiceContent.prohibitedConductList.2",
-                )}
-              </li>
-              <li>
-                •{" "}
-                {translate(
-                  "auth.termsOfServiceContent.prohibitedConductList.3",
-                )}
-              </li>
-              <li>
-                •{" "}
-                {translate(
-                  "auth.termsOfServiceContent.prohibitedConductList.4",
-                )}
-              </li>
-              <li>
-                •{" "}
-                {translate(
-                  "auth.termsOfServiceContent.prohibitedConductList.5",
-                )}
-              </li>
-              <li>
-                •{" "}
-                {translate(
-                  "auth.termsOfServiceContent.prohibitedConductList.6",
-                )}
-              </li>
-              <li>
-                •{" "}
-                {translate(
-                  "auth.termsOfServiceContent.prohibitedConductList.7",
-                )}
-              </li>
-              <li>
-                •{" "}
-                {translate(
-                  "auth.termsOfServiceContent.prohibitedConductList.8",
-                )}
-              </li>
-              <li>
-                •{" "}
-                {translate(
-                  "auth.termsOfServiceContent.prohibitedConductList.9",
-                )}
-              </li>
+              <li>• {translate("auth.termsOfServiceContent.prohibitedConductList.0")}</li>
+              <li>• {translate("auth.termsOfServiceContent.prohibitedConductList.1")}</li>
+              <li>• {translate("auth.termsOfServiceContent.prohibitedConductList.2")}</li>
+              <li>• {translate("auth.termsOfServiceContent.prohibitedConductList.3")}</li>
+              <li>• {translate("auth.termsOfServiceContent.prohibitedConductList.4")}</li>
+              <li>• {translate("auth.termsOfServiceContent.prohibitedConductList.5")}</li>
+              <li>• {translate("auth.termsOfServiceContent.prohibitedConductList.6")}</li>
+              <li>• {translate("auth.termsOfServiceContent.prohibitedConductList.7")}</li>
+              <li>• {translate("auth.termsOfServiceContent.prohibitedConductList.8")}</li>
+              <li>• {translate("auth.termsOfServiceContent.prohibitedConductList.9")}</li>
             </ul>
 
             <h2 className="text-lg font-semibold text-white mt-6">
-              {translate(
-                "auth.termsOfServiceContent.artificialIntelligenceAndMatching",
-              )}
+              {translate("auth.termsOfServiceContent.artificialIntelligenceAndMatching")}
             </h2>
             <p>
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.aiTechnology")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.aiTechnology")}</strong>{" "}
               {translate("auth.termsOfServiceContent.aiTechnologyText")}
             </p>
             <p className="mt-2">
@@ -252,9 +161,7 @@ export function TermsOfServiceDialog({
             </p>
 
             <h2 className="text-lg font-semibold text-white mt-6">
-              {translate(
-                "auth.termsOfServiceContent.premiumServicesAndPayments",
-              )}
+              {translate("auth.termsOfServiceContent.premiumServicesAndPayments")}
             </h2>
             <p>
               <strong className="text-indigo-300">
@@ -263,21 +170,14 @@ export function TermsOfServiceDialog({
               {translate("auth.termsOfServiceContent.subscriptionServicesText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.autoRenewal")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.autoRenewal")}</strong>{" "}
               {translate("auth.termsOfServiceContent.autoRenewalText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.refunds")}
-              </strong>{" "}
-              {translate("auth.termsOfServiceContent.refundsText")}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.refunds")}</strong> {translate("auth.termsOfServiceContent.refundsText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.virtualItems")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.virtualItems")}</strong>{" "}
               {translate("auth.termsOfServiceContent.virtualItemsText")}
             </p>
 
@@ -285,52 +185,34 @@ export function TermsOfServiceDialog({
               {translate("auth.termsOfServiceContent.privacyAndDataProtection")}
             </h2>
             <p>
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.privacyPolicy")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.privacyPolicy")}</strong>{" "}
               {translate("auth.termsOfServiceContent.privacyPolicyText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.locationData")}
-              </strong>{" "}
-              {translate("auth.termsOfServiceContent.locationDataText")}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.locationData")}</strong> {translate("auth.termsOfServiceContent.locationDataText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.communications")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.communications")}</strong>{" "}
               {translate("auth.termsOfServiceContent.communicationsText")}
             </p>
 
             <h2 className="text-lg font-semibold text-white mt-6">
-              {translate(
-                "auth.termsOfServiceContent.intellectualPropertyRights",
-              )}
+              {translate("auth.termsOfServiceContent.intellectualPropertyRights")}
             </h2>
             <p>
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.charleyIp")}
-              </strong>{" "}
-              {translate("auth.termsOfServiceContent.charleyIpText")}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.charleyIp")}</strong> {translate("auth.termsOfServiceContent.charleyIpText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.limitedLicense")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.limitedLicense")}</strong>{" "}
               {translate("auth.termsOfServiceContent.limitedLicenseText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.copyrightPolicy")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.copyrightPolicy")}</strong>{" "}
               {translate("auth.termsOfServiceContent.copyrightPolicyText")}
             </p>
 
             <h2 className="text-lg font-semibold text-white mt-6">
-              {translate(
-                "auth.termsOfServiceContent.thirdPartyServicesAndIntegrations",
-              )}
+              {translate("auth.termsOfServiceContent.thirdPartyServicesAndIntegrations")}
             </h2>
             <p>
               <strong className="text-indigo-300">
@@ -342,14 +224,10 @@ export function TermsOfServiceDialog({
               <strong className="text-indigo-300">
                 {translate("auth.termsOfServiceContent.socialMediaIntegration")}
               </strong>{" "}
-              {translate(
-                "auth.termsOfServiceContent.socialMediaIntegrationText",
-              )}
+              {translate("auth.termsOfServiceContent.socialMediaIntegrationText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.appStoreTerms")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.appStoreTerms")}</strong>{" "}
               {translate("auth.termsOfServiceContent.appStoreTermsText")}
             </p>
 
@@ -357,16 +235,11 @@ export function TermsOfServiceDialog({
               {translate("auth.termsOfServiceContent.safetyAndSecurity")}
             </h2>
             <p>
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.userSafety")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.userSafety")}</strong>{" "}
               {translate("auth.termsOfServiceContent.userSafetyText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.reporting")}
-              </strong>{" "}
-              {translate("auth.termsOfServiceContent.reportingText")}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.reporting")}</strong> {translate("auth.termsOfServiceContent.reportingText")}
             </p>
             <p className="mt-2">
               <strong className="text-indigo-300">
@@ -376,9 +249,7 @@ export function TermsOfServiceDialog({
             </p>
 
             <h2 className="text-lg font-semibold text-white mt-6">
-              {translate(
-                "auth.termsOfServiceContent.accountSuspensionAndTermination",
-              )}
+              {translate("auth.termsOfServiceContent.accountSuspensionAndTermination")}
             </h2>
             <p>
               <strong className="text-indigo-300">
@@ -403,15 +274,11 @@ export function TermsOfServiceDialog({
               {translate("auth.termsOfServiceContent.disclaimersAndWarranties")}
             </h2>
             <p>
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.asIsBasis")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.asIsBasis")}</strong>{" "}
               {translate("auth.termsOfServiceContent.asIsBasisText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.noGuarantees")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.noGuarantees")}</strong>{" "}
               {translate("auth.termsOfServiceContent.noGuaranteesText")}
             </p>
             <p className="mt-2">
@@ -446,12 +313,12 @@ export function TermsOfServiceDialog({
             <h2 className="text-lg font-semibold text-white mt-6">
               {translate("auth.termsOfServiceContent.indemnification")}
             </h2>
-            <p>{translate("auth.termsOfServiceContent.indemnificationText")}</p>
+            <p>
+              {translate("auth.termsOfServiceContent.indemnificationText")}
+            </p>
 
             <h2 className="text-lg font-semibold text-white mt-6">
-              {translate(
-                "auth.termsOfServiceContent.disputeResolutionAndArbitration",
-              )}
+              {translate("auth.termsOfServiceContent.disputeResolutionAndArbitration")}
             </h2>
             <p>
               <strong className="text-indigo-300">
@@ -472,37 +339,29 @@ export function TermsOfServiceDialog({
               {translate("auth.termsOfServiceContent.arbitrationLocationText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.exceptions")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.exceptions")}</strong>{" "}
               {translate("auth.termsOfServiceContent.exceptionsText")}
             </p>
 
             <h2 className="text-lg font-semibold text-white mt-6">
               {translate("auth.termsOfServiceContent.governingLaw")}
             </h2>
-            <p>{translate("auth.termsOfServiceContent.governingLawText")}</p>
+            <p>
+              {translate("auth.termsOfServiceContent.governingLawText")}
+            </p>
 
             <h2 className="text-lg font-semibold text-white mt-6">
               {translate("auth.termsOfServiceContent.modificationsToTerms")}
             </h2>
             <p>
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.updates")}
-              </strong>{" "}
-              {translate("auth.termsOfServiceContent.updatesText")}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.updates")}</strong> {translate("auth.termsOfServiceContent.updatesText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.continuedUse")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.continuedUse")}</strong>{" "}
               {translate("auth.termsOfServiceContent.continuedUseText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.disagreement")}
-              </strong>{" "}
-              {translate("auth.termsOfServiceContent.disagreementText")}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.disagreement")}</strong> {translate("auth.termsOfServiceContent.disagreementText")}
             </p>
 
             <h2 className="text-lg font-semibold text-white mt-6">
@@ -515,27 +374,16 @@ export function TermsOfServiceDialog({
               {translate("auth.termsOfServiceContent.entireAgreementText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.severability")}
-              </strong>{" "}
-              {translate("auth.termsOfServiceContent.severabilityText")}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.severability")}</strong> {translate("auth.termsOfServiceContent.severabilityText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.noWaiver")}
-              </strong>{" "}
-              {translate("auth.termsOfServiceContent.noWaiverText")}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.noWaiver")}</strong> {translate("auth.termsOfServiceContent.noWaiverText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.assignment")}
-              </strong>{" "}
-              {translate("auth.termsOfServiceContent.assignmentText")}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.assignment")}</strong> {translate("auth.termsOfServiceContent.assignmentText")}
             </p>
             <p className="mt-2">
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.forceMajeure")}
-              </strong>{" "}
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.forceMajeure")}</strong>{" "}
               {translate("auth.termsOfServiceContent.forceMajeureText")}
             </p>
 
@@ -543,9 +391,7 @@ export function TermsOfServiceDialog({
               {translate("auth.termsOfServiceContent.contactInformation")}
             </h2>
             <p>
-              <strong className="text-indigo-300">
-                {translate("auth.termsOfServiceContent.companyInformation")}
-              </strong>
+              <strong className="text-indigo-300">{translate("auth.termsOfServiceContent.companyInformation")}</strong>
               <br />
               {translate("auth.termsOfServiceContent.companyDetails")}
               <br />

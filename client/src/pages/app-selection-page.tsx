@@ -21,7 +21,7 @@ export default function AppSelectionPage() {
           transition={{ duration: 0.3 }}
         >
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-          <p className="text-gray-600 text-sm">{translate("common.loading")}</p>
+          <p className="text-gray-600 text-sm">{translate('common.loading')}</p>
         </motion.div>
       </div>
     );

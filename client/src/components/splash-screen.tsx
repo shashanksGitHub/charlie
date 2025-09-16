@@ -51,6 +51,7 @@ export function SplashScreen({ onAnimationComplete }: SplashScreenProps) {
 
   return (
     <div className="h-screen w-full fixed top-0 left-0 z-50 flex flex-col items-center justify-center bg-white relative overflow-hidden">
+
       <motion.div
         className="flex flex-col items-center justify-center relative z-10"
         initial="hidden"

@@ -45,60 +45,43 @@ app.use((req, res, next) => {
   try {
     console.log("[SERVER-DEBUG] Starting server initialization...");
     console.log("[SERVER-DEBUG] Environment check:");
-    console.log(
-      "  - DATABASE_URL:",
-      process.env.DATABASE_URL ? "✓ Present" : "✗ Missing",
-    );
-    console.log(
-      "  - SENDGRID_API_KEY:",
-      process.env.SENDGRID_API_KEY
-        ? `✓ Present (starts with: ${process.env.SENDGRID_API_KEY.substring(0, 3)})`
-        : "✗ Missing",
-    );
-    console.log(
-      "  - STRIPE_SECRET_KEY:",
-      process.env.STRIPE_SECRET_KEY ? "✓ Present" : "✗ Missing",
-    );
-
+    console.log("  - DATABASE_URL:", process.env.DATABASE_URL ? "✓ Present" : "✗ Missing");
+    console.log("  - SENDGRID_API_KEY:", process.env.SENDGRID_API_KEY ? `✓ Present (starts with: ${process.env.SENDGRID_API_KEY.substring(0, 3)})` : "✗ Missing");
+    console.log("  - STRIPE_SECRET_KEY:", process.env.STRIPE_SECRET_KEY ? "✓ Present" : "✗ Missing");
+    
     console.log("[SERVER-DEBUG] Registering main routes...");
     const server = await registerRoutes(app);
     console.log("[SERVER-DEBUG] Main routes registered successfully");
-
+    
     console.log("[SERVER-DEBUG] Registering Godmodel API endpoints...");
     registerGodmodelAPI(app);
     console.log("[SERVER-DEBUG] Godmodel API registered successfully");
 
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
+  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
 
-      res.status(status).json({ message });
-      throw err;
-    });
+    res.status(status).json({ message });
+    throw err;
+  });
 
-    // Determine environment - prioritize REPLIT_DEPLOYMENT over NODE_ENV
-    const isProduction =
-      process.env.REPLIT_DEPLOYMENT === "1" ||
-      process.env.NODE_ENV === "production";
+  // Determine environment - prioritize REPLIT_DEPLOYMENT over NODE_ENV
+  const isProduction = process.env.REPLIT_DEPLOYMENT === "1" || process.env.NODE_ENV === "production";
+  
+  if (isProduction) {
+    console.log("[SERVER] Running in production mode - serving static files");
+    console.log("[SERVER] API routes should be registered before static serving");
+    serveStatic(app);
+  } else {
+    console.log("[SERVER] Running in development mode - using Vite middleware");
+    await setupVite(app, server);
+  }
 
-    if (isProduction) {
-      console.log("[SERVER] Running in production mode - serving static files");
-      console.log(
-        "[SERVER] API routes should be registered before static serving",
-      );
-      serveStatic(app);
-    } else {
-      console.log(
-        "[SERVER] Running in development mode - using Vite middleware",
-      );
-      await setupVite(app, server);
-    }
-
-    console.log("[SERVER-DEBUG] Starting server...");
-    startServer(server, () => {
-      console.log("[SERVER-DEBUG] Server startup callback executed");
-      log("Server started successfully");
-    });
+  console.log("[SERVER-DEBUG] Starting server...");
+  startServer(server, () => {
+    console.log("[SERVER-DEBUG] Server startup callback executed");
+    log("Server started successfully");
+  });
   } catch (error) {
     console.error("[SERVER-DEBUG] Fatal error during server initialization:");
     console.error(error);

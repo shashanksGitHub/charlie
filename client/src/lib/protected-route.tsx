@@ -27,7 +27,7 @@ export function ProtectedRoute({
         </Route>
       );
     }
-
+    
     return (
       <Route path={path}>
         <div className="flex items-center justify-center min-h-screen bg-background">
@@ -47,7 +47,7 @@ export function ProtectedRoute({
         </Route>
       );
     }
-
+    
     return (
       <Route path={path}>
         <Redirect to="/auth" />
@@ -57,11 +57,9 @@ export function ProtectedRoute({
 
   // Check if user is suspended
   if (user.isSuspended) {
-    const suspensionExpiresAt = user.suspensionExpiresAt
-      ? new Date(user.suspensionExpiresAt)
-      : null;
+    const suspensionExpiresAt = user.suspensionExpiresAt ? new Date(user.suspensionExpiresAt) : null;
     const now = new Date();
-
+    
     // If suspension has expired, allow access (should be handled server-side too)
     if (suspensionExpiresAt && now > suspensionExpiresAt) {
       // Suspension expired, let them through
@@ -70,8 +68,8 @@ export function ProtectedRoute({
       const { logoutMutation } = useAuth();
       return (
         <Route path={path}>
-          <SuspendedAccountScreen
-            user={user}
+          <SuspendedAccountScreen 
+            user={user} 
             onLogout={() => logoutMutation.mutate()}
           />
         </Route>
