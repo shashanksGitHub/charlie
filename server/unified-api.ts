@@ -151,12 +151,22 @@ async function getDiscoveryWithTimeout(userId: number): Promise<any[]> {
 
   try {
     const aiPromise = getEnhancedDiscoveryUsers(userId, limit);
-    const timeoutPromise = new Promise<any[]>(async (resolve) => {
+    const timeoutPromise = new Promise<any[]>((resolve) => {
       setTimeout(async () => {
-        console.warn(
-          `[ENHANCED-MEET] ⏱️ Timeout after ${timeoutMs}ms for user ${userId}, using legacy discovery`,
-        );
-        resolve(await storage.getDiscoverUsers(userId));
+        try {
+          console.warn(
+            `[ENHANCED-MEET] ⏱️ Timeout after ${timeoutMs}ms for user ${userId}, using legacy discovery`,
+          );
+          const fallbackUsers = await storage.getDiscoverUsers(userId);
+          resolve(fallbackUsers);
+        } catch (fallbackError) {
+          console.error(
+            `[ENHANCED-MEET] ❌ Fallback discovery also failed for user ${userId}:`,
+            fallbackError,
+          );
+          // Return empty array as last resort to prevent 500 error
+          resolve([]);
+        }
       }, timeoutMs);
     });
 
@@ -167,7 +177,16 @@ async function getDiscoveryWithTimeout(userId: number): Promise<any[]> {
       "[ENHANCED-MEET] Discovery wrapper error, using legacy discovery:",
       e,
     );
-    return await storage.getDiscoverUsers(userId);
+    try {
+      return await storage.getDiscoverUsers(userId);
+    } catch (fallbackError) {
+      console.error(
+        `[ENHANCED-MEET] ❌ Both AI and fallback discovery failed for user ${userId}:`,
+        fallbackError,
+      );
+      // Return empty array as last resort to prevent 500 error
+      return [];
+    }
   }
 }
 
