@@ -89,20 +89,9 @@ export default function AppSelectionPage() {
     }
   }, [user, isLoading, setLocation]);
 
-  // CRITICAL FIX: Show loading state instead of null to prevent blank pages
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading app selection...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Redirect to="/auth" />;
+  // Don't render the component if we're still loading or no user
+  if (isLoading || !user) {
+    return null;
   }
 
   // Handles app selection - will be passed to the AppModeSelector

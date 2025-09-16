@@ -4551,25 +4551,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/photos/:userId", async (req: Request, res: Response) => {
     try {
       const { userId } = req.params;
-
-      // Validate userId parameter
-      if (!userId || userId === "undefined" || userId === "null") {
-        console.error("Invalid userId parameter:", userId);
-        return res.status(400).json({ error: "Valid user ID is required" });
-      }
-
-      const userIdNum = parseInt(userId);
-      if (isNaN(userIdNum)) {
-        console.error("Invalid userId - not a number:", userId);
-        return res
-          .status(400)
-          .json({ error: "User ID must be a valid number" });
-      }
-
-      const photos = await storage.getUserPhotos(userIdNum);
+      const photos = await storage.getUserPhotos(parseInt(userId));
       res.json(photos);
     } catch (err) {
-      console.error("Error fetching user photos:", err);
+      console.error(err);
       res
         .status(500)
         .json({ error: "An error occurred while fetching user photos" });

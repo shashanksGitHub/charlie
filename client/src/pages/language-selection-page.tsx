@@ -495,7 +495,7 @@ export default function LanguageSelectionPage() {
 
       {/* Main Container with Advanced Glass Effect */}
       <motion.div
-        className="relative z-10 w-full max-w-lg lg:max-w-4xl xl:max-w-5xl mx-auto"
+        className="relative z-10 w-full max-w-lg mx-auto"
         initial={{ opacity: 0, y: 100, rotateX: -15 }}
         animate={{
           opacity: isExiting ? 0 : isLoaded ? 1 : 0,
@@ -557,7 +557,7 @@ export default function LanguageSelectionPage() {
             }}
           />
 
-          <div className="relative p-4 lg:p-8 xl:p-12 z-10">
+          <div className="relative p-4 z-10">
             {/* Compact Header */}
             <motion.div
               className="text-center mb-3"
@@ -566,14 +566,14 @@ export default function LanguageSelectionPage() {
               transition={{ duration: 0.6, delay: 0.3 }}
             >
               <motion.h1
-                className="text-xl lg:text-4xl xl:text-5xl font-bold mb-2 lg:mb-6 bg-gradient-to-r from-cyan-400 via-white to-purple-400 bg-clip-text text-transparent"
+                className="text-xl font-bold mb-2 bg-gradient-to-r from-cyan-400 via-white to-purple-400 bg-clip-text text-transparent"
                 style={{ letterSpacing: "0.05em" }}
               >
                 SELECT LANGUAGE
               </motion.h1>
 
               <motion.p
-                className="text-gray-400 text-xs lg:text-lg xl:text-xl font-light mb-2 lg:mb-6"
+                className="text-gray-400 text-xs font-light mb-2"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 0.7 }}
                 transition={{ delay: 0.3, duration: 0.4 }}
@@ -589,10 +589,10 @@ export default function LanguageSelectionPage() {
               animate={{ opacity: isLoaded ? 1 : 0, y: isLoaded ? 0 : 15 }}
               transition={{ duration: 0.5, delay: 0.5 }}
             >
-              <div className="relative max-w-xs lg:max-w-md xl:max-w-lg mx-auto">
+              <div className="relative max-w-xs mx-auto">
                 <div className="relative bg-black/30 backdrop-blur border border-white/10 rounded-xl overflow-hidden">
-                  <div className="flex items-center px-3 py-2 lg:px-4 lg:py-3">
-                    <Search className="w-3 h-3 lg:w-4 lg:h-4 text-cyan-400 mr-2" />
+                  <div className="flex items-center px-3 py-2">
+                    <Search className="w-3 h-3 text-cyan-400 mr-2" />
                     <input
                       type="text"
                       placeholder="Search languages..."
@@ -601,7 +601,7 @@ export default function LanguageSelectionPage() {
                         setSearchQuery(e.target.value);
                         setCurrentIndex(0);
                       }}
-                      className="flex-1 bg-transparent text-white placeholder-gray-400 outline-none text-xs lg:text-sm"
+                      className="flex-1 bg-transparent text-white placeholder-gray-400 outline-none text-xs"
                     />
                   </div>
                 </div>
@@ -644,8 +644,8 @@ export default function LanguageSelectionPage() {
                 </motion.button>
               </div>
 
-              {/* Enhanced Grid Layout - More languages on desktop */}
-              <div className="grid grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-x-3 gap-y-3 lg:gap-x-4 lg:gap-y-4 justify-center overflow-hidden">
+              {/* 8 Languages Grid Layout (4 x 2) */}
+              <div className="grid grid-cols-4 gap-x-3 gap-y-3 justify-center overflow-hidden">
                 {filteredLanguages
                   .slice(
                     currentIndex * ITEMS_PER_VIEW,
@@ -679,10 +679,10 @@ export default function LanguageSelectionPage() {
 
                       <motion.button
                         onClick={() => handleLanguageSelect(language.code)}
-                        className={`relative w-full p-2 lg:p-4 xl:p-5 rounded-lg lg:rounded-xl transition-all duration-300 overflow-hidden text-center ${
+                        className={`relative w-full p-2 rounded-lg transition-all duration-300 overflow-hidden text-center ${
                           selectedLanguage === language.code
-                            ? "bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 border border-cyan-400/50 lg:border-2"
-                            : "bg-black/30 border border-white/10 hover:bg-white/5 hover:border-white/20 lg:hover:border-white/30"
+                            ? "bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 border border-cyan-400/50"
+                            : "bg-black/30 border border-white/10 hover:bg-white/5 hover:border-white/20"
                         }`}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -735,7 +735,7 @@ export default function LanguageSelectionPage() {
                         <div className="relative flex flex-col items-center z-10 space-y-1">
                           {/* Language Flag */}
                           <motion.div
-                            className="text-lg lg:text-2xl xl:text-3xl"
+                            className="text-lg"
                             animate={
                               selectedLanguage === language.code
                                 ? {
@@ -758,7 +758,7 @@ export default function LanguageSelectionPage() {
                           {/* Language Name - Compact */}
                           <div className="text-center">
                             <div
-                              className={`font-semibold text-[10px] lg:text-xs xl:text-sm leading-tight ${
+                              className={`font-semibold text-[10px] leading-tight ${
                                 selectedLanguage === language.code
                                   ? "text-transparent bg-gradient-to-r from-cyan-400 to-white bg-clip-text"
                                   : "text-white"
@@ -776,7 +776,7 @@ export default function LanguageSelectionPage() {
                               animate={{ scale: 1 }}
                               transition={{ duration: 0.3, ease: "backOut" }}
                             >
-                              <Check className="h-2 w-2 lg:h-3 lg:w-3 text-white" />
+                              <Check className="h-2 w-2 text-white" />
                             </motion.div>
                           )}
                         </div>
@@ -877,14 +877,14 @@ export default function LanguageSelectionPage() {
                     </>
                   ) : (
                     <>
-                      <span className="text-lg lg:text-xl xl:text-2xl font-black tracking-wider">
+                      <span className="text-lg font-black tracking-wider">
                         CONTINUE
                       </span>
                       <motion.div
                         whileHover={{ x: 5 }}
                         transition={{ duration: 0.2 }}
                       >
-                        <ArrowRight className="h-5 w-5 lg:h-6 lg:w-6 xl:h-7 xl:w-7" />
+                        <ArrowRight className="h-5 w-5" />
                       </motion.div>
                     </>
                   )}
@@ -955,7 +955,7 @@ export default function LanguageSelectionPage() {
                   }}
                 />
               </div>
-              <p className="text-gray-400 text-xs lg:text-sm xl:text-base font-light tracking-wide">
+              <p className="text-gray-400 text-xs font-light tracking-wide">
                 Customizable in Settings
               </p>
             </motion.div>

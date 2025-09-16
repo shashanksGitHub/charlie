@@ -732,17 +732,10 @@ export class DatabaseStorage implements IStorage {
     // Use PostgreSQL session store for persistent sessions across server restarts
     // Use connection string to avoid ES module import/export issues with Pool objects
     if (!process.env.DATABASE_URL) {
-      console.warn(
-        "[STORAGE] DATABASE_URL not set. Using in-memory session store (non-persistent).",
+      console.error(
+        "[STORAGE] DATABASE_URL not set, cannot initialize PostgreSQL session store",
       );
-      // Fallback to in-memory session store for local/dev usage without a database
-      // Note: sessions will not persist across restarts
-      // @ts-expect-error memorystore has loose typings for constructor options
-      this.sessionStore = new MemoryStore({
-        // prune expired entries daily
-        checkPeriod: 24 * 60 * 60 * 1000,
-      });
-      return;
+      throw new Error("DATABASE_URL environment variable is required");
     }
 
     try {

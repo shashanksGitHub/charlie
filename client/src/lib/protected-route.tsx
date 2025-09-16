@@ -16,10 +16,11 @@ export function ProtectedRoute({
   const [location] = useLocation();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // CRITICAL FIX: Better loading state handling
+  // CRITICAL FIX: Skip loading state for chat routes to enable instant navigation
   if (isLoading || isRedirecting) {
     // For chat routes, skip loading screen entirely to prevent intermediate screens
     if (path === "/chat/:matchId") {
+      // Allow chat page to render immediately, authentication will be handled by the page itself
       return (
         <Route path={path}>
           <Component />
@@ -30,10 +31,7 @@ export function ProtectedRoute({
     return (
       <Route path={path}>
         <div className="flex items-center justify-center min-h-screen bg-background">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading...</p>
-          </div>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </Route>
     );

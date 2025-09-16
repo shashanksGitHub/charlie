@@ -303,7 +303,7 @@ export function CityInput({
       {showSuggestions && (
         <div
           ref={suggestionsRef}
-          className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg max-h-48 lg:max-h-80 city-input-dropdown overflow-auto border border-purple-100 dark:border-purple-700"
+          className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 rounded-md shadow-lg max-h-60 overflow-auto border border-purple-100 dark:border-purple-700"
           style={{
             boxShadow:
               "0 10px 25px -5px rgba(124, 58, 237, 0.15), 0 8px 10px -6px rgba(124, 58, 237, 0.1)",

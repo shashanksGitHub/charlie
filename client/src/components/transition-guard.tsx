@@ -15,7 +15,7 @@ interface TransitionGuardProps {
  */
 export function TransitionGuard({ children }: TransitionGuardProps) {
   const [location] = useLocation();
-  const [isReady, setIsReady] = useState(true); // CRITICAL FIX: Default to true to prevent blank pages
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     // Check the current location and state
