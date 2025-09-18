@@ -2682,22 +2682,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.deleteMatch(matchId);
 
             // Create bidirectional dislike records to prevent future matching
-            await db().insert(matchesTable).values([
-              {
-                userId1: reportingUserId,
-                userId2: validatedData.reportedUserId,
-                matched: false,
-                isDislike: true,
-                createdAt: new Date(),
-              },
-              {
-                userId1: validatedData.reportedUserId,
-                userId2: reportingUserId,
-                matched: false,
-                isDislike: true,
-                createdAt: new Date(),
-              },
-            ]);
+            await db()
+              .insert(matchesTable)
+              .values([
+                {
+                  userId1: reportingUserId,
+                  userId2: validatedData.reportedUserId,
+                  matched: false,
+                  isDislike: true,
+                  createdAt: new Date(),
+                },
+                {
+                  userId1: validatedData.reportedUserId,
+                  userId2: reportingUserId,
+                  matched: false,
+                  isDislike: true,
+                  createdAt: new Date(),
+                },
+              ]);
 
             console.log(
               `[REPORT-USER] Successfully unmatched and created dislike records`,
@@ -2738,12 +2740,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const emailContent = `
             <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1);">
               <div style="background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #ffeaa7, #dda0dd, #98d8c8); height: 6px;"></div>
-              
+
               <div style="padding: 40px; text-align: center; background: white;">
                 <h1 style="color: #333; margin: 0 0 20px 0; font-size: 28px; font-weight: 700;">
                   🚨 Account Suspension Notice
                 </h1>
-                
+
                 <div style="background: linear-gradient(135deg, #ff6b6b, #ee5a52); padding: 20px; border-radius: 12px; margin: 20px 0;">
                   <h2 style="color: white; margin: 0; font-size: 18px;">
                     Your CHARLEY account has been suspended
@@ -2863,12 +2865,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const emailContent = `
           <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1);">
             <div style="background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #ffeaa7, #dda0dd, #98d8c8); height: 6px;"></div>
-            
+
             <div style="padding: 40px; text-align: center; background: white;">
               <h1 style="color: #333; margin: 0 0 20px 0; font-size: 28px; font-weight: 700;">
                 📝 Suspension Appeal Request
               </h1>
-              
+
               <div style="background: linear-gradient(135deg, #4ecdc4, #45b7d1); padding: 20px; border-radius: 12px; margin: 20px 0;">
                 <h2 style="color: white; margin: 0; font-size: 18px;">
                   Appeal from suspended user
@@ -3600,6 +3602,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/messages/:id/read", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const messageId = parseInt(req.params.id);
+    if (isNaN(messageId)) {
+      return res.status(400).json({ message: "Invalid message ID" });
+    }
+
+    try {
+      const updatedMessage = await storage.markMessageAsRead(messageId);
+      if (!updatedMessage) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+
+      res.json(updatedMessage);
+    } catch (error) {
+      res.status(500).json({ message: "Server error updating message" });
+    }
+  });
+
+  // Add POST endpoint for marking messages as read (frontend compatibility)
+  app.post("/api/messages/:id/read", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -4549,10 +4574,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/photos/:userId", async (req: Request, res: Response) => {
     try {
       const { userId } = req.params;
-      const photos = await storage.getUserPhotos(parseInt(userId));
+
+      // Validate userId parameter
+      if (!userId || userId === "undefined" || userId === "null") {
+        console.error("Invalid userId parameter:", userId);
+        return res.status(400).json({ error: "Valid user ID is required" });
+      }
+
+      const userIdNum = parseInt(userId);
+      if (isNaN(userIdNum)) {
+        console.error("Invalid userId - not a number:", userId);
+        return res
+          .status(400)
+          .json({ error: "User ID must be a valid number" });
+      }
+
+      const photos = await storage.getUserPhotos(userIdNum);
       res.json(photos);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching user photos:", err);
       res
         .status(500)
         .json({ error: "An error occurred while fetching user photos" });
@@ -5445,19 +5485,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px;">
             <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 30px; text-align: center;">
               <h1 style="color: #4f46e5; margin-bottom: 20px; font-size: 28px;">Password Reset Code</h1>
-              
+
               <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin: 20px 0;">
                 <h2 style="color: white; font-size: 36px; margin: 0; letter-spacing: 8px; font-family: 'Courier New', monospace;">${resetCode}</h2>
               </div>
-              
+
               <p style="color: #374151; font-size: 16px; margin: 20px 0;">
                 Use this 7-digit code to reset your CHARLEY password. This code expires in 10 minutes.
               </p>
-              
+
               <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
                 If you didn't request this password reset, please ignore this email.
               </p>
-              
+
               <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
                 <p style="color: #9ca3af; font-size: 12px; margin: 0;">
                   From the BTechnos Team<br>
@@ -12081,7 +12121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               <div class="success-icon">🚨</div>
               <h1>Dispute Submitted Successfully</h1>
               <p><strong>Your security dispute has been received and processed.</strong></p>
-              
+
               <div class="info-box">
                 <h3>What happens next:</h3>
                 <ul>
@@ -12091,12 +12131,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   <li>The unauthorized change will be reviewed and may be reversed</li>
                 </ul>
               </div>
-              
+
               <p><strong>Important:</strong> This dispute link has now been used and cannot be accessed again.</p>
-              
+
               <p>If you have immediate concerns, contact us at:</p>
               <p><strong>admin@kronogon.com</strong></p>
-              
+
               <hr style="margin: 30px 0;">
               <p style="font-size: 14px; color: #666;">
                 CHARLEY Security System<br>
@@ -13697,7 +13737,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const apiKey = process.env.GOOGLE_PLACES_API_KEY || process.env.VITE_GOOGLE_PLACES_API_KEY;
+      const apiKey =
+        process.env.GOOGLE_PLACES_API_KEY ||
+        process.env.VITE_GOOGLE_PLACES_API_KEY;
       if (!apiKey) {
         console.warn("[GOOGLE-PLACES] API key not available");
         return res.status(500).json({
