@@ -2807,12 +2807,12 @@ export function RealTimeChat({ matchId }: { matchId: number }) {
   } = useQuery({
     queryKey: ["/api/messages", matchId],
     enabled: !!matchId,
-    // CRITICAL FIX: Force stale data so we always refetch
-    staleTime: 0,
-    // CRITICAL FIX: Always refetch on mount - never use cached data
-    refetchOnMount: true,
-    // CRITICAL FIX: Always refetch on window focus
-    refetchOnWindowFocus: true,
+    // PERFORMANCE FIX: Allow data to be cached to prevent constant refetching
+    staleTime: 30 * 1000, // 30 seconds - reasonable for chat messages
+    // PERFORMANCE FIX: Don't always refetch on mount - use cached data when available  
+    refetchOnMount: false,
+    // PERFORMANCE FIX: Don't refetch on window focus - was causing API floods
+    refetchOnWindowFocus: false,
     // Keep unused data for 5 minutes max
     gcTime: 1000 * 60 * 5,
     // Critical fix for re-entry duplication: Add select function to deduplicate messages

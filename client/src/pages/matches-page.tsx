@@ -487,8 +487,9 @@ export default function MatchesPage() {
     }, 500); // Give network a short time to respond
 
     return () => clearTimeout(timeoutId);
-    // Only run this effect when the component mounts and user is available
-  }, [user, queryClient, enrichedMatches, loadingMatches]); // Include dependencies to avoid warnings
+    // PERFORMANCE FIX: Remove enrichedMatches dependency to prevent infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, queryClient]); // Only depend on user ID and queryClient
 
   // Enhanced WebSocket event system for instant match updates - prevents slow match card loading
   useEffect(() => {
