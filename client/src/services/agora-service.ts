@@ -197,13 +197,16 @@ class AgoraService {
         return;
       }
 
-      // Leave existing call if already joined
-      if (this.isJoined) {
-        console.log("[AgoraService] Leaving existing call before joining new one");
+      // CRITICAL FIX: Always ensure clean state before new call
+      console.log(`[AgoraService] Current state before join - isJoined: ${this.isJoined}, isJoining: ${this.isJoining}`);
+      
+      // Force cleanup any existing state to prevent state sync issues
+      if (this.isJoined || this.localVideoTrack || this.localAudioTrack) {
+        console.log("[AgoraService] 🔄 Forcing cleanup of previous call state for fresh start");
         await this.leaveCall();
+        // Small delay to ensure cleanup completes
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
-
-      console.log(`[AgoraService] Starting fresh join - isJoined: ${this.isJoined}, isJoining: ${this.isJoining}`);
 
       this.isJoining = true;
 
@@ -221,29 +224,20 @@ class AgoraService {
 
         console.log(`[AgoraService] Successfully joined channel with UID: ${uid}`);
         
-        // CRITICAL: Set isJoined IMMEDIATELY after successful join, before publishing
         this.isJoined = true;
         this.currentChannel = config.channel;
 
-        console.log(`[AgoraService] Channel join confirmed - isJoined: ${this.isJoined}, channel: ${this.currentChannel}`);
-
         // Wait a moment for connection to stabilize, then publish tracks
         await new Promise(resolve => setTimeout(resolve, 100));
-        
-        console.log(`[AgoraService] About to publish tracks - isJoined: ${this.isJoined}`);
         await this.publishLocalTracks();
         
       } finally {
         this.isJoining = false;
-        console.log(`[AgoraService] Join attempt completed - isJoined: ${this.isJoined}, isJoining: ${this.isJoining}`);
       }
       
     } catch (error) {
       console.error("[AgoraService] Failed to join channel:", error);
       this.isJoining = false;
-      // Ensure we're in a clean state after failure
-      this.isJoined = false;
-      this.currentChannel = null;
       
       // Enhanced error handling for join failures
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -320,30 +314,26 @@ class AgoraService {
   // Publish local tracks
   async publishLocalTracks(): Promise<void> {
     try {
-      console.log(`[AgoraService] publishLocalTracks called - isJoined: ${this.isJoined}, isJoining: ${this.isJoining}, channel: ${this.currentChannel}`);
-      
       // Check if we're actually joined before publishing
       if (!this.isJoined) {
-        console.error(`[AgoraService] Cannot publish tracks - not joined to channel yet (isJoined: ${this.isJoined})`);
+        console.error("[AgoraService] Cannot publish tracks - not joined to channel yet");
         throw new Error("Cannot publish tracks - not joined to channel");
       }
 
       const tracks = [];
       
       if (this.localVideoTrack) {
-        console.log("[AgoraService] Adding video track to publish list");
         tracks.push(this.localVideoTrack);
       }
       
       if (this.localAudioTrack) {
-        console.log("[AgoraService] Adding audio track to publish list");
         tracks.push(this.localAudioTrack);
       }
 
       if (tracks.length > 0) {
         console.log(`[AgoraService] Publishing ${tracks.length} local tracks...`);
         await this.client.publish(tracks);
-        console.log(`[AgoraService] ✅ Successfully published ${tracks.length} local tracks`);
+        console.log(`[AgoraService] Successfully published ${tracks.length} local tracks`);
       } else {
         console.log("[AgoraService] No local tracks to publish");
       }
@@ -451,6 +441,36 @@ class AgoraService {
     return this.isJoined;
   }
 
+  // Force reset service state (for debugging stuck states)
+  forceResetState(): void {
+    console.log("[AgoraService] 🔄 Force resetting service state");
+    this.isJoined = false;
+    this.isJoining = false;
+    this.currentChannel = null;
+    this.participants.clear();
+    
+    // Close any existing tracks without throwing errors
+    if (this.localVideoTrack) {
+      try {
+        this.localVideoTrack.close();
+      } catch (error) {
+        console.error("[AgoraService] Error force closing video track:", error);
+      }
+      this.localVideoTrack = null;
+    }
+
+    if (this.localAudioTrack) {
+      try {
+        this.localAudioTrack.close();
+      } catch (error) {
+        console.error("[AgoraService] Error force closing audio track:", error);
+      }
+      this.localAudioTrack = null;
+    }
+
+    console.log("[AgoraService] ✅ Service state force reset complete");
+  }
+
   // Get current channel
   getCurrentChannel(): string | null {
     return this.currentChannel;
@@ -484,37 +504,61 @@ class AgoraService {
   // Leave the current call
   async leaveCall(): Promise<void> {
     try {
-      console.log("[AgoraService] Leaving call...");
+      console.log(`[AgoraService] Leaving call... (isJoined: ${this.isJoined}, isJoining: ${this.isJoining})`);
 
-      if (this.isJoined) {
+      // Always try to leave the client, even if isJoined is false (state sync issue protection)
+      try {
         await this.client.leave();
-        this.isJoined = false;
-        this.currentChannel = null;
+        console.log("[AgoraService] ✅ Successfully left Agora client");
+      } catch (clientError) {
+        // Ignore "not joined" errors - this is expected for cleanup calls
+        const errorMsg = clientError instanceof Error ? clientError.message : String(clientError);
+        if (!errorMsg.includes("not joined") && !errorMsg.includes("INVALID_OPERATION")) {
+          console.error("[AgoraService] Error leaving client:", clientError);
+        } else {
+          console.log("[AgoraService] Client was already left (expected for cleanup)");
+        }
       }
 
-      // Reset joining state
+      // Force reset all state regardless of previous state
+      this.isJoined = false;
       this.isJoining = false;
+      this.currentChannel = null;
 
       // Close and cleanup local tracks (camera and microphone)
       if (this.localVideoTrack) {
         console.log("[AgoraService] 📹 Closing camera (video track)");
-        this.localVideoTrack.close();
+        try {
+          this.localVideoTrack.close();
+        } catch (error) {
+          console.error("[AgoraService] Error closing video track:", error);
+        }
         this.localVideoTrack = null;
       }
 
       if (this.localAudioTrack) {
         console.log("[AgoraService] 🎤 Closing microphone (audio track)");
-        this.localAudioTrack.close();
+        try {
+          this.localAudioTrack.close();
+        } catch (error) {
+          console.error("[AgoraService] Error closing audio track:", error);
+        }
         this.localAudioTrack = null;
       }
 
       // Clear participants
       this.participants.clear();
 
-      console.log("[AgoraService] Successfully left call");
+      console.log("[AgoraService] Successfully left call and reset all state");
       this.events.onStatusChange?.("ended");
     } catch (error) {
       console.error("[AgoraService] Failed to leave call:", error);
+      
+      // Even if leave fails, force reset state to prevent stuck state
+      this.isJoined = false;
+      this.isJoining = false;
+      this.currentChannel = null;
+      
       this.events.onError?.(error as Error);
       throw error;
     }
