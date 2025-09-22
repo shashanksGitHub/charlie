@@ -16,22 +16,24 @@ export function ProtectedRoute({
   const [location] = useLocation();
   const [isRedirecting, setIsRedirecting] = useState(false);
 
-  // CRITICAL FIX: Skip loading state for chat routes to enable instant navigation
+  // CRITICAL FIX: Better loading state handling
   if (isLoading || isRedirecting) {
     // For chat routes, skip loading screen entirely to prevent intermediate screens
     if (path === "/chat/:matchId") {
-      // Allow chat page to render immediately, authentication will be handled by the page itself
       return (
         <Route path={path}>
           <Component />
         </Route>
       );
     }
-    
+
     return (
       <Route path={path}>
         <div className="flex items-center justify-center min-h-screen bg-background">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
         </div>
       </Route>
     );
@@ -47,7 +49,7 @@ export function ProtectedRoute({
         </Route>
       );
     }
-    
+
     return (
       <Route path={path}>
         <Redirect to="/auth" />
@@ -57,9 +59,11 @@ export function ProtectedRoute({
 
   // Check if user is suspended
   if (user.isSuspended) {
-    const suspensionExpiresAt = user.suspensionExpiresAt ? new Date(user.suspensionExpiresAt) : null;
+    const suspensionExpiresAt = user.suspensionExpiresAt
+      ? new Date(user.suspensionExpiresAt)
+      : null;
     const now = new Date();
-    
+
     // If suspension has expired, allow access (should be handled server-side too)
     if (suspensionExpiresAt && now > suspensionExpiresAt) {
       // Suspension expired, let them through
@@ -68,8 +72,8 @@ export function ProtectedRoute({
       const { logoutMutation } = useAuth();
       return (
         <Route path={path}>
-          <SuspendedAccountScreen 
-            user={user} 
+          <SuspendedAccountScreen
+            user={user}
             onLogout={() => logoutMutation.mutate()}
           />
         </Route>

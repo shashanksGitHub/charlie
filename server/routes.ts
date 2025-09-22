@@ -5197,6 +5197,255 @@ export async function registerRoutes(app: Express): Promise<Server> {
     },
   );
 
+  // Agora Video Call routes
+  app.post("/api/agora-calls", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      // Parse request data for Agora call
+      const { matchId, initiatorId, receiverId, channel, status } = req.body;
+
+      // Validate input
+      if (!matchId || !initiatorId || !receiverId || !channel) {
+        return res.status(400).json({ 
+          message: "matchId, initiatorId, receiverId, and channel are required" 
+        });
+      }
+
+      // Ensure the initiator is the current user
+      if (initiatorId !== req.user.id) {
+        return res
+          .status(403)
+          .json({ message: "Not authorized to initiate call as this user" });
+      }
+
+      // Verify that the match exists and user is part of it
+      const match = await storage.getMatchById(matchId);
+      if (!match) {
+        return res.status(404).json({ message: "Match not found" });
+      }
+
+      if (match.userId1 !== req.user.id && match.userId2 !== req.user.id) {
+        return res
+          .status(403)
+          .json({ message: "Not authorized to start call in this match" });
+      }
+
+      // Create the video call record in our database
+      const videoCallData = {
+        matchId,
+        initiatorId,
+        receiverId,
+        roomName: channel,
+        status: status || "pending"
+      };
+
+      const newCall = await storage.createVideoCall(videoCallData);
+
+      // Generate Agora configuration (in production, you would get these from environment variables)
+      const agoraConfig = {
+        appId: process.env.AGORA_APP_ID || "demo-app-id", // Replace with actual Agora App ID
+        channel: channel,
+        token: null, // In production, generate a token using Agora SDK
+      };
+
+      // Proactively notify the receiver via WebSocket
+      try {
+        const targetWs = connectedUsers.get(receiverId);
+        console.log("📞 [AgoraCall] Server-side call_initiate relay check:", {
+          receiverId,
+          targetWsExists: !!targetWs,
+          targetWsReady: targetWs?.readyState === WebSocket.OPEN,
+        });
+        
+        if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+          const initiatePayload = {
+            type: "call_initiate",
+            matchId: newCall.matchId,
+            callerId: newCall.initiatorId,
+            receiverId: newCall.receiverId,
+            toUserId: newCall.receiverId,
+            callId: newCall.id,
+            roomName: newCall.roomName,
+            timestamp: new Date().toISOString(),
+          };
+          
+          console.log("📞 [AgoraCall] Server-side initiating call signal:", initiatePayload);
+          targetWs.send(JSON.stringify(initiatePayload));
+        } else {
+          console.log("📞 [AgoraCall] Receiver not connected for server-side call_initiate", receiverId);
+        }
+      } catch (e) {
+        console.error("Error sending server-side call_initiate:", e);
+      }
+
+      // Return the call details and Agora configuration
+      res.status(201).json({
+        call: newCall,
+        agoraConfig,
+      });
+    } catch (error) {
+      console.error("Error creating Agora call:", error);
+      if (error instanceof ZodError) {
+        return res.status(400).json({ message: fromZodError(error).message });
+      }
+      res.status(500).json({ message: "Server error creating Agora call" });
+    }
+  });
+
+  app.get("/api/agora-calls/:id", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const callId = parseInt(req.params.id);
+    if (isNaN(callId)) {
+      return res.status(400).json({ message: "Invalid call ID" });
+    }
+
+    try {
+      const call = await storage.getVideoCallById(callId);
+      if (!call) {
+        return res.status(404).json({ message: "Agora call not found" });
+      }
+
+      // Ensure user is part of this call
+      if (call.initiatorId !== req.user.id && call.receiverId !== req.user.id) {
+        return res
+          .status(403)
+          .json({ message: "Not authorized to access this call" });
+      }
+
+      // Generate Agora configuration
+      const agoraConfig = {
+        appId: process.env.AGORA_APP_ID || "demo-app-id",
+        channel: call.roomName,
+        token: null, // In production, generate a token
+      };
+
+      res.json({
+        call,
+        agoraConfig,
+      });
+    } catch (error) {
+      console.error("Error retrieving Agora call:", error);
+      res.status(500).json({ message: "Server error retrieving Agora call" });
+    }
+  });
+
+  app.patch("/api/agora-calls/:id/status", async (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const callId = parseInt(req.params.id);
+    if (isNaN(callId)) {
+      return res.status(400).json({ message: "Invalid call ID" });
+    }
+
+    try {
+      const { status } = req.body;
+      if (!status || !["active", "completed", "declined", "cancelled"].includes(status)) {
+        return res.status(400).json({
+          message: "Valid status required (active, completed, declined, or cancelled)",
+        });
+      }
+
+      // Get the current call
+      const call = await storage.getVideoCallById(callId);
+      if (!call) {
+        return res.status(404).json({ message: "Agora call not found" });
+      }
+
+      // Ensure user is part of this call
+      if (call.initiatorId !== req.user.id && call.receiverId !== req.user.id) {
+        return res
+          .status(403)
+          .json({ message: "Not authorized to update this call" });
+      }
+
+      // Set timestamps based on status
+      const updateData: any = { status };
+      if (status === "active" && !call.startedAt) {
+        updateData.startedAt = new Date();
+      } else if (status === "completed" && !call.endedAt) {
+        updateData.endedAt = new Date();
+      }
+
+      const updatedCall = await storage.updateVideoCallStatus(callId, updateData);
+
+      // Handle no-answer messages for declined or cancelled calls
+      try {
+        const isDeclined = status === "declined";
+        const isCancelled = status === "cancelled";
+        const isCompletedBeforeStart = status === "completed" && !call.startedAt;
+
+        if (isDeclined || isCancelled || isCompletedBeforeStart) {
+          const callerId = call.initiatorId;
+          const receiverId = call.receiverId;
+          const matchIdForCall = call.matchId;
+
+          console.log(
+            `📞 [AGORA-CALL] Creating no-answer message for match=${matchIdForCall} caller=${callerId} receiver=${receiverId} (status=${status})`,
+          );
+
+          const callSystemMessage = await storage.createMessage({
+            matchId: matchIdForCall,
+            senderId: callerId,
+            receiverId: receiverId,
+            content: "_CALL:NO_ANSWER",
+            messageType: "call",
+            audioUrl: null,
+            audioDuration: null,
+          } as any);
+
+          try {
+            await storage.markMatchUnread(matchIdForCall, receiverId);
+          } catch (e) {
+            console.error("[AGORA-CALL] Failed to mark match unread:", e);
+          }
+
+          // Broadcast to receiver
+          const rxWs = connectedUsers.get(receiverId);
+          if (rxWs && rxWs.readyState === WebSocket.OPEN) {
+            rxWs.send(
+              JSON.stringify({
+                type: "new_message",
+                message: callSystemMessage,
+                for: "recipient",
+                receiptId: `agora_call_no_answer_${callSystemMessage?.id}_rx`,
+                timestamp: new Date().toISOString(),
+              }),
+            );
+          }
+
+          // Broadcast to caller
+          const txWs = connectedUsers.get(callerId);
+          if (txWs && txWs.readyState === WebSocket.OPEN) {
+            txWs.send(
+              JSON.stringify({
+                type: "new_message",
+                message: callSystemMessage,
+                for: "sender",
+                receiptId: `agora_call_no_answer_${callSystemMessage?.id}_tx`,
+                timestamp: new Date().toISOString(),
+              }),
+            );
+          }
+        }
+      } catch (e) {
+        console.error("[AGORA-CALL] Error creating/broadcasting no-answer:", e);
+      }
+
+      res.json(updatedCall);
+    } catch (error) {
+      console.error("Error updating Agora call:", error);
+      res.status(500).json({ message: "Server error updating Agora call" });
+    }
+  });
+
   // Phone verification cache (phone number → timestamp of last request)
   const phoneVerificationCache = new Map();
   // Phone verification rate limit (3 seconds)
@@ -6506,10 +6755,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Set up the upgrade handling on the HTTP server
     httpServer.on("upgrade", (request, socket, head) => {
       // Only handle WebSocket upgrade requests for our specific path
-      if (request.url === "/ws") {
+      if (request.url === "/websocket" || request.url === "/ws") {
+        console.log("📡 [WebSocket] Handling upgrade request for:", request.url);
         wss.handleUpgrade(request, socket, head, (ws) => {
+          console.log("📡 [WebSocket] WebSocket connection established");
           wss.emit("connection", ws, request);
         });
+      } else {
+        console.log("📡 [WebSocket] Ignoring upgrade request for:", request.url);
+        socket.destroy();
       }
     });
 

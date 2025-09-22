@@ -1958,8 +1958,14 @@ var init_storage = __esm({
       sessionStore;
       constructor() {
         if (!process.env.DATABASE_URL) {
-          console.error("[STORAGE] DATABASE_URL not set, cannot initialize PostgreSQL session store");
-          throw new Error("DATABASE_URL environment variable is required");
+          console.warn(
+            "[STORAGE] DATABASE_URL not set. Using in-memory session store (non-persistent)."
+          );
+          this.sessionStore = new MemoryStore({
+            // prune expired entries daily
+            checkPeriod: 24 * 60 * 60 * 1e3
+          });
+          return;
         }
         try {
           this.sessionStore = new PostgresSessionStore({
@@ -1970,10 +1976,17 @@ var init_storage = __esm({
             pruneSessionInterval: 24 * 60 * 60
             // 24 hours in seconds
           });
-          console.log("[STORAGE] \u2705 PostgreSQL session store initialized with connection string");
+          console.log(
+            "[STORAGE] \u2705 PostgreSQL session store initialized with connection string"
+          );
         } catch (error) {
-          console.error("[STORAGE] Failed to initialize PostgreSQL session store:", error);
-          throw new Error(`Failed to initialize PostgreSQL session store: ${error.message}`);
+          console.error(
+            "[STORAGE] Failed to initialize PostgreSQL session store:",
+            error
+          );
+          throw new Error(
+            `Failed to initialize PostgreSQL session store: ${error.message}`
+          );
         }
       }
       // User operations
@@ -19590,6 +19603,57 @@ var KwameAIService = class {
     return String(value);
   }
   /**
+   * Classify if a user message is related to images, photos, or visual content
+   * Uses OpenAI to dynamically determine intent instead of hardcoded patterns
+   */
+  async classifyImageIntent(message) {
+    try {
+      const classificationPrompt = `Analyze this user message and determine if it's related to images, photos, pictures, visual content, or image editing.
+
+User message: "${message}"
+
+Consider these as image-related:
+- Requests to edit, change, or modify images/photos/pictures
+- Questions about what's in images or photos
+- Requests to add, remove, or change elements in images
+- Asking about people, objects, or details in photos
+- Requests to generate, create, or make images/photos/avatars
+- Questions about visual appearance or styling
+- References to "she/he/they" in context of photos
+- Any visual editing or generation requests
+
+Answer with only "YES" or "NO".`;
+      const classificationPromise = getOpenAIClient().chat.completions.create({
+        model: "gpt-4o-mini",
+        // Fast and cost-effective for classification
+        messages: [
+          {
+            role: "system",
+            content: "You are a classification assistant. Respond only with YES or NO."
+          },
+          {
+            role: "user",
+            content: classificationPrompt
+          }
+        ],
+        temperature: 0.1,
+        // Low temperature for consistent classification
+        max_tokens: 5
+        // We only need YES or NO
+      });
+      const timeoutPromise = new Promise(
+        (_, reject) => setTimeout(() => reject(new Error("AI classification timeout")), 3e3)
+      );
+      const response = await Promise.race([classificationPromise, timeoutPromise]);
+      const result = response.choices[0]?.message?.content?.trim().toUpperCase();
+      return result === "YES";
+    } catch (error) {
+      console.error("[KWAME-AI] Image intent classification failed:", error);
+      const lower = message.toLowerCase();
+      return /(image|photo|picture|avatar|edit|generate|create|make|add|remove|change|transform|style)/i.test(lower);
+    }
+  }
+  /**
    * Generate a Pixar-style transformation from a source image using OpenAI gpt-image-1
    * Accepts http/https URLs or data URLs. Returns a PNG data URL.
    */
@@ -22155,10 +22219,10 @@ function registerKwameAPI(app2) {
         });
       }
       const isImageMessage = message.startsWith("_!_IMAGE_!_");
-      const maxLength = isImageMessage ? 10 * 1024 * 1024 * 1024 : 2e3;
+      const maxLength = isImageMessage ? 20 * 1024 * 1024 : 2e3;
       if (message.length > maxLength) {
         return res.status(400).json({
-          error: isImageMessage ? "Image too large (max 10GB)" : "Message too long (max 2000 characters)",
+          error: isImageMessage ? "Image too large (max 20MB)" : "Message too long (max 2000 characters)",
           code: "MESSAGE_TOO_LONG"
         });
       }
@@ -22227,110 +22291,24 @@ function registerKwameAPI(app2) {
           return res.status(500).json({ error: "Failed to retrieve primary photo" });
         }
       }
-      const lower = message.toLowerCase();
-      const avatarStyleMatch = message.match(/(create|generate|make|draw|design|turn)[^\n]{0,80}(anime|cartoon|manga|pixar|disney|comic|illustration)[^\n]{0,80}(avatar|image|photo|picture)/i) || message.match(/(anime|cartoon|manga|pixar|disney|comic|illustration)[^\n]{0,80}(avatar|image|photo|picture)[^\n]{0,80}(of me|for me)/i) || message.match(/create.*(anime|cartoon|manga|pixar|disney|comic|illustration).*avatar.*me/i);
-      const wantsStylizedAvatar = !!avatarStyleMatch;
-      const requestedStyle = avatarStyleMatch ? avatarStyleMatch[2]?.toLowerCase() || avatarStyleMatch[1]?.toLowerCase() : null;
-      const wantsImageEdit = /(edit|change|update|transform|improve|enhance|styl(?:e|ize)|turn)[^\n]{0,80}\b(my|the|this)\b[^\n]{0,80}\b(photo|picture|image|avatar|primary\s+photo)\b/i.test(
-        lower
-      );
-      let wantsImageGenerate = /(create|generate|make|draw|design)[^\n]{0,80}\b(image|picture|photo|avatar|logo|banner|poster)\b/i.test(
-        lower
-      );
-      const animeAvatarSignal = /(anime|cartoon|pixar|comic)/.test(lower) && /(avatar|image|photo|picture)/.test(lower);
-      const forceImageGenerate = /^\s*(create|generate|make|turn)[^\n]{0,80}(anime|cartoon|pixar|manga)[^\n]{0,80}(avatar|image|photo|picture)/i.test(
-        message
-      );
-      if (animeAvatarSignal) wantsImageGenerate = true;
-      const wantsAnyImageAction = /(avatar|image|photo|picture)/.test(lower) && /(create|generate|make|draw|design|turn|transform|styl|style|edit|change|update|improve|enhance)/.test(
-        lower
-      );
-      console.log("[KWAME-API] \u{1F4E5} Incoming message (trimmed):", message.trim());
-      if (/(avatar|image|photo|picture)/.test(lower)) {
-        console.log("[KWAME-API] \u{1F50E} Image keywords present", { lower });
-      }
-      if (wantsStylizedAvatar) {
-        console.log("[KWAME-API] \u{1F3A8} Stylized avatar request detected:", message, "Style:", requestedStyle);
+      console.log("[KWAME-API] \u{1F4E5} Analyzing message for image intent:", message.trim());
+      const hasImageKeywords = /(image|photo|picture|avatar|edit|generate|create|make|add|remove|change|transform|style|pixar|anime|cartoon|where.*is|show.*me)/i.test(message.toLowerCase());
+      let isImageRelated = false;
+      if (hasImageKeywords) {
         try {
-          const dbConversationHistory2 = await storage.getRecentKwameContext(
-            userId,
-            20
-          );
-          const conversationHistory2 = dbConversationHistory2.map((conv) => ({
-            role: conv.role,
-            content: conv.content,
-            timestamp: conv.createdAt,
-            context: conv.context || void 0
-          }));
-          let sourceImage = null;
-          for (let i = conversationHistory2.length - 1; i >= 0; i--) {
-            const c = conversationHistory2[i]?.content;
-            if (typeof c === "string" && c.startsWith("_!_IMAGE_!_")) {
-              sourceImage = c.substring("_!_IMAGE_!_".length);
-              break;
-            }
-          }
-          if (!sourceImage) {
-            const primary = await storage.getSectionPrimaryPhoto(
-              userId,
-              (appMode || "MEET").toLowerCase()
-            );
-            sourceImage = primary?.photoUrl || (await storage.getUser(userId))?.photoUrl || null;
-          }
-          const dataUrl = await kwameAI.generateStylizedAvatar(sourceImage || void 0, requestedStyle || "anime");
-          const photoMessage = `_!_IMAGE_!_${dataUrl}`;
-          await storage.createKwameConversation({
-            userId,
-            role: "user",
-            content: message.trim(),
-            context: context?.currentScreen ? JSON.stringify(context) : null,
-            appMode: appMode || "MEET"
-          });
-          const assistantConversation2 = await storage.createKwameConversation({
-            userId,
-            role: "assistant",
-            content: photoMessage,
-            context: null,
-            appMode: appMode || "MEET"
-          });
-          const userSocket2 = connectedUsers3.get(userId);
-          if (userSocket2 && userSocket2.readyState === WebSocket2.OPEN) {
-            try {
-              userSocket2.send(
-                JSON.stringify({
-                  type: "new_message",
-                  message: {
-                    id: assistantConversation2.id,
-                    matchId: -1,
-                    senderId: -1,
-                    receiverId: userId,
-                    content: photoMessage,
-                    createdAt: assistantConversation2.createdAt?.toISOString() || (/* @__PURE__ */ new Date()).toISOString(),
-                    messageType: "text"
-                  },
-                  for: "recipient",
-                  timestamp: (/* @__PURE__ */ new Date()).toISOString()
-                })
-              );
-            } catch {
-            }
-          }
-          return res.json({ message: photoMessage });
-        } catch (err) {
-          console.error("[KWAME-API] Anime avatar generation failed:", err);
+          isImageRelated = await kwameAI.classifyImageIntent(message);
+        } catch (error) {
+          console.error("[KWAME-API] AI classification failed, using keyword fallback:", error);
+          isImageRelated = /(edit|change|add|remove|generate|create|make).*\b(image|photo|picture|avatar)\b/i.test(message.toLowerCase());
         }
       }
-      if (wantsImageEdit || wantsImageGenerate || wantsAnyImageAction || forceImageGenerate) {
-        console.log("[KWAME-API] \u{1F5BC}\uFE0F Image intent detected", {
-          wantsImageEdit,
-          wantsImageGenerate,
-          wantsAnyImageAction,
-          animeAvatarSignal,
-          forceImageGenerate,
-          wantsStylizedAvatar,
-          requestedStyle,
-          message
-        });
+      console.log("[KWAME-API] \u{1F9E0} Image intent analysis:", {
+        hasImageKeywords,
+        isImageRelated,
+        message: message.substring(0, 100) + "..."
+      });
+      if (isImageRelated) {
+        console.log("[KWAME-API] \u{1F5BC}\uFE0F Image intent detected - processing with AI");
         try {
           const dbConversationHistory2 = await storage.getRecentKwameContext(
             userId,
@@ -22342,11 +22320,6 @@ function registerKwameAPI(app2) {
             timestamp: conv.createdAt,
             context: conv.context || void 0
           }));
-          const styleMatch = message.match(/(?:to|into|in|as)\s+(.+)$/i);
-          let styleInstruction = styleMatch ? styleMatch[1].trim() : "tasteful high-quality portrait";
-          if (animeAvatarSignal && !/anime|cartoon|manga/i.test(styleInstruction)) {
-            styleInstruction = `anime-style portrait, clean line art, soft cel-shading, expressive eyes, preserve identity. ${styleInstruction}`;
-          }
           let sourceImage = null;
           for (let i = conversationHistory2.length - 1; i >= 0; i--) {
             const c = conversationHistory2[i]?.content;
@@ -22363,14 +22336,17 @@ function registerKwameAPI(app2) {
             sourceImage = primary?.photoUrl || (await storage.getUser(userId))?.photoUrl || null;
           }
           let dataUrl;
-          if ((wantsImageEdit || /avatar|photo|picture|image/.test(lower)) && sourceImage) {
-            dataUrl = await kwameAI.generatePixarStyleImage(
-              sourceImage,
-              styleInstruction
-            );
+          const styleMatch = message.match(/(anime|cartoon|manga|pixar|disney|comic|illustration)/i);
+          const requestedStyle = styleMatch ? styleMatch[1].toLowerCase() : null;
+          if (requestedStyle && message.match(/(create|generate|make|turn.*into)/i)) {
+            console.log("[KWAME-API] \u{1F3A8} Generating stylized avatar:", requestedStyle);
+            dataUrl = await kwameAI.generateStylizedAvatar(sourceImage || void 0, requestedStyle);
+          } else if (sourceImage) {
+            console.log("[KWAME-API] \u270F\uFE0F Editing existing image with prompt:", message);
+            dataUrl = await kwameAI.generatePixarStyleImage(sourceImage, message);
           } else {
-            const prompt = styleInstruction.includes("photo") ? styleInstruction : `Generate ${styleInstruction}`;
-            dataUrl = await kwameAI.generateImageFromPrompt(prompt);
+            console.log("[KWAME-API] \u{1F195} Generating new image from prompt:", message);
+            dataUrl = await kwameAI.generateImageFromPrompt(message);
           }
           const photoMessage = `_!_IMAGE_!_${dataUrl}`;
           await storage.createKwameConversation({
@@ -22411,7 +22387,7 @@ function registerKwameAPI(app2) {
           }
           return res.json({ message: photoMessage });
         } catch (err) {
-          console.error("[KWAME-API] Image intent handling failed:", err);
+          console.error("[KWAME-API] Image processing failed:", err);
         }
       }
       const user = await storage.getUser(userId);
@@ -26123,12 +26099,12 @@ async function registerRoutes(app2) {
             const emailContent = `
             <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1);">
               <div style="background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #ffeaa7, #dda0dd, #98d8c8); height: 6px;"></div>
-              
+
               <div style="padding: 40px; text-align: center; background: white;">
                 <h1 style="color: #333; margin: 0 0 20px 0; font-size: 28px; font-weight: 700;">
                   \u{1F6A8} Account Suspension Notice
                 </h1>
-                
+
                 <div style="background: linear-gradient(135deg, #ff6b6b, #ee5a52); padding: 20px; border-radius: 12px; margin: 20px 0;">
                   <h2 style="color: white; margin: 0; font-size: 18px;">
                     Your CHARLEY account has been suspended
@@ -26229,12 +26205,12 @@ async function registerRoutes(app2) {
         const emailContent = `
           <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1);">
             <div style="background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #ffeaa7, #dda0dd, #98d8c8); height: 6px;"></div>
-            
+
             <div style="padding: 40px; text-align: center; background: white;">
               <h1 style="color: #333; margin: 0 0 20px 0; font-size: 28px; font-weight: 700;">
                 \u{1F4DD} Suspension Appeal Request
               </h1>
-              
+
               <div style="background: linear-gradient(135deg, #4ecdc4, #45b7d1); padding: 20px; border-radius: 12px; margin: 20px 0;">
                 <h2 style="color: white; margin: 0; font-size: 18px;">
                   Appeal from suspended user
@@ -26764,6 +26740,24 @@ ${message.trim()}`
     }
   });
   app2.patch("/api/messages/:id/read", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const messageId = parseInt(req.params.id);
+    if (isNaN(messageId)) {
+      return res.status(400).json({ message: "Invalid message ID" });
+    }
+    try {
+      const updatedMessage = await storage.markMessageAsRead(messageId);
+      if (!updatedMessage) {
+        return res.status(404).json({ message: "Message not found" });
+      }
+      res.json(updatedMessage);
+    } catch (error) {
+      res.status(500).json({ message: "Server error updating message" });
+    }
+  });
+  app2.post("/api/messages/:id/read", async (req, res) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
@@ -27487,10 +27481,19 @@ ${message.trim()}`
   app2.get("/api/photos/:userId", async (req, res) => {
     try {
       const { userId } = req.params;
-      const photos = await storage.getUserPhotos(parseInt(userId));
+      if (!userId || userId === "undefined" || userId === "null") {
+        console.error("Invalid userId parameter:", userId);
+        return res.status(400).json({ error: "Valid user ID is required" });
+      }
+      const userIdNum = parseInt(userId);
+      if (isNaN(userIdNum)) {
+        console.error("Invalid userId - not a number:", userId);
+        return res.status(400).json({ error: "User ID must be a valid number" });
+      }
+      const photos = await storage.getUserPhotos(userIdNum);
       res.json(photos);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching user photos:", err);
       res.status(500).json({ error: "An error occurred while fetching user photos" });
     }
   });
@@ -27932,6 +27935,199 @@ ${message.trim()}`
       }
     }
   );
+  app2.post("/api/agora-calls", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+      const { matchId, initiatorId, receiverId, channel, status } = req.body;
+      if (!matchId || !initiatorId || !receiverId || !channel) {
+        return res.status(400).json({
+          message: "matchId, initiatorId, receiverId, and channel are required"
+        });
+      }
+      if (initiatorId !== req.user.id) {
+        return res.status(403).json({ message: "Not authorized to initiate call as this user" });
+      }
+      const match = await storage.getMatchById(matchId);
+      if (!match) {
+        return res.status(404).json({ message: "Match not found" });
+      }
+      if (match.userId1 !== req.user.id && match.userId2 !== req.user.id) {
+        return res.status(403).json({ message: "Not authorized to start call in this match" });
+      }
+      const videoCallData = {
+        matchId,
+        initiatorId,
+        receiverId,
+        roomName: channel,
+        status: status || "pending"
+      };
+      const newCall = await storage.createVideoCall(videoCallData);
+      const agoraConfig = {
+        appId: process.env.AGORA_APP_ID || "demo-app-id",
+        // Replace with actual Agora App ID
+        channel,
+        token: null
+        // In production, generate a token using Agora SDK
+      };
+      try {
+        const targetWs = connectedUsers4.get(receiverId);
+        console.log("\u{1F4DE} [AgoraCall] Server-side call_initiate relay check:", {
+          receiverId,
+          targetWsExists: !!targetWs,
+          targetWsReady: targetWs?.readyState === WebSocket4.OPEN
+        });
+        if (targetWs && targetWs.readyState === WebSocket4.OPEN) {
+          const initiatePayload = {
+            type: "call_initiate",
+            matchId: newCall.matchId,
+            callerId: newCall.initiatorId,
+            receiverId: newCall.receiverId,
+            toUserId: newCall.receiverId,
+            callId: newCall.id,
+            roomName: newCall.roomName,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          };
+          console.log("\u{1F4DE} [AgoraCall] Server-side initiating call signal:", initiatePayload);
+          targetWs.send(JSON.stringify(initiatePayload));
+        } else {
+          console.log("\u{1F4DE} [AgoraCall] Receiver not connected for server-side call_initiate", receiverId);
+        }
+      } catch (e) {
+        console.error("Error sending server-side call_initiate:", e);
+      }
+      res.status(201).json({
+        call: newCall,
+        agoraConfig
+      });
+    } catch (error) {
+      console.error("Error creating Agora call:", error);
+      if (error instanceof ZodError2) {
+        return res.status(400).json({ message: fromZodError2(error).message });
+      }
+      res.status(500).json({ message: "Server error creating Agora call" });
+    }
+  });
+  app2.get("/api/agora-calls/:id", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const callId = parseInt(req.params.id);
+    if (isNaN(callId)) {
+      return res.status(400).json({ message: "Invalid call ID" });
+    }
+    try {
+      const call = await storage.getVideoCallById(callId);
+      if (!call) {
+        return res.status(404).json({ message: "Agora call not found" });
+      }
+      if (call.initiatorId !== req.user.id && call.receiverId !== req.user.id) {
+        return res.status(403).json({ message: "Not authorized to access this call" });
+      }
+      const agoraConfig = {
+        appId: process.env.AGORA_APP_ID || "demo-app-id",
+        channel: call.roomName,
+        token: null
+        // In production, generate a token
+      };
+      res.json({
+        call,
+        agoraConfig
+      });
+    } catch (error) {
+      console.error("Error retrieving Agora call:", error);
+      res.status(500).json({ message: "Server error retrieving Agora call" });
+    }
+  });
+  app2.patch("/api/agora-calls/:id/status", async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    const callId = parseInt(req.params.id);
+    if (isNaN(callId)) {
+      return res.status(400).json({ message: "Invalid call ID" });
+    }
+    try {
+      const { status } = req.body;
+      if (!status || !["active", "completed", "declined", "cancelled"].includes(status)) {
+        return res.status(400).json({
+          message: "Valid status required (active, completed, declined, or cancelled)"
+        });
+      }
+      const call = await storage.getVideoCallById(callId);
+      if (!call) {
+        return res.status(404).json({ message: "Agora call not found" });
+      }
+      if (call.initiatorId !== req.user.id && call.receiverId !== req.user.id) {
+        return res.status(403).json({ message: "Not authorized to update this call" });
+      }
+      const updateData = { status };
+      if (status === "active" && !call.startedAt) {
+        updateData.startedAt = /* @__PURE__ */ new Date();
+      } else if (status === "completed" && !call.endedAt) {
+        updateData.endedAt = /* @__PURE__ */ new Date();
+      }
+      const updatedCall = await storage.updateVideoCallStatus(callId, updateData);
+      try {
+        const isDeclined = status === "declined";
+        const isCancelled = status === "cancelled";
+        const isCompletedBeforeStart = status === "completed" && !call.startedAt;
+        if (isDeclined || isCancelled || isCompletedBeforeStart) {
+          const callerId = call.initiatorId;
+          const receiverId = call.receiverId;
+          const matchIdForCall = call.matchId;
+          console.log(
+            `\u{1F4DE} [AGORA-CALL] Creating no-answer message for match=${matchIdForCall} caller=${callerId} receiver=${receiverId} (status=${status})`
+          );
+          const callSystemMessage = await storage.createMessage({
+            matchId: matchIdForCall,
+            senderId: callerId,
+            receiverId,
+            content: "_CALL:NO_ANSWER",
+            messageType: "call",
+            audioUrl: null,
+            audioDuration: null
+          });
+          try {
+            await storage.markMatchUnread(matchIdForCall, receiverId);
+          } catch (e) {
+            console.error("[AGORA-CALL] Failed to mark match unread:", e);
+          }
+          const rxWs = connectedUsers4.get(receiverId);
+          if (rxWs && rxWs.readyState === WebSocket4.OPEN) {
+            rxWs.send(
+              JSON.stringify({
+                type: "new_message",
+                message: callSystemMessage,
+                for: "recipient",
+                receiptId: `agora_call_no_answer_${callSystemMessage?.id}_rx`,
+                timestamp: (/* @__PURE__ */ new Date()).toISOString()
+              })
+            );
+          }
+          const txWs = connectedUsers4.get(callerId);
+          if (txWs && txWs.readyState === WebSocket4.OPEN) {
+            txWs.send(
+              JSON.stringify({
+                type: "new_message",
+                message: callSystemMessage,
+                for: "sender",
+                receiptId: `agora_call_no_answer_${callSystemMessage?.id}_tx`,
+                timestamp: (/* @__PURE__ */ new Date()).toISOString()
+              })
+            );
+          }
+        }
+      } catch (e) {
+        console.error("[AGORA-CALL] Error creating/broadcasting no-answer:", e);
+      }
+      res.json(updatedCall);
+    } catch (error) {
+      console.error("Error updating Agora call:", error);
+      res.status(500).json({ message: "Server error updating Agora call" });
+    }
+  });
   const phoneVerificationCache = /* @__PURE__ */ new Map();
   const PHONE_RATE_LIMIT = 3e3;
   app2.post("/api/verify/phone/send", async (req, res) => {
@@ -28127,19 +28323,19 @@ ${message.trim()}`
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px;">
             <div style="background: rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 30px; text-align: center;">
               <h1 style="color: #4f46e5; margin-bottom: 20px; font-size: 28px;">Password Reset Code</h1>
-              
+
               <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; margin: 20px 0;">
                 <h2 style="color: white; font-size: 36px; margin: 0; letter-spacing: 8px; font-family: 'Courier New', monospace;">${resetCode}</h2>
               </div>
-              
+
               <p style="color: #374151; font-size: 16px; margin: 20px 0;">
                 Use this 7-digit code to reset your CHARLEY password. This code expires in 10 minutes.
               </p>
-              
+
               <p style="color: #6b7280; font-size: 14px; margin-top: 30px;">
                 If you didn't request this password reset, please ignore this email.
               </p>
-              
+
               <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
                 <p style="color: #9ca3af; font-size: 12px; margin: 0;">
                   From the BTechnos Team<br>
@@ -28905,10 +29101,15 @@ ${message.trim()}`
       noServer: true
     });
     httpServer.on("upgrade", (request, socket, head) => {
-      if (request.url === "/ws") {
+      if (request.url === "/websocket" || request.url === "/ws") {
+        console.log("\u{1F4E1} [WebSocket] Handling upgrade request for:", request.url);
         wss.handleUpgrade(request, socket, head, (ws2) => {
+          console.log("\u{1F4E1} [WebSocket] WebSocket connection established");
           wss.emit("connection", ws2, request);
         });
+      } else {
+        console.log("\u{1F4E1} [WebSocket] Ignoring upgrade request for:", request.url);
+        socket.destroy();
       }
     });
     console.log("WebSocket server created successfully on path /ws");
@@ -33138,7 +33339,7 @@ ${message.trim()}`
               <div class="success-icon">\u{1F6A8}</div>
               <h1>Dispute Submitted Successfully</h1>
               <p><strong>Your security dispute has been received and processed.</strong></p>
-              
+
               <div class="info-box">
                 <h3>What happens next:</h3>
                 <ul>
@@ -33148,12 +33349,12 @@ ${message.trim()}`
                   <li>The unauthorized change will be reviewed and may be reversed</li>
                 </ul>
               </div>
-              
+
               <p><strong>Important:</strong> This dispute link has now been used and cannot be accessed again.</p>
-              
+
               <p>If you have immediate concerns, contact us at:</p>
               <p><strong>admin@kronogon.com</strong></p>
-              
+
               <hr style="margin: 30px 0;">
               <p style="font-size: 14px; color: #666;">
                 CHARLEY Security System<br>

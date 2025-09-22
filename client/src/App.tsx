@@ -56,7 +56,7 @@ import { TransitionGuard } from "@/components/transition-guard";
 import { MatchCountLoader } from "@/components/match-count-loader";
 import GlobalMatchPopup from "@/components/ui/global-match-popup";
 import GlobalNotificationToast from "@/components/ui/global-notification-toast";
-import { GlobalIncomingCall } from "@/components/ui/global-incoming-call";
+import { AgoraGlobalIncomingCall } from "@/components/ui/agora-global-incoming-call";
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
@@ -365,21 +365,37 @@ function Router() {
   const [location] = useLocation();
   const { user, isLoading } = useAuth();
 
+  // CRITICAL FIX: Ensure proper loading state handling to prevent blank pages
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   // If user is not logged in and not on auth or language selection page, redirect to auth
-  // This ensures the auth page shows up in the preview panel
-  if (
-    !isLoading &&
-    !user &&
-    location !== "/auth" &&
-    location !== "/language-selection"
-  ) {
+  if (!user && location !== "/auth" && location !== "/language-selection") {
     return <Redirect to="/auth" />;
   }
 
   return (
     <Switch>
-      <Route path="/language-selection" component={LanguageSelectionPage} />
-      <Route path="/auth" component={AuthPage} />
+      <Route path="/language-selection">
+        {/* Rendered outside container for desktop, normal for mobile */}
+        <div className="lg:hidden">
+          <LanguageSelectionPage />
+        </div>
+      </Route>
+      <Route path="/auth">
+        {/* Rendered outside container for desktop, normal for mobile */}
+        <div className="lg:hidden">
+          <AuthPage />
+        </div>
+      </Route>
       <Route path="/nationality">
         {(params) => <NationalitySelectionPage />}
       </Route>
@@ -453,13 +469,20 @@ function AppContent() {
   const [location] = useLocation();
   const { user } = useAuth();
 
-  // Check if we should skip the splash screen
-  // Skip if flag is set (when clicking flag in header) OR user is already logged in
+  // CRITICAL FIX: Simplify splash screen logic to prevent blank page issues
+  // Always skip splash if user is already logged in to prevent state conflicts
   const shouldSkipSplash =
-    safeStorageGet("skipSplashScreen") === "true" || !!storedUserId;
+    !!user || safeStorageGet("skipSplashScreen") === "true";
 
   // For existing users, we'll skip splash screen
   const [showSplash, setShowSplash] = useState(!shouldSkipSplash);
+
+  // CRITICAL FIX: Update splash screen state when user authentication changes
+  useEffect(() => {
+    if (user && showSplash) {
+      setShowSplash(false);
+    }
+  }, [user, showSplash]);
   const {
     currentMode,
     setAppMode,
@@ -544,92 +567,104 @@ function AppContent() {
   };
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-background shadow-lg relative">
-      {/* Immediate display of content container to prevent blank screen */}
-      <div
-        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-      >
-        <AnimatePresence mode="wait">
-          {showSplash ? (
-            <motion.div
-              key="splash"
-              initial={{ opacity: 1 }}
-              exit={{
-                opacity: 0,
-                scale: 1.05,
-                filter: "blur(5px)",
-                transition: {
-                  opacity: { duration: 0.7, ease: "easeInOut" },
-                  scale: { duration: 0.7, ease: "easeInOut" },
-                  filter: { duration: 0.7, ease: "easeInOut" },
-                },
+    <div className="min-h-screen bg-background relative">
+      {/* Full-bleed routes rendered outside container */}
+      {(location === "/auth" || location === "/language-selection") && (
+        <div className="lg:fixed lg:inset-0 lg:z-[70]">
+          {location === "/auth" && <AuthPage />}
+          {location === "/language-selection" && <LanguageSelectionPage />}
+        </div>
+      )}
+
+      {/* Maintain mobile-style container for app content */}
+      <div className="max-w-md mx-auto min-h-screen shadow-lg relative">
+        {/* Immediate display of content container to prevent blank screen */}
+        <div
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          <AnimatePresence mode="wait">
+            {showSplash ? (
+              <motion.div
+                key="splash"
+                initial={{ opacity: 1 }}
+                exit={{
+                  opacity: 0,
+                  scale: 1.05,
+                  filter: "blur(5px)",
+                  transition: {
+                    opacity: { duration: 0.7, ease: "easeInOut" },
+                    scale: { duration: 0.7, ease: "easeInOut" },
+                    filter: { duration: 0.7, ease: "easeInOut" },
+                  },
+                }}
+                className="lg:fixed lg:inset-0 lg:z-[80]"
+              >
+                <SplashScreen onAnimationComplete={handleSplashComplete} />
+              </motion.div>
+            ) : isTransitioning ? (
+              <motion.div
+                key="app-transition"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="h-full"
+              >
+                <AppTransition
+                  appMode={transitionMode || "MEET"}
+                  onTransitionComplete={handleTransitionComplete}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="content"
+                initial={{ opacity: 0 }}
+                animate={{
+                  opacity: 1,
+                  scale: [0.98, 1],
+                  transition: {
+                    opacity: { duration: 0.8, ease: "easeOut" },
+                    scale: { duration: 0.8, ease: "easeOut" },
+                    delay: 0.2,
+                  },
+                }}
+              >
+                <TransitionGuard>
+                  <MatchCountLoader />
+                  <LanguageSelectionGuard>
+                    <Router />
+                  </LanguageSelectionGuard>
+                </TransitionGuard>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <Toaster />
+        <GlobalMatchPopup />
+
+        <AgoraGlobalIncomingCall />
+        {/* Global notification system - works across all pages */}
+        {user && <GlobalNotificationToast userId={user.id} />}
+        {/* Global KWAME AI floating button across MEET/HEAT/SUITE pages */}
+        {user &&
+          ![
+            "/auth",
+            "/language-selection",
+            "/nationality",
+            "/app-selection",
+            "/kwame-chat",
+          ].includes(location) && (
+            <FloatingKwameButton
+              currentContext={{
+                page: location,
+                userProfile: user,
               }}
-            >
-              <SplashScreen onAnimationComplete={handleSplashComplete} />
-            </motion.div>
-          ) : isTransitioning ? (
-            <motion.div
-              key="app-transition"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="h-full"
-            >
-              <AppTransition
-                appMode={transitionMode || "MEET"}
-                onTransitionComplete={handleTransitionComplete}
-              />
-            </motion.div>
-          ) : (
-            <motion.div
-              key="content"
-              initial={{ opacity: 0 }}
-              animate={{
-                opacity: 1,
-                scale: [0.98, 1],
-                transition: {
-                  opacity: { duration: 0.8, ease: "easeOut" },
-                  scale: { duration: 0.8, ease: "easeOut" },
-                  delay: 0.2,
-                },
-              }}
-            >
-              <TransitionGuard>
-                <MatchCountLoader />
-                <LanguageSelectionGuard>
-                  <Router />
-                </LanguageSelectionGuard>
-              </TransitionGuard>
-            </motion.div>
+              // Place KWAME in the middle-right for new users on first run
+              defaultPosition={isNewUser ? "right-middle" : "bottom-right"}
+            />
           )}
-        </AnimatePresence>
       </div>
-
-      <Toaster />
-      <GlobalMatchPopup />
-
-      <GlobalIncomingCall />
-      {/* Global notification system - works across all pages */}
-      {user && <GlobalNotificationToast userId={user.id} />}
-      {/* Global KWAME AI floating button across MEET/HEAT/SUITE pages */}
-      {user &&
-        ![
-          "/auth",
-          "/language-selection",
-          "/nationality",
-          "/app-selection",
-          "/kwame-chat",
-        ].includes(location) && (
-          <FloatingKwameButton
-            currentContext={{
-              page: location,
-              userProfile: user,
-            }}
-            // Place KWAME in the middle-right for new users on first run
-            defaultPosition={isNewUser ? "right-middle" : "bottom-right"}
-          />
-        )}
     </div>
   );
 }

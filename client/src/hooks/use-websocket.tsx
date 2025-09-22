@@ -581,7 +581,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
     // Create WebSocket connection
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = `${protocol}//${window.location.host}/websocket`;
 
     try {
       const socket = new WebSocket(wsUrl);

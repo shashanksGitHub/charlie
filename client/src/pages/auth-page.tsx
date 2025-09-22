@@ -634,19 +634,17 @@ export default function AuthPage() {
           passwordContainer.classList.add("animate-fade-out");
         }
 
-        // CRITICAL FIX: Wait for React Query cache to fully update before routing decisions
-        // This prevents race conditions where userData might be incomplete
-        await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+        // CRITICAL FIX: Ensure immediate cache update and user data availability
+        queryClient.setQueryData(["/api/user"], userData);
 
-        // Get the fully updated user data from cache after invalidation
-        const completeUserData = await queryClient.fetchQuery({
+        // Force immediate refetch to ensure consistency
+        await queryClient.refetchQueries({
           queryKey: ["/api/user"],
-          queryFn: async () => {
-            const response = await apiRequest("/api/user");
-            return response.json();
-          },
-          staleTime: 0, // Force fresh fetch
+          type: "active",
         });
+
+        // Get the updated user data from cache
+        const completeUserData = queryClient.getQueryData(["/api/user"]) as any;
 
         // Removed excessive debug logging for performance optimization
 
@@ -1321,15 +1319,92 @@ export default function AuthPage() {
 
   return (
     <div
-      className="flex flex-col h-screen w-full overflow-hidden"
+      className="flex flex-col h-screen w-full overflow-hidden relative lg:h-screen lg:max-h-screen"
       style={{
         background:
           "linear-gradient(to bottom, #7e22ce, #9333EA 40%, #fb923c 80%, white 120%)",
       }}
     >
+      {/* Desktop: Immersive full-screen background effects */}
+      <div className="hidden lg:block absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Aurora-like animated background */}
+        <div className="absolute inset-0 desktop-aurora opacity-40" />
+
+        {/* Advanced particle field */}
+        <div className="absolute inset-0 desktop-particle-field" />
+
+        {/* Dynamic gradient orbs with enhanced effects */}
+        <div
+          className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full bg-gradient-to-r from-purple-500/30 to-pink-500/25 blur-3xl animate-pulse desktop-glow"
+          style={{ animation: "desktop-float 8s ease-in-out infinite" }}
+        />
+        <div
+          className="absolute bottom-1/3 right-1/4 w-80 h-80 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/35 blur-3xl animate-pulse delay-1000"
+          style={{
+            animation: "desktop-float 10s ease-in-out infinite reverse",
+          }}
+        />
+        <div
+          className="absolute top-1/2 left-1/2 w-64 h-64 rounded-full bg-gradient-to-r from-orange-400/25 to-yellow-400/30 blur-3xl animate-pulse delay-2000"
+          style={{ animation: "desktop-float 12s ease-in-out infinite" }}
+        />
+
+        {/* Enhanced floating particles */}
+        {[...Array(30)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full animate-bounce"
+            style={{
+              width: `${2 + Math.random() * 4}px`,
+              height: `${2 + Math.random() * 4}px`,
+              background: `rgba(255, ${100 + Math.random() * 155}, ${100 + Math.random() * 155}, ${0.3 + Math.random() * 0.4})`,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 5}s`,
+              animationDuration: `${4 + Math.random() * 6}s`,
+              boxShadow: `0 0 ${10 + Math.random() * 20}px rgba(255, 255, 255, 0.3)`,
+            }}
+          />
+        ))}
+
+        {/* Sophisticated geometric patterns */}
+        <div className="absolute inset-0 opacity-15">
+          <div
+            className="absolute top-10 left-10 w-32 h-32 border-2 border-white/30 rotate-45 animate-spin rounded-lg"
+            style={{ animationDuration: "25s" }}
+          />
+          <div
+            className="absolute bottom-20 right-20 w-24 h-24 border border-white/20 rotate-12 animate-spin rounded-full"
+            style={{ animationDuration: "18s" }}
+          />
+          <div
+            className="absolute top-1/2 right-10 w-40 h-40 border border-white/15 -rotate-12 animate-spin"
+            style={{
+              animationDuration: "30s",
+              clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
+            }}
+          />
+          <div
+            className="absolute bottom-10 left-1/3 w-28 h-28 border-2 border-gradient-to-r from-purple-400/20 to-orange-400/20 rotate-45 animate-spin rounded-lg"
+            style={{ animationDuration: "22s" }}
+          />
+        </div>
+
+        {/* Subtle grid overlay for tech aesthetic */}
+        <div
+          className="absolute inset-0 opacity-5"
+          style={{
+            backgroundImage: `
+                 linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+                 linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+               `,
+            backgroundSize: "50px 50px",
+          }}
+        />
+      </div>
       {/* Hero section with CHARLEY branding */}
       <div
-        className="pt-6 pb-20 flex-1 flex items-center justify-center relative overflow-hidden"
+        className="pt-6 pb-20 flex-1 flex items-center justify-center relative overflow-hidden lg:pt-8 lg:pb-6 lg:flex-none lg:h-auto lg:min-h-[45vh] lg:max-h-[50vh]"
         onMouseMove={handleHeroPointerMove}
         onMouseLeave={resetHeroParallax}
       >
@@ -1456,7 +1531,7 @@ export default function AuthPage() {
               {"CHARLEY".split("").map((letter, i) => (
                 <span
                   key={i}
-                  className="font-bold text-5xl sm:text-6xl md:text-7xl lg:text-8xl inline-block"
+                  className="font-bold text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl inline-block"
                   style={{
                     fontFamily: "'Arial Black', sans-serif",
                     letterSpacing: "-2px",
@@ -1479,10 +1554,14 @@ export default function AuthPage() {
                       8px 8px 15px rgba(0,0,0,0.6),
                       10px 10px 25px rgba(255,140,66,0.4),
                       0 0 30px rgba(255,215,0,0.6),
-                      0 0 50px rgba(255,140,66,0.3)
+                      0 0 50px rgba(255,140,66,0.3),
+                      0 0 100px rgba(251,146,60,0.2)
                     `,
-                    /* Reduce filter load on mobile; text-shadow already provides glow */
-                    filter: "none",
+                    /* Enhanced filter for desktop, reduced for mobile */
+                    filter:
+                      window.innerWidth >= 1024
+                        ? "drop-shadow(0 0 20px rgba(251,146,60,0.4))"
+                        : "none",
                     transform: "perspective(500px) rotateX(15deg)",
                     transformOrigin: "center bottom",
                   }}
@@ -1493,8 +1572,8 @@ export default function AuthPage() {
             </div>
           </div>
           <p
-            className="text-white text-xl sm:text-2xl font-bold mb-2"
-            style={{ textShadow: "0 2px 4px rgba(0,0,0,0.5)" }}
+            className="text-white text-sm sm:text-base lg:text-lg xl:text-xl font-light lg:font-normal mb-2 lg:mb-4 opacity-90"
+            style={{ textShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
           >
             {translate("app.slogan")}
           </p>
@@ -1502,20 +1581,24 @@ export default function AuthPage() {
       </div>
 
       {/* Main content container - Sign in or Profile Creation */}
-      <div className="px-4 pt-6 pb-6 flex flex-col content-container -mt-8 rounded-t-3xl z-10 bg-white bg-opacity-95">
+      <div className="px-4 pt-6 pb-6 flex flex-col content-container -mt-8 rounded-t-3xl lg:rounded-3xl lg:max-w-lg lg:w-full lg:mx-auto lg:mb-4 lg:min-h-0 lg:max-h-[50vh] lg:pb-6 lg:flex-none lg:relative z-10 bg-white bg-opacity-95 lg:bg-opacity-90 lg:backdrop-blur-md lg:shadow-3xl">
         {/* App mode selection is now handled by the AppSelectionPage that appears after password verification */}
 
         {/* Initial Phone Login Button */}
         {!phoneVerificationSent &&
           !showPasswordStep &&
           !showProfileCreation && (
-            <div className="flex flex-col items-center justify-center py-6">
+            <div className="flex flex-col items-center justify-center py-6 lg:py-8 lg:px-8 lg:min-h-0">
               <Button
                 onClick={() => setPhoneVerificationSent(true)}
-                className="text-white px-8 py-4 rounded-full font-semibold text-lg shadow-lg"
+                className="text-white px-8 py-4 lg:px-12 lg:py-6 rounded-full font-semibold text-lg lg:text-xl shadow-lg lg:shadow-2xl hover:shadow-3xl transform hover:scale-105 lg:hover:scale-110 transition-all duration-300"
                 style={{
-                  background: "linear-gradient(to right, #7e22ce, #fb923c)",
-                  transition: "transform 0.2s",
+                  background:
+                    "linear-gradient(135deg, #7e22ce, #9333ea, #fb923c, #f97316)",
+                  backgroundSize: "300% 300%",
+                  animation: "gradient-shift 3s ease infinite",
+                  boxShadow:
+                    "0 10px 30px rgba(126, 34, 206, 0.3), 0 0 50px rgba(251, 146, 60, 0.2)",
                 }}
               >
                 <Phone className="h-5 w-5 mr-2" />
@@ -1563,6 +1646,7 @@ export default function AuthPage() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
+                className="w-full lg:px-8"
               >
                 <Form {...phoneForm}>
                   <form
@@ -1737,7 +1821,7 @@ export default function AuthPage() {
             !showResetPasswordForm &&
             !showResetCodeEntry && (
               <motion.div
-                className="max-w-md mx-auto w-full password-step-container"
+                className="max-w-md mx-auto w-full password-step-container lg:px-8"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -2044,7 +2128,7 @@ export default function AuthPage() {
             !showResetCodeEntry &&
             !showResetPasswordForm && (
               <motion.div
-                className="max-w-md mx-auto w-full"
+                className="max-w-md mx-auto w-full lg:px-8"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -2158,7 +2242,7 @@ export default function AuthPage() {
         <AnimatePresence mode="wait">
           {showResetCodeEntry && !showResetPasswordForm && (
             <motion.div
-              className="max-w-md mx-auto w-full"
+              className="max-w-md mx-auto w-full lg:px-8"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -2246,7 +2330,7 @@ export default function AuthPage() {
             !showForgotPassword &&
             !showResetCodeEntry && (
               <motion.div
-                className="max-w-md mx-auto w-full"
+                className="max-w-md mx-auto w-full lg:px-8"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -2443,7 +2527,7 @@ export default function AuthPage() {
         <AnimatePresence mode="wait">
           {showProfileCreation && (
             <motion.div
-              className="max-w-md mx-auto w-full profile-step-container"
+              className="max-w-md mx-auto w-full profile-step-container lg:px-8"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -3109,7 +3193,9 @@ export default function AuthPage() {
                                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                               ></path>
                             </svg>
-                            {translate("auth.creatingProfile")}
+                            {profileStep === 5
+                              ? translate("auth.creatingProfile")
+                              : translate("common.processing")}
                           </>
                         ) : (
                           <>

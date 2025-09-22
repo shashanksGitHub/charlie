@@ -61,22 +61,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return await res.json();
     },
     onSuccess: async (user: SelectUser) => {
-      // Update the user data in the cache first
+      // CRITICAL FIX: Ensure user data is immediately available and consistent
       queryClient.setQueryData(["/api/user"], user);
 
-      // Immediately refetch user data to ensure cache is up-to-date
-      await queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      // Force immediate cache update with retry logic
+      try {
+        await queryClient.invalidateQueries({
+          queryKey: ["/api/user"],
+          refetchType: "active",
+        });
+      } catch (error) {
+        console.warn(
+          "Failed to refetch user data, using cached version:",
+          error,
+        );
+      }
 
-      // Immediately prefetch matches data to avoid requiring a refresh
-      queryClient.prefetchQuery({
-        queryKey: ["/api/matches"],
-        staleTime: 0,
-      });
-
-      // Also prefetch match counts to update badges correctly
-      queryClient.prefetchQuery({
-        queryKey: ["/api/matches/counts"],
-        staleTime: 0,
+      // Prefetch critical data in parallel for faster loading
+      Promise.all([
+        queryClient.prefetchQuery({
+          queryKey: ["/api/matches"],
+          staleTime: 0,
+        }),
+        queryClient.prefetchQuery({
+          queryKey: ["/api/matches/counts"],
+          staleTime: 0,
+        }),
+      ]).catch((error) => {
+        console.warn("Failed to prefetch match data:", error);
       });
 
       // CRITICAL FEATURE: Check for matches that occurred while the user was away

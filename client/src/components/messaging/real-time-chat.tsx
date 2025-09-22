@@ -141,7 +141,6 @@ import {
 import { SimpleCameraCapture } from "@/components/messaging/simple-camera-capture";
 import { ReportUserDialog } from "@/components/messaging/report-user-dialog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { VideoCall } from "@/components/ui/video-call";
 import EmojiPicker from "@/components/ui/emoji-picker";
 import { CallLauncher } from "@/components/messaging/call-launcher";
 
@@ -382,11 +381,6 @@ const MultipleOriginBadges: React.FC<{ otherUserId: number }> = ({
     return null;
   }
 
-  // Debug logging to verify API data
-  console.log(
-    `[BADGE-DEBUG] Processing ${allMatches.length} matches for user ${otherUserId}:`,
-    allMatches,
-  );
 
   // Extract unique origins from all matches and combined metadata
   const origins = new Set<string>();
@@ -439,12 +433,6 @@ const MultipleOriginBadges: React.FC<{ otherUserId: number }> = ({
     }
   });
 
-  console.log(
-    `[BADGE-DEBUG] Extracted origins for user ${otherUserId}:`,
-    Array.from(origins),
-  );
-  console.log(`[BADGE-DEBUG] Origin data:`, originData);
-
   if (origins.size === 0) {
     return null;
   }
@@ -452,11 +440,6 @@ const MultipleOriginBadges: React.FC<{ otherUserId: number }> = ({
   // Helper function to render clickable badge
   const renderBadge = (origin: string) => {
     const handleBadgeClick = (badgeType: string) => {
-      console.log(`${badgeType} badge clicked!`, {
-        networkingProfile,
-        mentorshipProfile,
-        jobsProfile,
-      });
 
       // Navigate to the same URLs as percentage badges
       if (badgeType === "networking") {
@@ -569,6 +552,12 @@ const MultipleOriginBadges: React.FC<{ otherUserId: number }> = ({
 export function RealTimeChat({ matchId }: { matchId: number }) {
   const { user } = useAuth();
   const { isDarkMode } = useDarkMode();
+  
+  // Call state management
+  const [isVideoCallActive, setIsVideoCallActive] = useState(false);
+  const [isAudioCallActive, setIsAudioCallActive] = useState(false);
+  const [incomingCallId, setIncomingCallId] = useState<number | undefined>();
+  const [isIncomingCall, setIsIncomingCall] = useState(false);
   const { translate: originalTranslate } = useLanguage();
   const { toast } = useToast();
   const { currentMode, setAppMode } = useAppMode(); // Add app mode awareness
@@ -4776,10 +4765,6 @@ export function RealTimeChat({ matchId }: { matchId: number }) {
               `${currentMode}_message_count_${matchId}`,
               String(finalMessages.length),
             );
-
-            console.log(
-              `[FIX] Successfully saved ${finalMessages.length} messages to sessionStorage during cleanup`,
-            );
           } catch (sessionError) {
             console.warn(
               "[WARNING] Failed to save to sessionStorage during cleanup:",
@@ -4807,10 +4792,6 @@ export function RealTimeChat({ matchId }: { matchId: number }) {
 
             // Store with a synchronous call to ensure it completes
             localStorage.setItem(storageKey, storageData);
-
-            console.log(
-              `[FIX] Successfully saved ${finalMessages.length} messages to localStorage during cleanup`,
-            );
           } catch (localError) {
             console.error(
               "[ERROR] Failed localStorage save during cleanup - but sessionStorage might have worked:",
@@ -8412,10 +8393,6 @@ const useMessageDeletionListener = (
             const filtered = (old || []).filter(
               (msg: MessageWithReactions) => msg.id !== messageId,
             );
-            console.log(
-              `📡 WebSocket: Removed message ${messageId} from cache via WebSocket. Messages remaining:`,
-              filtered.length,
-            );
             return filtered;
           },
         );
@@ -8428,9 +8405,6 @@ const useMessageDeletionListener = (
             const parsed = JSON.parse(storedMessages);
             const filtered = parsed.filter((msg: any) => msg.id !== messageId);
             localStorage.setItem(storageKey, JSON.stringify(filtered));
-            console.log(
-              `📡 WebSocket: Cleared message ${messageId} from local storage`,
-            );
           }
         } catch (storageError) {
           console.warn(
@@ -8448,9 +8422,6 @@ const useMessageDeletionListener = (
 
         // Optional: Force refresh after a delay to ensure consistency
         setTimeout(() => {
-          console.log(
-            `📡 WebSocket: Force refreshing cache for match ${matchId} after WebSocket deletion`,
-          );
           queryClient.invalidateQueries({
             queryKey: ["/api/messages", matchId],
           });
