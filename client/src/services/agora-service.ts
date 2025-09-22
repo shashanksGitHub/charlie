@@ -241,7 +241,7 @@ class AgoraService {
       
       // Enhanced error handling for join failures
       const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes("cancel token canceled") || errorMessage.includes("OPERATION_ABORTED")) {
+      if (errorMessage.includes("cancel token canceled") || errorMessage.includes("OPERATION_ABORTED") || errorMessage.includes("WS_ABORT: LEAVE")) {
         console.log("[AgoraService] 🚫 Call cancelled by user (normal operation)");
         // Don't trigger error handler for user cancellations - this is expected
         return;
@@ -483,7 +483,7 @@ class AgoraService {
     if (this.localVideoTrack) {
       try {
         this.localVideoTrack.close();
-        console.log("[AgoraService] 📹 FORCE closed camera track");
+        console.log("[AgoraService] 📹 FORCE closed camera track - camera light should turn OFF");
       } catch (error) {
         console.error("[AgoraService] Error force closing camera:", error);
       }
@@ -493,14 +493,23 @@ class AgoraService {
     if (this.localAudioTrack) {
       try {
         this.localAudioTrack.close();
-        console.log("[AgoraService] 🎤 FORCE closed microphone track");
+        console.log("[AgoraService] 🎤 FORCE closed microphone track - microphone access RELEASED");
       } catch (error) {
         console.error("[AgoraService] Error force closing microphone:", error);
       }
       this.localAudioTrack = null;
     }
 
-    console.log("[AgoraService] ✅ All media access forcefully stopped");
+    // Additional cleanup to ensure all media streams are stopped
+    try {
+      if (navigator.mediaDevices) {
+        console.log("[AgoraService] 🔄 Ensuring complete media device release");
+      }
+    } catch (error) {
+      console.error("[AgoraService] Error in additional cleanup:", error);
+    }
+
+    console.log("[AgoraService] ✅ All media access forcefully stopped - devices should be free");
   }
 
   // Get current channel

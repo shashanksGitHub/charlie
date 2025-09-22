@@ -129,8 +129,11 @@ export function AgoraVideoCall({
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-      if (open) {
-        console.log("[AgoraVideoCall] Component unmounting, ensuring camera/mic cleanup");
+      if (open && !isCleaningUp) {
+        console.log("[AgoraVideoCall] Component unmounting, IMMEDIATE camera/mic cleanup");
+        // Immediately stop camera/mic first
+        agoraService.forceStopAllMedia();
+        // Then do full cleanup
         agoraService.leaveCall().catch(error => {
           console.error("[AgoraVideoCall] Error during unmount cleanup:", error);
         });
@@ -250,11 +253,19 @@ export function AgoraVideoCall({
         
       } catch (error) {
         console.error("[AgoraVideoCall] Failed to join Agora channel:", error);
-        toast({
-          title: "Connection Failed", 
-          description: "Failed to join the call. Please try again.",
-          variant: "destructive",
-        });
+        
+        // Check if this is a user cancellation vs actual failure
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        if (errorMessage.includes("WS_ABORT: LEAVE") || errorMessage.includes("cancel") || errorMessage.includes("OPERATION_ABORTED")) {
+          console.log("[AgoraVideoCall] Call was cancelled by user, no error toast needed");
+          // Don't show error toast for user cancellations
+        } else {
+          toast({
+            title: "Call Disconnected", 
+            description: "The call could not be connected. Please try again.",
+            variant: "destructive",
+          });
+        }
         handleEndCall();
       }
     };
@@ -762,6 +773,10 @@ export function AgoraVideoCall({
                 onClose();
                 return;
               }
+
+              // IMMEDIATELY stop camera/mic when red button is clicked
+              console.log("[AgoraVideoCall] Red button clicked - IMMEDIATELY stopping camera/mic");
+              agoraService.forceStopAllMedia();
 
               if (isIncoming && callStatus === "connecting") {
                 console.log("[AgoraVideoCall] Declining incoming call");
