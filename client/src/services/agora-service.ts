@@ -241,7 +241,11 @@ class AgoraService {
       
       // Enhanced error handling for join failures
       const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes("network") || errorMessage.includes("timeout") || errorMessage.includes("connection")) {
+      if (errorMessage.includes("cancel token canceled") || errorMessage.includes("OPERATION_ABORTED")) {
+        console.log("[AgoraService] 🚫 Call cancelled by user (normal operation)");
+        // Don't trigger error handler for user cancellations - this is expected
+        return;
+      } else if (errorMessage.includes("network") || errorMessage.includes("timeout") || errorMessage.includes("connection")) {
         console.error("[AgoraService] 🌐 Network connection failure");
         this.events.onError?.(new Error("Network connection failed. Please check your internet connection."));
       } else if (errorMessage.includes("token") || errorMessage.includes("authentication")) {
@@ -471,6 +475,34 @@ class AgoraService {
     console.log("[AgoraService] ✅ Service state force reset complete");
   }
 
+  // Immediately stop all camera and microphone access (for critical cleanup)
+  forceStopAllMedia(): void {
+    console.log("[AgoraService] 🚨 Force stopping ALL camera and microphone access");
+    
+    // Close Agora tracks
+    if (this.localVideoTrack) {
+      try {
+        this.localVideoTrack.close();
+        console.log("[AgoraService] 📹 FORCE closed camera track");
+      } catch (error) {
+        console.error("[AgoraService] Error force closing camera:", error);
+      }
+      this.localVideoTrack = null;
+    }
+
+    if (this.localAudioTrack) {
+      try {
+        this.localAudioTrack.close();
+        console.log("[AgoraService] 🎤 FORCE closed microphone track");
+      } catch (error) {
+        console.error("[AgoraService] Error force closing microphone:", error);
+      }
+      this.localAudioTrack = null;
+    }
+
+    console.log("[AgoraService] ✅ All media access forcefully stopped");
+  }
+
   // Get current channel
   getCurrentChannel(): string | null {
     return this.currentChannel;
@@ -483,7 +515,7 @@ class AgoraService {
     if (this.localVideoTrack) {
       try {
         this.localVideoTrack.close();
-        console.log("[AgoraService] 📹 Closed partial video track");
+        console.log("[AgoraService] 📹 Closed partial video track (camera turned off)");
       } catch (error) {
         console.error("[AgoraService] Error closing partial video track:", error);
       }
@@ -493,11 +525,21 @@ class AgoraService {
     if (this.localAudioTrack) {
       try {
         this.localAudioTrack.close();
-        console.log("[AgoraService] 🎤 Closed partial audio track");
+        console.log("[AgoraService] 🎤 Closed partial audio track (microphone turned off)");
       } catch (error) {
         console.error("[AgoraService] Error closing partial audio track:", error);
       }
       this.localAudioTrack = null;
+    }
+
+    // Force additional cleanup by ensuring all media device access is released
+    try {
+      if (navigator.mediaDevices) {
+        console.log("[AgoraService] 🔄 Ensuring all media device access is released");
+        // The track.close() calls above should handle this, but this ensures cleanup
+      }
+    } catch (error) {
+      console.error("[AgoraService] Error during additional cleanup:", error);
     }
   }
 

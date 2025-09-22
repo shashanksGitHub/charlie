@@ -91,8 +91,12 @@ export function AgoraVideoCall({
         variant: "destructive",
       });
       
-      // Clean up camera and mic on any Agora error
-      console.log("[AgoraVideoCall] Cleaning up camera/mic due to Agora error");
+      // IMMEDIATELY stop all camera and mic access on any error
+      console.log("[AgoraVideoCall] IMMEDIATELY stopping camera/mic due to Agora error");
+      agoraService.forceStopAllMedia();
+      
+      // Then do full cleanup
+      console.log("[AgoraVideoCall] Performing full cleanup after error");
       handleEndCall();
     };
 
