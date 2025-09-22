@@ -42,6 +42,7 @@ class AgoraService {
   private localVideoTrack: ICameraVideoTrack | null = null;
   private localAudioTrack: IMicrophoneAudioTrack | null = null;
   private isJoined: boolean = false;
+  private isJoining: boolean = false;
   private currentChannel: string | null = null;
   private events: Partial<AgoraCallEvents> = {};
   private participants: Map<UID, CallParticipant> = new Map();
@@ -177,33 +178,47 @@ class AgoraService {
     try {
       console.log(`[AgoraService] Joining channel: ${config.channel}`);
       
+      // Prevent multiple simultaneous join attempts
+      if (this.isJoining) {
+        console.log("[AgoraService] Already joining a channel, skipping duplicate join");
+        return;
+      }
+
       // Leave existing call if already joined
       if (this.isJoined) {
         await this.leaveCall();
       }
 
-      // Create local tracks first (before joining)
-      await this.createLocalTracks();
+      this.isJoining = true;
 
-      // Join the channel
-      const uid = await this.client.join(
-        config.appId,
-        config.channel,
-        config.token || null,
-        config.uid || null
-      );
+      try {
+        // Create local tracks first (before joining)
+        await this.createLocalTracks();
 
-      console.log(`[AgoraService] Successfully joined channel with UID: ${uid}`);
-      
-      this.isJoined = true;
-      this.currentChannel = config.channel;
+        // Join the channel
+        const uid = await this.client.join(
+          config.appId,
+          config.channel,
+          config.token || null,
+          config.uid || null
+        );
 
-      // Wait a moment for connection to stabilize, then publish tracks
-      await new Promise(resolve => setTimeout(resolve, 100));
-      await this.publishLocalTracks();
+        console.log(`[AgoraService] Successfully joined channel with UID: ${uid}`);
+        
+        this.isJoined = true;
+        this.currentChannel = config.channel;
+
+        // Wait a moment for connection to stabilize, then publish tracks
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await this.publishLocalTracks();
+        
+      } finally {
+        this.isJoining = false;
+      }
       
     } catch (error) {
       console.error("[AgoraService] Failed to join channel:", error);
+      this.isJoining = false;
       this.events.onError?.(error as Error);
       throw error;
     }
@@ -258,8 +273,11 @@ class AgoraService {
       }
     } catch (error) {
       console.error("[AgoraService] Failed to publish local tracks:", error);
-      this.events.onError?.(error as Error);
-      throw error;
+      // Don't throw error here during join process - let join complete
+      if (!this.isJoining) {
+        this.events.onError?.(error as Error);
+        throw error;
+      }
     }
   }
 
@@ -355,6 +373,9 @@ class AgoraService {
         this.isJoined = false;
         this.currentChannel = null;
       }
+
+      // Reset joining state
+      this.isJoining = false;
 
       // Close and cleanup local tracks
       if (this.localVideoTrack) {
