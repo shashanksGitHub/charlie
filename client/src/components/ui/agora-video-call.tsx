@@ -41,6 +41,7 @@ export function AgoraVideoCall({
   const [callTimer, setCallTimer] = useState(0);
   const [participants, setParticipants] = useState<CallParticipant[]>([]);
   const [isAudioOnly, setIsAudioOnly] = useState(false);
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
   const [agoraConfig, setAgoraConfig] = useState<{
     appId: string;
     token?: string;
@@ -371,6 +372,14 @@ export function AgoraVideoCall({
   };
 
   const handleEndCall = async () => {
+    if (isCleaningUp) {
+      console.log("[AgoraVideoCall] Already cleaning up, skipping duplicate end call");
+      return;
+    }
+    
+    setIsCleaningUp(true);
+    console.log("[AgoraVideoCall] Starting call end cleanup");
+
     try {
       // Leave Agora channel
       await agoraService.leaveCall();
@@ -402,6 +411,14 @@ export function AgoraVideoCall({
   };
 
   const handleCancelCall = async () => {
+    if (isCleaningUp) {
+      console.log("[AgoraVideoCall] Already cleaning up, skipping duplicate cancel call");
+      return;
+    }
+    
+    setIsCleaningUp(true);
+    console.log("[AgoraVideoCall] Starting call cancel cleanup");
+
     try {
       await agoraService.leaveCall();
       setCallStatus("ended");
@@ -431,6 +448,14 @@ export function AgoraVideoCall({
   };
 
   const handleDeclineCall = async () => {
+    if (isCleaningUp) {
+      console.log("[AgoraVideoCall] Already cleaning up, skipping duplicate decline call");
+      return;
+    }
+    
+    setIsCleaningUp(true);
+    console.log("[AgoraVideoCall] Starting call decline cleanup");
+
     try {
       await agoraService.leaveCall();
       setCallStatus("ended");
@@ -501,6 +526,14 @@ export function AgoraVideoCall({
   };
 
   const handleRemoteClose = async () => {
+    if (isCleaningUp) {
+      console.log("[AgoraVideoCall] Already cleaning up, skipping duplicate remote close");
+      return;
+    }
+    
+    setIsCleaningUp(true);
+    console.log("[AgoraVideoCall] Starting remote close cleanup");
+
     try {
       await agoraService.leaveCall();
     } catch (error) {
@@ -527,7 +560,8 @@ export function AgoraVideoCall({
     <Dialog
       open={open}
       onOpenChange={(isOpen) => {
-        if (!isOpen) {
+        if (!isOpen && !isCleaningUp) {
+          console.log("[AgoraVideoCall] Dialog closing, determining cleanup action");
           if (isIncoming && callStatus === "connecting") {
             handleDeclineCall();
           } else if (!isIncoming && callStatus === "connecting") {
