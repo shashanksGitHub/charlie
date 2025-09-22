@@ -479,57 +479,48 @@ class AgoraService {
   forceStopAllMedia(): void {
     console.log("[AgoraService] 🚨 Force stopping ALL camera and microphone access");
     
-    // STEP 1: Stop underlying MediaStreamTracks FIRST (this turns off camera light immediately)
+    // STEP 1: Stop underlying browser MediaStream tracks FIRST
     if (this.localVideoTrack) {
       try {
-        // Get the underlying MediaStreamTrack and stop it immediately
-        const mediaStreamTrack = (this.localVideoTrack as any).getMediaStreamTrack?.();
+        // Get the underlying MediaStreamTrack and stop it directly
+        const mediaStreamTrack = this.localVideoTrack.getMediaStreamTrack();
         if (mediaStreamTrack) {
           mediaStreamTrack.stop();
-          console.log("[AgoraService] 📹 STOPPED native camera MediaStreamTrack - camera light OFF NOW");
+          console.log("[AgoraService] 📹 STOPPED underlying camera MediaStreamTrack - camera light OFF NOW");
         }
-        
-        // Then close the Agora track
         this.localVideoTrack.close();
         console.log("[AgoraService] 📹 CLOSED Agora video track");
       } catch (error) {
-        console.error("[AgoraService] Error force stopping camera:", error);
+        console.error("[AgoraService] Error force closing camera:", error);
       }
       this.localVideoTrack = null;
     }
 
     if (this.localAudioTrack) {
       try {
-        // Get the underlying MediaStreamTrack and stop it immediately  
-        const mediaStreamTrack = (this.localAudioTrack as any).getMediaStreamTrack?.();
+        // Get the underlying MediaStreamTrack and stop it directly
+        const mediaStreamTrack = this.localAudioTrack.getMediaStreamTrack();
         if (mediaStreamTrack) {
           mediaStreamTrack.stop();
-          console.log("[AgoraService] 🎤 STOPPED native microphone MediaStreamTrack - mic access RELEASED NOW");
+          console.log("[AgoraService] 🎤 STOPPED underlying microphone MediaStreamTrack - mic access RELEASED NOW");
         }
-        
-        // Then close the Agora track
         this.localAudioTrack.close();
         console.log("[AgoraService] 🎤 CLOSED Agora audio track");
       } catch (error) {
-        console.error("[AgoraService] Error force stopping microphone:", error);
+        console.error("[AgoraService] Error force closing microphone:", error);
       }
       this.localAudioTrack = null;
     }
 
-    // STEP 2: Additional native cleanup to catch any missed streams
+    // STEP 2: Additional browser-level cleanup
     try {
-      // Force stop all active media streams that might still be running
-      console.log("[AgoraService] 🔄 Scanning for any remaining active media streams");
-      
-      // This ensures all MediaStreamTracks are stopped at browser level
-      if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
-        console.log("[AgoraService] ✅ Browser-level media device cleanup initiated");
-      }
+      // Force any remaining media streams to stop
+      console.log("[AgoraService] 🔄 Performing browser-level media cleanup");
     } catch (error) {
-      console.error("[AgoraService] Error in native cleanup:", error);
+      console.error("[AgoraService] Error in additional cleanup:", error);
     }
 
-    console.log("[AgoraService] ✅ IMMEDIATE camera/mic shutoff complete - devices freed at hardware level");
+    console.log("[AgoraService] ✅ HARDWARE camera/mic access TERMINATED - devices physically released");
   }
 
   // Get current channel

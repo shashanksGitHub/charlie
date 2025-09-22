@@ -261,8 +261,7 @@ export function AgoraVideoCall({
           // Don't show error toast for user cancellations
         } else {
           toast({
-            title: "Call Disconnected", 
-            description: "",
+            title: "Call Disconnected",
             variant: "destructive",
           });
         }
