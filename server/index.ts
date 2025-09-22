@@ -14,20 +14,23 @@ dotenv.config();
  * Pings the database every 4 minutes to keep connections warm
  */
 function startDatabaseKeepAlive(): void {
-  console.log("[DATABASE-KEEPALIVE] Starting keep-alive mechanism for Neon database");
+  console.log("[DATABASE-KEEPALIVE] Starting keep-alive mechanism for Neon HTTP database");
   
   const pingDatabase = async () => {
     try {
       const start = Date.now();
+      // Simple query to keep database warm
       await db.select().from(blockedPhoneNumbers).limit(1);
       const duration = Date.now() - start;
-      console.log(`[DATABASE-KEEPALIVE] Ping successful in ${duration}ms`);
-         } catch (error) {
-       console.error("[DATABASE-KEEPALIVE] Ping failed:", error instanceof Error ? error.message : error);
-     }
+      console.log(`[DATABASE-KEEPALIVE] HTTP ping successful in ${duration}ms`);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("[DATABASE-KEEPALIVE] HTTP ping failed:", errorMsg);
+    }
   };
   
   // Initial ping to test connection
+  console.log("[DATABASE-KEEPALIVE] Testing initial database connection...");
   pingDatabase();
   
   // Set up interval to ping every 4 minutes (240,000ms)
@@ -45,7 +48,7 @@ function startDatabaseKeepAlive(): void {
     clearInterval(keepAliveInterval);
   });
   
-  console.log("[DATABASE-KEEPALIVE] Keep-alive mechanism started (ping every 4 minutes)");
+  console.log("[DATABASE-KEEPALIVE] HTTP keep-alive mechanism started (ping every 4 minutes)");
 }
 
 const app = express();

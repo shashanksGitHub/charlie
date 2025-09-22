@@ -1,5 +1,5 @@
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { neonConfig, Pool } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
 import {
   users,
   userPreferences,
@@ -23,24 +23,12 @@ import {
   compatibilityAnalysis,
   kwameConversations,
 } from "@shared/schema";
-import ws from "ws";
 
-// Configure WebSocket for Neon in Node.js environment
-if (typeof process !== "undefined" && process.versions?.node) {
-  neonConfig.fetchConnectionCache = true;
-  neonConfig.webSocketConstructor = ws;
-  // Disable SSL verification for self-signed certificates in development
-  process.env['NODE_TLS_REJECT_UNAUTHORIZED'] = '0';
-}
+// Create Neon HTTP connection
+const sql = neon(process.env.DATABASE_URL!);
 
-// Create a connection pool with SSL configuration
-export const pool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? true : false
-});
-
-// Create a drizzle client
-export const db = drizzle(pool, {
+// Create a drizzle client with HTTP driver (much faster and more reliable)
+export const db = drizzle(sql, {
   schema: {
     users,
     userPreferences,
