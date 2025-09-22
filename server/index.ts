@@ -3,9 +3,50 @@ import { registerRoutes } from "./routes";
 import { registerGodmodelAPI } from "./godmodel-api";
 import { setupVite, serveStatic, log } from "./vite";
 import dotenv from "dotenv";
+import { db } from "./db";
+import { blockedPhoneNumbers } from "@shared/schema";
 
 // Load environment variables from .env file
 dotenv.config();
+
+/**
+ * Database keep-alive mechanism to prevent Neon PostgreSQL cold starts
+ * Pings the database every 4 minutes to keep connections warm
+ */
+function startDatabaseKeepAlive(): void {
+  console.log("[DATABASE-KEEPALIVE] Starting keep-alive mechanism for Neon database");
+  
+  const pingDatabase = async () => {
+    try {
+      const start = Date.now();
+      await db.select().from(blockedPhoneNumbers).limit(1);
+      const duration = Date.now() - start;
+      console.log(`[DATABASE-KEEPALIVE] Ping successful in ${duration}ms`);
+         } catch (error) {
+       console.error("[DATABASE-KEEPALIVE] Ping failed:", error instanceof Error ? error.message : error);
+     }
+  };
+  
+  // Initial ping to test connection
+  pingDatabase();
+  
+  // Set up interval to ping every 4 minutes (240,000ms)
+  // This prevents Neon from sleeping (5-minute timeout)
+  const keepAliveInterval = setInterval(pingDatabase, 240000);
+  
+  // Cleanup on process termination
+  process.on('SIGTERM', () => {
+    console.log("[DATABASE-KEEPALIVE] Cleaning up keep-alive on shutdown");
+    clearInterval(keepAliveInterval);
+  });
+  
+  process.on('SIGINT', () => {
+    console.log("[DATABASE-KEEPALIVE] Cleaning up keep-alive on shutdown");
+    clearInterval(keepAliveInterval);
+  });
+  
+  console.log("[DATABASE-KEEPALIVE] Keep-alive mechanism started (ping every 4 minutes)");
+}
 
 const app = express();
 app.use(express.json({ limit: "10gb" }));
@@ -81,6 +122,9 @@ app.use((req, res, next) => {
   startServer(server, () => {
     console.log("[SERVER-DEBUG] Server startup callback executed");
     log("Server started successfully");
+    
+    // Start database keep-alive mechanism to prevent Neon cold starts
+    startDatabaseKeepAlive();
   });
   } catch (error) {
     console.error("[SERVER-DEBUG] Fatal error during server initialization:");
