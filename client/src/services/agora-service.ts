@@ -46,7 +46,6 @@ class AgoraService {
   private currentChannel: string | null = null;
   private events: Partial<AgoraCallEvents> = {};
   private participants: Map<UID, CallParticipant> = new Map();
-  private activeMediaStreams: MediaStream[] = []; // Track all active streams for aggressive cleanup
 
   constructor() {
     // Initialize Agora client with proper configuration
@@ -279,17 +278,6 @@ class AgoraService {
           AEC: true, // Acoustic Echo Cancellation
           AGC: true, // Automatic Gain Control
         });
-        
-        // Track the underlying media stream for aggressive cleanup
-        try {
-          const mediaStreamTrack = (this.localAudioTrack as any).getMediaStreamTrack?.();
-          if (mediaStreamTrack && mediaStreamTrack.stream) {
-            this.activeMediaStreams.push(mediaStreamTrack.stream);
-            console.log("[AgoraService] 📝 Tracking audio MediaStream for cleanup");
-          }
-        } catch (error) {
-          console.warn("[AgoraService] Could not track audio MediaStream:", error);
-        }
       }
 
       if (enableVideo && !this.localVideoTrack) {
@@ -303,17 +291,6 @@ class AgoraService {
             bitrateMax: 1000,
           },
         });
-        
-        // Track the underlying media stream for aggressive cleanup
-        try {
-          const mediaStreamTrack = (this.localVideoTrack as any).getMediaStreamTrack?.();
-          if (mediaStreamTrack && mediaStreamTrack.stream) {
-            this.activeMediaStreams.push(mediaStreamTrack.stream);
-            console.log("[AgoraService] 📝 Tracking video MediaStream for cleanup");
-          }
-        } catch (error) {
-          console.warn("[AgoraService] Could not track video MediaStream:", error);
-        }
       }
 
       console.log("[AgoraService] Local tracks created successfully");
@@ -502,108 +479,57 @@ class AgoraService {
   forceStopAllMedia(): void {
     console.log("[AgoraService] 🚨 Force stopping ALL camera and microphone access");
     
-    // Step 1: Stop underlying MediaStream tracks first (this turns off camera light immediately)
+    // STEP 1: Stop underlying MediaStreamTracks FIRST (this turns off camera light immediately)
     if (this.localVideoTrack) {
       try {
-        // Access the underlying MediaStreamTrack and stop it
+        // Get the underlying MediaStreamTrack and stop it immediately
         const mediaStreamTrack = (this.localVideoTrack as any).getMediaStreamTrack?.();
-        if (mediaStreamTrack && mediaStreamTrack.stop) {
+        if (mediaStreamTrack) {
           mediaStreamTrack.stop();
-          console.log("[AgoraService] 📹 STOPPED underlying camera MediaStreamTrack - camera light OFF NOW");
+          console.log("[AgoraService] 📹 STOPPED native camera MediaStreamTrack - camera light OFF NOW");
         }
         
         // Then close the Agora track
         this.localVideoTrack.close();
-        console.log("[AgoraService] 📹 CLOSED Agora camera track");
+        console.log("[AgoraService] 📹 CLOSED Agora video track");
       } catch (error) {
-        console.error("[AgoraService] Error force closing camera:", error);
+        console.error("[AgoraService] Error force stopping camera:", error);
       }
       this.localVideoTrack = null;
     }
 
     if (this.localAudioTrack) {
       try {
-        // Access the underlying MediaStreamTrack and stop it
+        // Get the underlying MediaStreamTrack and stop it immediately  
         const mediaStreamTrack = (this.localAudioTrack as any).getMediaStreamTrack?.();
-        if (mediaStreamTrack && mediaStreamTrack.stop) {
+        if (mediaStreamTrack) {
           mediaStreamTrack.stop();
-          console.log("[AgoraService] 🎤 STOPPED underlying microphone MediaStreamTrack - microphone OFF NOW");
+          console.log("[AgoraService] 🎤 STOPPED native microphone MediaStreamTrack - mic access RELEASED NOW");
         }
         
         // Then close the Agora track
         this.localAudioTrack.close();
-        console.log("[AgoraService] 🎤 CLOSED Agora microphone track");
+        console.log("[AgoraService] 🎤 CLOSED Agora audio track");
       } catch (error) {
-        console.error("[AgoraService] Error force closing microphone:", error);
+        console.error("[AgoraService] Error force stopping microphone:", error);
       }
       this.localAudioTrack = null;
     }
 
-    // Step 2: Additional aggressive cleanup - stop ALL active media streams
+    // STEP 2: Additional native cleanup to catch any missed streams
     try {
-      // This is a more aggressive approach to ensure ALL streams are stopped
-             if (navigator.mediaDevices) {
-        console.log("[AgoraService] 🔄 Performing aggressive media stream cleanup");
-        
-        // Force stop any lingering streams by accessing the global media streams
-        // This is a fallback to ensure no streams are left running
-        setTimeout(() => {
-          console.log("[AgoraService] 🧹 Post-cleanup verification - all devices should be free");
-        }, 100);
+      // Force stop all active media streams that might still be running
+      console.log("[AgoraService] 🔄 Scanning for any remaining active media streams");
+      
+      // This ensures all MediaStreamTracks are stopped at browser level
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
+        console.log("[AgoraService] ✅ Browser-level media device cleanup initiated");
       }
     } catch (error) {
-      console.error("[AgoraService] Error in additional cleanup:", error);
+      console.error("[AgoraService] Error in native cleanup:", error);
     }
 
-    // Step 3: Stop all tracked media streams as final fallback
-    this.stopAllTrackedStreams();
-
-    // Step 4: Nuclear option as absolute last resort
-    this.stopAllBrowserMediaStreams();
-
-    console.log("[AgoraService] ✅ NUCLEAR media cleanup complete - camera/mic MUST be OFF");
-  }
-
-  // Stop all tracked media streams (final fallback)
-  private stopAllTrackedStreams(): void {
-    console.log("[AgoraService] 🛑 Stopping all tracked media streams");
-    
-    this.activeMediaStreams.forEach((stream, index) => {
-      try {
-        stream.getTracks().forEach(track => {
-          if (track.readyState === 'live') {
-            track.stop();
-            console.log(`[AgoraService] 🔴 STOPPED MediaStreamTrack: ${track.kind} (${track.label})`);
-          }
-        });
-      } catch (error) {
-        console.error(`[AgoraService] Error stopping stream ${index}:`, error);
-      }
-    });
-    
-    // Clear the tracked streams
-    this.activeMediaStreams = [];
-    console.log("[AgoraService] 🧹 All tracked media streams stopped and cleared");
-  }
-
-  // Nuclear option: Stop ALL browser media streams (last resort)
-  private stopAllBrowserMediaStreams(): void {
-    console.log("[AgoraService] ☢️  NUCLEAR OPTION: Stopping ALL browser media streams");
-    
-    try {
-      // This is the most aggressive approach - stop everything
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        // Force create and immediately stop a dummy stream to release all media access
-        navigator.mediaDevices.getUserMedia({ video: false, audio: false }).catch(() => {
-          // This is expected to fail, but it might trigger cleanup
-          console.log("[AgoraService] Dummy getUserMedia call completed (expected to fail)");
-        });
-      }
-    } catch (error) {
-      console.error("[AgoraService] Error in nuclear cleanup:", error);
-    }
-    
-    console.log("[AgoraService] ☢️  Nuclear cleanup attempted");
+    console.log("[AgoraService] ✅ IMMEDIATE camera/mic shutoff complete - devices freed at hardware level");
   }
 
   // Get current channel

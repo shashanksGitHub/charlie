@@ -262,7 +262,7 @@ export function AgoraVideoCall({
         } else {
           toast({
             title: "Call Disconnected", 
-            description: "The call could not be connected. Please try again.",
+            description: "",
             variant: "destructive",
           });
         }
