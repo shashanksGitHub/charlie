@@ -182,6 +182,9 @@ class AgoraService {
         await this.leaveCall();
       }
 
+      // Create local tracks first (before joining)
+      await this.createLocalTracks();
+
       // Join the channel
       const uid = await this.client.join(
         config.appId,
@@ -195,8 +198,8 @@ class AgoraService {
       this.isJoined = true;
       this.currentChannel = config.channel;
 
-      // Create and publish local tracks
-      await this.createLocalTracks();
+      // Wait a moment for connection to stabilize, then publish tracks
+      await new Promise(resolve => setTimeout(resolve, 100));
       await this.publishLocalTracks();
       
     } catch (error) {
@@ -230,6 +233,12 @@ class AgoraService {
   // Publish local tracks
   async publishLocalTracks(): Promise<void> {
     try {
+      // Check if we're actually joined before publishing
+      if (!this.isJoined) {
+        console.error("[AgoraService] Cannot publish tracks - not joined to channel yet");
+        throw new Error("Cannot publish tracks - not joined to channel");
+      }
+
       const tracks = [];
       
       if (this.localVideoTrack) {
@@ -241,8 +250,11 @@ class AgoraService {
       }
 
       if (tracks.length > 0) {
+        console.log(`[AgoraService] Publishing ${tracks.length} local tracks...`);
         await this.client.publish(tracks);
-        console.log(`[AgoraService] Published ${tracks.length} local tracks`);
+        console.log(`[AgoraService] Successfully published ${tracks.length} local tracks`);
+      } else {
+        console.log("[AgoraService] No local tracks to publish");
       }
     } catch (error) {
       console.error("[AgoraService] Failed to publish local tracks:", error);
