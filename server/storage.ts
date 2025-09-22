@@ -110,7 +110,7 @@ import {
   type InsertProfessionalReview,
 } from "@shared/schema";
 import session from "express-session";
-import { db, pool } from "./db";
+import { db } from "./db";
 import {
   eq,
   and,
@@ -797,10 +797,11 @@ export class DatabaseStorage implements IStorage {
       return undefined;
     }
 
-    const allUsers = await this.getAllUsers();
-    const matchingUsers = allUsers.filter(
-      (user) => user.phoneNumber === phoneNumber,
-    );
+    // PERFORMANCE FIX: Use direct database query instead of downloading all users
+    const matchingUsers = await db
+      .select()
+      .from(users)
+      .where(eq(users.phoneNumber, phoneNumber));
 
     if (matchingUsers.length > 1) {
       console.warn(
