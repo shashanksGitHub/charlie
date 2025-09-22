@@ -776,6 +776,9 @@ export function AgoraVideoCall({
               // IMMEDIATELY stop camera/mic when red button is clicked
               console.log("[AgoraVideoCall] Red button clicked - IMMEDIATELY stopping camera/mic");
               agoraService.forceStopAllMedia();
+              
+              // Additional web controls for complete browser-level shutoff
+              agoraService.stopAllBrowserMedia();
 
               if (isIncoming && callStatus === "connecting") {
                 console.log("[AgoraVideoCall] Declining incoming call");
