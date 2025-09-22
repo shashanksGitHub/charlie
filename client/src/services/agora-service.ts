@@ -163,8 +163,21 @@ class AgoraService {
 
     // Handle client exceptions
     this.client.on("exception", (evt) => {
-      console.error("[AgoraService] Client exception:", evt);
-      this.events.onError?.(new Error(`Agora client exception: ${evt.code} - ${evt.msg}`));
+      console.log(`[AgoraService] Client exception: ${evt.code} - ${evt.msg}`);
+      
+      // Only treat critical errors as actual errors, warnings are just logged
+      const criticalErrorCodes = [1001, 1002, 1005, 1006]; // Critical error codes
+      const audioBitrateWarning = 2003; // SEND_AUDIO_BITRATE_TOO_LOW
+      
+      if (criticalErrorCodes.includes(evt.code)) {
+        this.events.onError?.(new Error(`Agora client exception: ${evt.code} - ${evt.msg}`));
+      } else if (evt.code === audioBitrateWarning) {
+        // Audio bitrate warning is common and non-critical, just log it
+        console.warn(`[AgoraService] Audio bitrate warning (${evt.code}): ${evt.msg}`);
+      } else {
+        // Other non-critical warnings are just logged
+        console.warn(`[AgoraService] Non-critical warning: ${evt.code} - ${evt.msg}`);
+      }
     });
   }
 
@@ -230,11 +243,30 @@ class AgoraService {
       console.log(`[AgoraService] Creating local tracks (video: ${enableVideo}, audio: ${enableAudio})`);
 
       if (enableAudio && !this.localAudioTrack) {
-        this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        // Create audio track with higher quality settings
+        this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+          encoderConfig: {
+            sampleRate: 48000,
+            stereo: true,
+            bitrate: 128,
+          },
+          ANS: true, // Automatic Noise Suppression
+          AEC: true, // Acoustic Echo Cancellation
+          AGC: true, // Automatic Gain Control
+        });
       }
 
       if (enableVideo && !this.localVideoTrack) {
-        this.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+        // Create video track with better quality settings
+        this.localVideoTrack = await AgoraRTC.createCameraVideoTrack({
+          encoderConfig: {
+            width: 640,
+            height: 480,
+            frameRate: 15,
+            bitrateMin: 400,
+            bitrateMax: 1000,
+          },
+        });
       }
 
       console.log("[AgoraService] Local tracks created successfully");
@@ -287,8 +319,16 @@ class AgoraService {
       if (!this.localVideoTrack) {
         if (enable === false) return false;
         
-        // Create video track if it doesn't exist
-        this.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+        // Create video track if it doesn't exist with high quality settings
+        this.localVideoTrack = await AgoraRTC.createCameraVideoTrack({
+          encoderConfig: {
+            width: 640,
+            height: 480,
+            frameRate: 15,
+            bitrateMin: 400,
+            bitrateMax: 1000,
+          },
+        });
         if (this.isJoined) {
           await this.client.publish(this.localVideoTrack);
         }
@@ -313,8 +353,17 @@ class AgoraService {
       if (!this.localAudioTrack) {
         if (enable === false) return false;
         
-        // Create audio track if it doesn't exist
-        this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        // Create audio track if it doesn't exist with high quality settings
+        this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack({
+          encoderConfig: {
+            sampleRate: 48000,
+            stereo: true,
+            bitrate: 128,
+          },
+          ANS: true, // Automatic Noise Suppression
+          AEC: true, // Acoustic Echo Cancellation
+          AGC: true, // Automatic Gain Control
+        });
         if (this.isJoined) {
           await this.client.publish(this.localAudioTrack);
         }
@@ -377,13 +426,15 @@ class AgoraService {
       // Reset joining state
       this.isJoining = false;
 
-      // Close and cleanup local tracks
+      // Close and cleanup local tracks (camera and microphone)
       if (this.localVideoTrack) {
+        console.log("[AgoraService] 📹 Closing camera (video track)");
         this.localVideoTrack.close();
         this.localVideoTrack = null;
       }
 
       if (this.localAudioTrack) {
+        console.log("[AgoraService] 🎤 Closing microphone (audio track)");
         this.localAudioTrack.close();
         this.localAudioTrack = null;
       }

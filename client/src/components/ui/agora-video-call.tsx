@@ -106,6 +106,30 @@ export function AgoraVideoCall({
     };
   }, [open]);
 
+  // Cleanup camera and mic when component unmounts or page unloads
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      console.log("[AgoraVideoCall] Page unloading, ensuring camera/mic cleanup");
+      agoraService.leaveCall().catch(error => {
+        console.error("[AgoraVideoCall] Error during page unload cleanup:", error);
+      });
+    };
+
+    if (open) {
+      window.addEventListener("beforeunload", handleBeforeUnload);
+    }
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      if (open) {
+        console.log("[AgoraVideoCall] Component unmounting, ensuring camera/mic cleanup");
+        agoraService.leaveCall().catch(error => {
+          console.error("[AgoraVideoCall] Error during unmount cleanup:", error);
+        });
+      }
+    };
+  }, [open]);
+
   // Setup call when dialog opens
   useEffect(() => {
     if (!open) return;
