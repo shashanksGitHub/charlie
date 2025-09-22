@@ -877,15 +877,12 @@ export function MeetMessagesNew() {
       }
     };
 
-    // PERFORMANCE FIX: Remove aggressive polling - rely on WebSocket events instead
-    // Periodic polling disabled to prevent API flood
-    // const periodicMatchCheck = setInterval(() => {
-    //   console.log("🔍 Performing periodic match check");
-    //   checkForNewMatch();
-    //   refetch();
-    // }, 10000); // Check every 10 seconds
-    
-    console.log("🔄 [PERFORMANCE] Relying on WebSocket events instead of polling");
+    // CRITICAL FIX: Add periodic check for new matches
+    const periodicMatchCheck = setInterval(() => {
+      console.log("🔍 Performing periodic match check");
+      checkForNewMatch();
+      refetch();
+    }, 10000); // Check every 10 seconds
 
     // Add event listeners
     window.addEventListener("match:created", handleMatchCreated);
@@ -971,7 +968,7 @@ export function MeetMessagesNew() {
       window.removeEventListener("matches:refresh", handleMatchesRefresh);
       window.removeEventListener("match:new", handleMatchNew);
       window.removeEventListener("match:unmatch", handleUnmatch);
-      // clearInterval(periodicMatchCheck); // No longer needed - polling disabled
+      clearInterval(periodicMatchCheck);
     };
   }, [refetch, matches, queryClient]);
 

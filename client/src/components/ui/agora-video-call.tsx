@@ -132,11 +132,6 @@ export function AgoraVideoCall({
 
           const data = await response.json();
           currentCallId = data.call.id;
-          
-          if (!currentCallId) {
-            throw new Error("Failed to create call - no call ID returned");
-          }
-          
           setCallId(currentCallId);
           setAgoraConfig({
             appId: data.agoraConfig.appId,
@@ -152,15 +147,17 @@ export function AgoraVideoCall({
           });
 
           // Notify receiver via WebSocket
-          sendCallInitiate({
-            type: "call_initiate",
-            matchId,
-            callerId: userId,
-            receiverId,
-            toUserId: receiverId,
-            callId: currentCallId,
-            roomName: data.agoraConfig.channel,
-          });
+          if (currentCallId) {
+            sendCallInitiate({
+              type: "call_initiate",
+              matchId,
+              callerId: userId,
+              receiverId,
+              toUserId: receiverId,
+              callId: currentCallId,
+              roomName: data.agoraConfig.channel,
+            });
+          }
         } else {
           // Get existing call configuration
           const response = await apiRequest(`/api/agora-calls/${existingCallId}`, {
@@ -189,13 +186,13 @@ export function AgoraVideoCall({
     setupCall();
   }, [open, existingCallId, matchId, userId, receiverId]);
 
-  // Join Agora channel when config is ready (but only after acceptance for incoming calls)
+  // Join Agora channel when config is ready (only for outgoing calls or after accepting incoming)
   useEffect(() => {
     if (!agoraConfig || !open) return;
     
-    // For incoming calls, wait for user acceptance before joining
+    // For incoming calls, only join after user accepts
     if (isIncoming && callStatus === "connecting") {
-      console.log("[AgoraVideoCall] Incoming call - waiting for user acceptance before joining Agora");
+      console.log("[AgoraVideoCall] Incoming call - waiting for user to accept");
       return;
     }
 
@@ -230,7 +227,7 @@ export function AgoraVideoCall({
     };
 
     joinChannel();
-  }, [agoraConfig, open, userId, isIncoming, callStatus]);
+  }, [agoraConfig, open, userId, callStatus, isIncoming]);
 
   // Handle incoming call timeout
   useEffect(() => {
@@ -330,16 +327,8 @@ export function AgoraVideoCall({
 
   const toggleMute = async () => {
     try {
-      console.log(`[AgoraVideoCall] Toggling mute from ${isMuted ? 'muted' : 'unmuted'} to ${!isMuted ? 'muted' : 'unmuted'}`);
-      
-      // If currently muted, enable audio. If unmuted, disable audio.
-      const shouldEnableAudio = isMuted;
-      const newAudioState = await agoraService.toggleAudio(shouldEnableAudio);
-      
-      // Update muted state: if audio is enabled, we're not muted
-      setIsMuted(!newAudioState);
-      
-      console.log(`[AgoraVideoCall] Mute toggle complete - Audio enabled: ${newAudioState}, Is muted: ${!newAudioState}`);
+      const newState = await agoraService.toggleAudio(!isMuted);
+      setIsMuted(!newState);
     } catch (error) {
       console.error("Failed to toggle mute:", error);
       toast({
@@ -477,11 +466,10 @@ export function AgoraVideoCall({
         callTimeoutRef.current = null;
       }
 
-      console.log("[AgoraVideoCall] User accepted call - joining Agora channel");
-      setCallStatus("connecting");
-
-      // Join Agora channel after user accepts
+      // Join Agora channel when accepting incoming call
       if (agoraConfig) {
+        console.log("[AgoraVideoCall] Accepting call - joining Agora channel");
+        
         await agoraService.joinCall({
           appId: agoraConfig.appId,
           token: agoraConfig.token,
@@ -494,12 +482,10 @@ export function AgoraVideoCall({
         if (localVideoTrack && localVideoRef.current) {
           localVideoTrack.play(localVideoRef.current);
         }
-
-        setCallStatus("connected");
-        console.log("[AgoraVideoCall] Successfully joined Agora channel after acceptance");
       }
 
-      // Notify caller that call was accepted
+      setCallStatus("connected");
+
       if (callId) {
         sendCallAccept({
           type: "call_accept",
@@ -511,12 +497,6 @@ export function AgoraVideoCall({
       }
     } catch (error) {
       console.error("Error accepting call:", error);
-      toast({
-        title: "Connection Failed",
-        description: "Failed to join the call. Please try again.",
-        variant: "destructive",
-      });
-      handleDeclineCall();
     }
   };
 
@@ -658,7 +638,7 @@ export function AgoraVideoCall({
             size="icon"
             className={`rounded-full ${isMuted ? "bg-red-500 text-white hover:bg-red-600" : ""}`}
             onClick={toggleMute}
-            disabled={callStatus !== "connected"}
+            disabled={callStatus === "ended"}
           >
             {isMuted ? <MicOff /> : <Mic />}
           </Button>
@@ -668,7 +648,7 @@ export function AgoraVideoCall({
             size="icon"
             className={`rounded-full ${!isVideoOn ? "bg-red-500 text-white hover:bg-red-600" : ""}`}
             onClick={toggleVideo}
-            disabled={callStatus !== "connected"}
+            disabled={callStatus === "ended"}
           >
             {isVideoOn ? <Video /> : <VideoOff />}
           </Button>

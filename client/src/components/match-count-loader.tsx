@@ -57,27 +57,27 @@ export function MatchCountLoader() {
       return data;
     },
     enabled: !!user,
-    // PERFORMANCE FIX: Much more conservative polling
-    refetchInterval: 10 * 60 * 1000, // 10 minutes - reduce API load
-    retry: 1, // Reduce retries
-    retryDelay: 2000, // Longer retry delay
-    staleTime: 60 * 1000, // 1 minute stale time - reduce unnecessary calls
+    // Smart polling: rely primarily on WebSocket events, minimal background polling
+    refetchInterval: 2 * 60 * 1000, // 2 minutes - very conservative background polling
+    retry: 2,
+    retryDelay: 500,
+    staleTime: 15 * 1000, // 15 seconds stale time - reasonable balance
     gcTime: 5 * 60 * 1000, // 5 minutes cache retention
-    refetchOnWindowFocus: false, // DISABLED - was causing floods
-    refetchOnReconnect: true, // Keep this for connection recovery
+    refetchOnWindowFocus: true, // Refetch when window gains focus for instant updates
+    refetchOnReconnect: true, // Refetch when connection is restored
   });
   
   // PRELOADING: Query to preload actual match data so cards are ready before navigation
   const { data: preloadedMatches } = useQuery({
     queryKey: ["/api/matches"],
     enabled: !!user && currentMode === 'MEET',
-    // PERFORMANCE FIX: Much less aggressive preloading
-    staleTime: 5 * 60 * 1000, // 5 minutes stale time - much longer
+    // Aggressive preloading settings for instant card display
+    staleTime: 10 * 1000, // 10 seconds stale time
     gcTime: 5 * 60 * 1000, // 5 minutes cache retention
-    refetchOnMount: false, // DISABLED - prevent mount floods
-    refetchOnWindowFocus: false, // DISABLED - was causing floods
-    refetchInterval: false, // DISABLED - rely on WebSocket events only
-    refetchIntervalInBackground: false, // No background polling
+    refetchOnMount: true, // Always refetch when component mounts
+    refetchOnWindowFocus: true, // Instant refresh when tab becomes active
+    refetchInterval: 90 * 1000, // 90 seconds background polling - frequent enough for instant cards
+    refetchIntervalInBackground: false, // No background polling to save battery
   });
 
   // Update match counts when polling data is received
