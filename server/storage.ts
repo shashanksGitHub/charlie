@@ -729,42 +729,25 @@ export class DatabaseStorage implements IStorage {
   sessionStore: any;
 
   constructor() {
-    // Use PostgreSQL session store for persistent sessions across server restarts
-    // Use connection string to avoid ES module import/export issues with Pool objects
-    if (!process.env.DATABASE_URL) {
-      console.warn(
-        "[STORAGE] DATABASE_URL not set. Using in-memory session store (non-persistent).",
-      );
-      // Fallback to in-memory session store for local/dev usage without a database
-      // Note: sessions will not persist across restarts
-      // @ts-expect-error memorystore has loose typings for constructor options
-      this.sessionStore = new MemoryStore({
-        // prune expired entries daily
-        checkPeriod: 24 * 60 * 60 * 1000,
-      });
-      return;
-    }
+    // TEMPORARY FIX: Use in-memory session store to avoid pg-pool connection issues
+    // The PostgreSQL session store was causing ETIMEDOUT errors with connect-pg-simple
+    // after switching to Neon HTTP driver. In-memory sessions work fine for now.
+    console.log("[STORAGE] Using in-memory session store (faster, no DB connection issues)");
+    
+    // @ts-expect-error memorystore has loose typings for constructor options
+    this.sessionStore = new MemoryStore({
+      // prune expired entries daily
+      checkPeriod: 24 * 60 * 60 * 1000,
+      // Keep sessions for 24 hours in memory
+      ttl: 24 * 60 * 60 * 1000,
+      // Store up to 10,000 sessions in memory (should be plenty)
+      max: 10000,
+    });
 
-    try {
-      this.sessionStore = new PostgresSessionStore({
-        conString: process.env.DATABASE_URL,
-        createTableIfMissing: true,
-        tableName: "user_sessions",
-        // Increased prune interval to keep more inactive sessions available
-        pruneSessionInterval: 24 * 60 * 60, // 24 hours in seconds
-      });
-      console.log(
-        "[STORAGE] ✅ PostgreSQL session store initialized with connection string",
-      );
-    } catch (error) {
-      console.error(
-        "[STORAGE] Failed to initialize PostgreSQL session store:",
-        error,
-      );
-      throw new Error(
-        `Failed to initialize PostgreSQL session store: ${error.message}`,
-      );
-    }
+    console.log("[STORAGE] ✅ In-memory session store initialized (no database connection pool issues)");
+
+    // TODO: Later we can implement a custom session store that uses our Neon HTTP connection
+    // instead of the problematic pg-pool connection from connect-pg-simple
   }
 
   // User operations
