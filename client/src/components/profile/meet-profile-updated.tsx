@@ -1324,17 +1324,6 @@ export default function MeetProfile({ user }: MeetProfileProps) {
         value = isClearing ? null : drinkingValue.trim();
         updateData = { drinking: value };
         break;
-      case "educationLevel":
-        if (forceClear) {
-          setEducationLevelValue("");
-        }
-        isClearing =
-          forceClear ||
-          !educationLevelValue ||
-          educationLevelValue.trim() === "";
-        value = isClearing ? null : educationLevelValue.trim();
-        updateData = { educationLevel: value };
-        break;
 
       case "interests":
         // Store interests as a JSON string in the database
