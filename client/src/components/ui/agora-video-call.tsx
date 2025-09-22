@@ -90,6 +90,10 @@ export function AgoraVideoCall({
         description: error.message || "An error occurred during the call",
         variant: "destructive",
       });
+      
+      // Clean up camera and mic on any Agora error
+      console.log("[AgoraVideoCall] Cleaning up camera/mic due to Agora error");
+      handleEndCall();
     };
 
     agoraService.setEventHandlers({

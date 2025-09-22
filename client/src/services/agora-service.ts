@@ -232,7 +232,21 @@ class AgoraService {
     } catch (error) {
       console.error("[AgoraService] Failed to join channel:", error);
       this.isJoining = false;
-      this.events.onError?.(error as Error);
+      
+      // Enhanced error handling for join failures
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("network") || errorMessage.includes("timeout") || errorMessage.includes("connection")) {
+        console.error("[AgoraService] 🌐 Network connection failure");
+        this.events.onError?.(new Error("Network connection failed. Please check your internet connection."));
+      } else if (errorMessage.includes("token") || errorMessage.includes("authentication")) {
+        console.error("[AgoraService] 🔐 Authentication failure");
+        this.events.onError?.(new Error("Call authentication failed. Please try again."));
+      } else {
+        this.events.onError?.(error as Error);
+      }
+      
+      // Always cleanup on join failure
+      await this.cleanupPartialTracks();
       throw error;
     }
   }
@@ -272,7 +286,21 @@ class AgoraService {
       console.log("[AgoraService] Local tracks created successfully");
     } catch (error) {
       console.error("[AgoraService] Failed to create local tracks:", error);
-      this.events.onError?.(error as Error);
+      
+      // Enhanced error handling for common failures
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("Permission denied") || errorMessage.includes("NotAllowedError")) {
+        console.error("[AgoraService] 🚫 Camera/microphone permission denied");
+        this.events.onError?.(new Error("Camera and microphone permissions are required for video calls"));
+      } else if (errorMessage.includes("NotFoundError") || errorMessage.includes("DeviceNotFoundError")) {
+        console.error("[AgoraService] 📱 Camera/microphone device not found");
+        this.events.onError?.(new Error("Camera or microphone device not found"));
+      } else {
+        this.events.onError?.(error as Error);
+      }
+      
+      // Always cleanup any partially created tracks on failure
+      await this.cleanupPartialTracks();
       throw error;
     }
   }
@@ -410,6 +438,31 @@ class AgoraService {
   // Get current channel
   getCurrentChannel(): string | null {
     return this.currentChannel;
+  }
+
+  // Cleanup partially created tracks on failure
+  private async cleanupPartialTracks(): Promise<void> {
+    console.log("[AgoraService] 🧹 Cleaning up partially created tracks");
+    
+    if (this.localVideoTrack) {
+      try {
+        this.localVideoTrack.close();
+        console.log("[AgoraService] 📹 Closed partial video track");
+      } catch (error) {
+        console.error("[AgoraService] Error closing partial video track:", error);
+      }
+      this.localVideoTrack = null;
+    }
+
+    if (this.localAudioTrack) {
+      try {
+        this.localAudioTrack.close();
+        console.log("[AgoraService] 🎤 Closed partial audio track");
+      } catch (error) {
+        console.error("[AgoraService] Error closing partial audio track:", error);
+      }
+      this.localAudioTrack = null;
+    }
   }
 
   // Leave the current call
