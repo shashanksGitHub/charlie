@@ -211,11 +211,22 @@ class AgoraService {
     try {
       console.log(`[AgoraService] Creating local tracks (video: ${enableVideo}, audio: ${enableAudio})`);
 
-      if (enableAudio && !this.localAudioTrack) {
+      // AGORA FIX: Close existing tracks before creating new ones to prevent multiple track errors
+      if (enableAudio) {
+        if (this.localAudioTrack) {
+          console.log("[AgoraService] Closing existing audio track before creating new one");
+          this.localAudioTrack.close();
+          this.localAudioTrack = null;
+        }
         this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
       }
 
-      if (enableVideo && !this.localVideoTrack) {
+      if (enableVideo) {
+        if (this.localVideoTrack) {
+          console.log("[AgoraService] Closing existing video track before creating new one");
+          this.localVideoTrack.close();
+          this.localVideoTrack = null;
+        }
         this.localVideoTrack = await AgoraRTC.createCameraVideoTrack();
       }
 
@@ -232,21 +243,42 @@ class AgoraService {
     try {
       const tracks = [];
       
+      // AGORA FIX: Simple approach - always unpublish before publishing to prevent conflicts
+      try {
+        await this.client.unpublish();
+        console.log("[AgoraService] Unpublished any existing tracks");
+      } catch (unpublishError) {
+        // Ignore unpublish errors (tracks might not be published yet)
+        console.log("[AgoraService] No existing tracks to unpublish");
+      }
+      
       if (this.localVideoTrack) {
         tracks.push(this.localVideoTrack);
+        console.log("[AgoraService] Adding video track for publishing");
       }
       
       if (this.localAudioTrack) {
         tracks.push(this.localAudioTrack);
+        console.log("[AgoraService] Adding audio track for publishing");
       }
 
       if (tracks.length > 0) {
+        console.log(`[AgoraService] Publishing ${tracks.length} clean tracks`);
         await this.client.publish(tracks);
-        console.log(`[AgoraService] Published ${tracks.length} local tracks`);
+        console.log(`[AgoraService] Successfully published ${tracks.length} local tracks`);
+      } else {
+        console.log("[AgoraService] No tracks available to publish");
       }
     } catch (error) {
       console.error("[AgoraService] Failed to publish local tracks:", error);
-      this.events.onError?.(error as Error);
+      
+      // AGORA FIX: More detailed error handling
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("CAN_NOT_PUBLISH_MULTIPLE_VIDEO_TRACKS")) {
+        console.log("[AgoraService] Multiple video tracks error - this should be prevented by unpublish");
+      }
+      
+      this.events.onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -338,19 +370,30 @@ class AgoraService {
     try {
       console.log("[AgoraService] Leaving call...");
 
+      // AGORA FIX: Unpublish tracks before leaving to ensure clean state
       if (this.isJoined) {
+        try {
+          console.log("[AgoraService] Unpublishing tracks before leaving...");
+          await this.client.unpublish();
+        } catch (unpublishError) {
+          console.log("[AgoraService] Unpublish during leave failed (expected if no tracks published)");
+        }
+        
         await this.client.leave();
         this.isJoined = false;
         this.currentChannel = null;
+        console.log("[AgoraService] Left Agora channel successfully");
       }
 
       // Close and cleanup local tracks
       if (this.localVideoTrack) {
+        console.log("[AgoraService] Closing local video track");
         this.localVideoTrack.close();
         this.localVideoTrack = null;
       }
 
       if (this.localAudioTrack) {
+        console.log("[AgoraService] Closing local audio track");
         this.localAudioTrack.close();
         this.localAudioTrack = null;
       }
@@ -358,11 +401,11 @@ class AgoraService {
       // Clear participants
       this.participants.clear();
 
-      console.log("[AgoraService] Successfully left call");
+      console.log("[AgoraService] Successfully left call and cleaned up all resources");
       this.events.onStatusChange?.("ended");
     } catch (error) {
       console.error("[AgoraService] Failed to leave call:", error);
-      this.events.onError?.(error as Error);
+      this.events.onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
