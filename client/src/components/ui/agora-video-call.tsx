@@ -225,6 +225,12 @@ export function AgoraVideoCall({
   // Join Agora channel when config is ready (only for outgoing calls or after accepting incoming)
   useEffect(() => {
     if (!agoraConfig || !open) return;
+
+    // CRITICAL: Don't trigger join during cleanup 
+    if (isCleaningUp) {
+      console.log("[AgoraVideoCall] ⛔ useEffect blocked - cleanup in progress");
+      return;
+    }
     
     // For incoming calls, only join after user accepts
     if (isIncoming && callStatus === "connecting") {
@@ -234,6 +240,12 @@ export function AgoraVideoCall({
 
     const joinChannel = async () => {
       try {
+        // CRITICAL: Don't join if cleanup is in progress
+        if (isCleaningUp) {
+          console.log("[AgoraVideoCall] ⛔ Preventing join - cleanup in progress");
+          return;
+        }
+
         console.log("[AgoraVideoCall] Joining Agora channel:", agoraConfig.channel);
         
         await agoraService.joinCall({
@@ -270,7 +282,7 @@ export function AgoraVideoCall({
     };
 
     joinChannel();
-  }, [agoraConfig, open, userId, callStatus, isIncoming]);
+  }, [agoraConfig, open, userId, callStatus, isIncoming, isCleaningUp]);
 
   // Handle incoming call timeout
   useEffect(() => {
