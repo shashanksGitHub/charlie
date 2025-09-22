@@ -328,8 +328,12 @@ export function AgoraVideoCall({
 
   const toggleMute = async () => {
     try {
-      const newState = await agoraService.toggleAudio(!isMuted);
+      // If currently muted, enable audio (unmute)
+      // If currently unmuted, disable audio (mute)
+      const shouldEnableAudio = isMuted;
+      const newState = await agoraService.toggleAudio(shouldEnableAudio);
       setIsMuted(!newState);
+      console.log(`[AgoraVideoCall] Mute toggled - isMuted: ${!newState}, audioEnabled: ${newState}`);
     } catch (error) {
       console.error("Failed to toggle mute:", error);
       toast({
@@ -342,8 +346,12 @@ export function AgoraVideoCall({
 
   const toggleVideo = async () => {
     try {
-      const newState = await agoraService.toggleVideo(!isVideoOn);
+      // If currently video off, enable video
+      // If currently video on, disable video  
+      const shouldEnableVideo = !isVideoOn;
+      const newState = await agoraService.toggleVideo(shouldEnableVideo);
       setIsVideoOn(newState);
+      console.log(`[AgoraVideoCall] Video toggled - isVideoOn: ${newState}, videoEnabled: ${newState}`);
       
       if (!newState) {
         setIsAudioOnly(true);
@@ -378,7 +386,7 @@ export function AgoraVideoCall({
     }
     
     setIsCleaningUp(true);
-    console.log("[AgoraVideoCall] Starting call end cleanup");
+    console.log(`[AgoraVideoCall] Starting call end cleanup - callId: ${callId}, userId: ${userId}, receiverId: ${receiverId}`);
 
     try {
       // Leave Agora channel
@@ -387,11 +395,13 @@ export function AgoraVideoCall({
       setCallStatus("ended");
 
       if (callId) {
+        console.log(`[AgoraVideoCall] Updating call ${callId} status to completed`);
         await apiRequest(`/api/agora-calls/${callId}/status`, {
           method: "PATCH",
           data: { status: "completed" },
         });
         
+        console.log(`[AgoraVideoCall] Sending call_end WebSocket message`);
         sendCallEnd({
           type: "call_end",
           callId,
@@ -401,6 +411,8 @@ export function AgoraVideoCall({
         });
 
         queryClient.invalidateQueries({ queryKey: ["/api/matches"] });
+      } else {
+        console.warn("[AgoraVideoCall] No callId available for ending call");
       }
     } catch (error) {
       console.error("Error ending call:", error);
@@ -556,19 +568,36 @@ export function AgoraVideoCall({
     }
   };
 
+  // Reset cleanup state if it gets stuck
+  useEffect(() => {
+    if (isCleaningUp) {
+      const resetTimer = setTimeout(() => {
+        console.log("[AgoraVideoCall] Resetting stuck cleanup state");
+        setIsCleaningUp(false);
+      }, 5000); // Reset after 5 seconds
+
+      return () => clearTimeout(resetTimer);
+    }
+  }, [isCleaningUp]);
+
   return (
     <Dialog
       open={open}
       onOpenChange={(isOpen) => {
         if (!isOpen && !isCleaningUp) {
           console.log("[AgoraVideoCall] Dialog closing, determining cleanup action");
-          if (isIncoming && callStatus === "connecting") {
-            handleDeclineCall();
-          } else if (!isIncoming && callStatus === "connecting") {
-            handleCancelCall();
-          } else {
-            handleEndCall();
-          }
+          // Small delay to prevent interference with button clicks
+          setTimeout(() => {
+            if (!isCleaningUp) {
+              if (isIncoming && callStatus === "connecting") {
+                handleDeclineCall();
+              } else if (!isIncoming && callStatus === "connecting") {
+                handleCancelCall();
+              } else {
+                handleEndCall();
+              }
+            }
+          }, 100);
         }
       }}
     >
@@ -691,13 +720,28 @@ export function AgoraVideoCall({
             variant="destructive"
             size="icon"
             className="rounded-full"
-            onClick={
-              isIncoming && callStatus === "connecting"
-                ? handleDeclineCall
-                : callStatus === "connecting" && !isIncoming
-                ? handleCancelCall
-                : handleEndCall
-            }
+            onClick={async () => {
+              console.log(`[AgoraVideoCall] End call button clicked - isIncoming: ${isIncoming}, callStatus: ${callStatus}, callId: ${callId}, isCleaningUp: ${isCleaningUp}`);
+              
+              // Force close if already cleaning up for too long
+              if (isCleaningUp) {
+                console.log("[AgoraVideoCall] Force closing due to stuck cleanup state");
+                setIsCleaningUp(false);
+                onClose();
+                return;
+              }
+
+              if (isIncoming && callStatus === "connecting") {
+                console.log("[AgoraVideoCall] Declining incoming call");
+                handleDeclineCall();
+              } else if (callStatus === "connecting" && !isIncoming) {
+                console.log("[AgoraVideoCall] Cancelling outgoing call");
+                handleCancelCall();
+              } else {
+                console.log("[AgoraVideoCall] Ending active call");
+                handleEndCall();
+              }
+            }}
           >
             <PhoneOff />
           </Button>
