@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Phone } from "lucide-react";
 import { AgoraAudioCall } from "@/components/ui/agora-audio-call";
@@ -17,15 +17,28 @@ export function AudioCallLauncher({
 }: AudioCallLauncherProps) {
   const [isAudioCallOpen, setIsAudioCallOpen] = useState(false);
   const [isStartingCall, setIsStartingCall] = useState(false);
+  const lastCallAttempt = useRef<number>(0);
+  const callInProgress = useRef<boolean>(false);
 
   const handleAudioCall = async () => {
-    if (isStartingCall) {
-      console.log("📞 [AudioCallLauncher] Audio call already starting, ignoring duplicate click");
+    const now = Date.now();
+    
+    // Rate limiting: prevent calls within 3 seconds of each other
+    if (now - lastCallAttempt.current < 3000) {
+      console.log("📞 [AudioCallLauncher] Rate limited - too soon after last attempt");
+      return;
+    }
+    
+    // Check if call is already in progress or starting
+    if (isStartingCall || callInProgress.current || isAudioCallOpen) {
+      console.log("📞 [AudioCallLauncher] Call already in progress, ignoring duplicate click");
       return;
     }
 
+    lastCallAttempt.current = now;
     console.log("📞 [AudioCallLauncher] Starting Agora audio call");
     setIsStartingCall(true);
+    callInProgress.current = true;
     
     // Simple permission check for microphone only
     try {
@@ -33,6 +46,7 @@ export function AudioCallLauncher({
       stream.getTracks().forEach(track => track.stop()); // Just testing permissions
       console.log("✅ [AudioCallLauncher] Audio permission granted");
       setIsAudioCallOpen(true);
+      // Don't reset isStartingCall here - let the call component handle it
     } catch (error) {
       console.warn("⚠️ [AudioCallLauncher] Audio permission denied:", error);
       toast({
@@ -40,31 +54,41 @@ export function AudioCallLauncher({
         description: "Please allow microphone access for audio calls.",
         variant: "destructive",
       });
-    } finally {
-      // Reset debouncing flag after a short delay
-      setTimeout(() => setIsStartingCall(false), 1000);
+      // Reset flags on permission error
+      setIsStartingCall(false);
+      callInProgress.current = false;
     }
+  };
+
+  const handleCallClose = () => {
+    console.log("📞 [AudioCallLauncher] Call closed, resetting states");
+    setIsAudioCallOpen(false);
+    setIsStartingCall(false);
+    callInProgress.current = false;
   };
 
   return (
     <>
       <Button
         onClick={handleAudioCall}
-        className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white"
-        disabled={isStartingCall}
-        title="Audio Call"
+        className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white disabled:opacity-50"
+        disabled={isStartingCall || callInProgress.current || isAudioCallOpen}
+        title={isStartingCall || callInProgress.current || isAudioCallOpen ? "Call in progress..." : "Audio Call"}
       >
         <Phone className="h-4 w-4" />
       </Button>
 
-      <AgoraAudioCall
-        matchId={matchId}
-        userId={userId}
-        receiverId={receiverId}
-        open={isAudioCallOpen}
-        onClose={() => setIsAudioCallOpen(false)}
-        isIncoming={false}
-      />
+      {/* Only render AgoraAudioCall when it should be open - prevents multiple instances */}
+      {isAudioCallOpen && (
+        <AgoraAudioCall
+          matchId={matchId}
+          userId={userId}
+          receiverId={receiverId}
+          open={isAudioCallOpen}
+          onClose={handleCallClose}
+          isIncoming={false}
+        />
+      )}
     </>
   );
 }

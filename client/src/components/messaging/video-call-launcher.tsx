@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Video } from "lucide-react";
 import { AgoraVideoCall } from "@/components/ui/agora-video-call";
@@ -17,15 +17,28 @@ export function VideoCallLauncher({
 }: VideoCallLauncherProps) {
   const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
   const [isStartingCall, setIsStartingCall] = useState(false);
+  const lastCallAttempt = useRef<number>(0);
+  const callInProgress = useRef<boolean>(false);
 
   const handleVideoCall = async () => {
-    if (isStartingCall) {
-      console.log("📞 [VideoCallLauncher] Video call already starting, ignoring duplicate click");
+    const now = Date.now();
+    
+    // Rate limiting: prevent calls within 3 seconds of each other
+    if (now - lastCallAttempt.current < 3000) {
+      console.log("📞 [VideoCallLauncher] Rate limited - too soon after last attempt");
+      return;
+    }
+    
+    // Check if call is already in progress or starting
+    if (isStartingCall || callInProgress.current || isVideoCallOpen) {
+      console.log("📞 [VideoCallLauncher] Call already in progress, ignoring duplicate click");
       return;
     }
 
+    lastCallAttempt.current = now;
     console.log("📞 [VideoCallLauncher] Starting Agora video call");
     setIsStartingCall(true);
+    callInProgress.current = true;
     
     // Simple permission check
     try {
@@ -33,6 +46,7 @@ export function VideoCallLauncher({
       stream.getTracks().forEach(track => track.stop()); // Just testing permissions
       console.log("✅ [VideoCallLauncher] Media permissions granted");
       setIsVideoCallOpen(true);
+      // Don't reset isStartingCall here - let the call component handle it
     } catch (error) {
       console.warn("⚠️ [VideoCallLauncher] Media permission denied:", error);
       toast({
@@ -40,31 +54,41 @@ export function VideoCallLauncher({
         description: "Please allow camera and microphone access for video calls.",
         variant: "destructive",
       });
-    } finally {
-      // Reset debouncing flag after a short delay
-      setTimeout(() => setIsStartingCall(false), 1000);
+      // Reset flags on permission error
+      setIsStartingCall(false);
+      callInProgress.current = false;
     }
+  };
+
+  const handleCallClose = () => {
+    console.log("📞 [VideoCallLauncher] Call closed, resetting states");
+    setIsVideoCallOpen(false);
+    setIsStartingCall(false);
+    callInProgress.current = false;
   };
 
   return (
     <>
       <Button
         onClick={handleVideoCall}
-        className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white"
-        disabled={isStartingCall}
-        title="Video Call"
+        className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+        disabled={isStartingCall || callInProgress.current || isVideoCallOpen}
+        title={isStartingCall || callInProgress.current || isVideoCallOpen ? "Call in progress..." : "Video Call"}
       >
         <Video className="h-4 w-4" />
       </Button>
 
-      <AgoraVideoCall
-        matchId={matchId}
-        userId={userId}
-        receiverId={receiverId}
-        open={isVideoCallOpen}
-        onClose={() => setIsVideoCallOpen(false)}
-        isIncoming={false}
-      />
+      {/* Only render AgoraVideoCall when it should be open - prevents multiple instances */}
+      {isVideoCallOpen && (
+        <AgoraVideoCall
+          matchId={matchId}
+          userId={userId}
+          receiverId={receiverId}
+          open={isVideoCallOpen}
+          onClose={handleCallClose}
+          isIncoming={false}
+        />
+      )}
     </>
   );
 }

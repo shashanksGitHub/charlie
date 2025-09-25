@@ -51,6 +51,7 @@ export function AgoraAudioCall({
   const queryClient = useQueryClient();
   const callTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hasSetupStarted = useRef<boolean>(false);
 
   // Initialize Agora service events
   useEffect(() => {
@@ -151,10 +152,11 @@ export function AgoraAudioCall({
 
   // Setup call when dialog opens
   useEffect(() => {
-    if (!open || isCreatingCall) return;
+    if (!open || isCreatingCall || hasSetupStarted.current) return;
 
     const setupCall = async () => {
       try {
+        hasSetupStarted.current = true; // Prevent duplicate setup calls
         setCallStatus("connecting");
         setIsCreatingCall(true);
 
@@ -234,7 +236,14 @@ export function AgoraAudioCall({
     };
 
     setupCall();
-  }, [open, existingCallId, matchId, userId, receiverId, onClose, isCreatingCall]);
+  }, [open, existingCallId, matchId, userId, receiverId, onClose]);
+
+  // Reset setup flag when dialog opens/closes
+  useEffect(() => {
+    if (open) {
+      hasSetupStarted.current = false;
+    }
+  }, [open]);
 
   // Join Agora channel when config is ready (only for outgoing calls or after accepting incoming)
   useEffect(() => {
