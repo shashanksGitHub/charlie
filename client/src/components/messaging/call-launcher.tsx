@@ -18,9 +18,16 @@ export function CallLauncher({
 }: CallLauncherProps) {
   const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
   const [isAudioCallOpen, setIsAudioCallOpen] = useState(false);
+  const [isStartingCall, setIsStartingCall] = useState(false);
 
   const handleVideoCall = async () => {
+    if (isStartingCall) {
+      console.log("📞 [CallLauncher] Video call already starting, ignoring duplicate click");
+      return;
+    }
+
     console.log("📞 [CallLauncher] Starting Agora video call");
+    setIsStartingCall(true);
     
     // Simple permission check
     try {
@@ -35,11 +42,20 @@ export function CallLauncher({
         description: "Please allow camera and microphone access for video calls.",
         variant: "destructive",
       });
+    } finally {
+      // Reset debouncing flag after a short delay
+      setTimeout(() => setIsStartingCall(false), 1000);
     }
   };
 
   const handleAudioCall = async () => {
+    if (isStartingCall) {
+      console.log("📞 [CallLauncher] Audio call already starting, ignoring duplicate click");
+      return;
+    }
+
     console.log("📞 [CallLauncher] Starting Agora audio call");
+    setIsStartingCall(true);
     
     // Simple permission check for microphone only
     try {
@@ -54,6 +70,9 @@ export function CallLauncher({
         description: "Please allow microphone access for audio calls.",
         variant: "destructive",
       });
+    } finally {
+      // Reset debouncing flag after a short delay
+      setTimeout(() => setIsStartingCall(false), 1000);
     }
   };
 
@@ -63,17 +82,19 @@ export function CallLauncher({
         <Button
           onClick={handleAudioCall}
           className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white"
+          disabled={isStartingCall}
+          title="Audio Call"
         >
           <Phone className="h-4 w-4" />
-          <span>Audio Call</span>
         </Button>
 
         <Button
           onClick={handleVideoCall}
           className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white"
+          disabled={isStartingCall}
+          title="Video Call"
         >
           <Video className="h-4 w-4" />
-          <span>Video Call</span>
         </Button>
       </div>
 

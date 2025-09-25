@@ -40,6 +40,8 @@ export function AgoraAudioCall({
   const [callTimer, setCallTimer] = useState(0);
   const [participants, setParticipants] = useState<AudioCallParticipant[]>([]);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [isCreatingCall, setIsCreatingCall] = useState(false);
+  const [hasJoinAttempted, setHasJoinAttempted] = useState(false);
   const [agoraConfig, setAgoraConfig] = useState<{
     appId: string;
     token?: string;
@@ -54,37 +56,38 @@ export function AgoraAudioCall({
   useEffect(() => {
     if (!open) return;
 
-    console.log(`[AgoraAudioCall-${callId}] Setting up event handlers for audio call`);
+    const currentCallId = callId || existingCallId || "pending";
+    console.log(`[AgoraAudioCall-${currentCallId}] Setting up event handlers for audio call`);
 
     const handleStatusChange = (status: AudioCallStatus) => {
-      console.log(`[AgoraAudioCall-${callId}] Status changed to: ${status}`);
+      console.log(`[AgoraAudioCall-${currentCallId}] Status changed to: ${status}`);
       setCallStatus(status);
     };
 
     const handleParticipantJoined = (participant: AudioCallParticipant) => {
-      console.log(`[AgoraAudioCall-${callId}] Participant joined:`, participant);
+      console.log(`[AgoraAudioCall-${currentCallId}] Participant joined:`, participant);
       setParticipants(prev => [...prev.filter(p => p.uid !== participant.uid), participant]);
     };
 
     const handleParticipantLeft = (uid: UID) => {
-      console.log(`[AgoraAudioCall-${callId}] Participant left:`, uid);
+      console.log(`[AgoraAudioCall-${currentCallId}] Participant left:`, uid);
       setParticipants(prev => prev.filter(p => p.uid !== uid));
     };
 
     const handleTrackSubscribed = (uid: UID, track: IRemoteAudioTrack) => {
-      console.log(`[AgoraAudioCall-${callId}] Audio track subscribed from ${uid}`);
+      console.log(`[AgoraAudioCall-${currentCallId}] Audio track subscribed from ${uid}`);
       if (track.trackMediaType === "audio") {
         track.play();
       }
     };
 
     const handleError = (error: Error) => {
-      console.error(`[AgoraAudioCall-${callId}] Agora error:`, error);
+      console.error(`[AgoraAudioCall-${currentCallId}] Agora error:`, error);
       
       // Handle specific error types gracefully
       const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes("WS_ABORT") || errorMessage.includes("LEAVE")) {
-        console.log(`[AgoraAudioCall-${callId}] Call was cancelled/aborted - this is expected during cleanup`);
+      if (errorMessage.includes("WS_ABORT") || errorMessage.includes("LEAVE") || errorMessage.includes("INVALID_OPERATION")) {
+        console.log(`[AgoraAudioCall-${currentCallId}] Call was cancelled/aborted - this is expected during cleanup`);
         // Don't show error toast for expected cleanup operations
         handleEndCall();
         return;
@@ -97,11 +100,11 @@ export function AgoraAudioCall({
       });
       
       // IMMEDIATELY stop all microphone access on any error
-      console.log(`[AgoraAudioCall-${callId}] IMMEDIATELY stopping microphone due to Agora error`);
+      console.log(`[AgoraAudioCall-${currentCallId}] IMMEDIATELY stopping microphone due to Agora error`);
       agoraAudioService.forceStopAllMedia();
       
       // Then do full cleanup
-      console.log(`[AgoraAudioCall-${callId}] Performing full cleanup after error`);
+      console.log(`[AgoraAudioCall-${currentCallId}] Performing full cleanup after error`);
       handleEndCall();
     };
 
@@ -148,11 +151,12 @@ export function AgoraAudioCall({
 
   // Setup call when dialog opens
   useEffect(() => {
-    if (!open) return;
+    if (!open || isCreatingCall) return;
 
     const setupCall = async () => {
       try {
         setCallStatus("connecting");
+        setIsCreatingCall(true);
 
         let currentCallId = existingCallId;
 
@@ -224,44 +228,49 @@ export function AgoraAudioCall({
           variant: "destructive",
         });
         onClose();
+      } finally {
+        setIsCreatingCall(false);
       }
     };
 
     setupCall();
-  }, [open, existingCallId, matchId, userId, receiverId, onClose]);
+  }, [open, existingCallId, matchId, userId, receiverId, onClose, isCreatingCall]);
 
   // Join Agora channel when config is ready (only for outgoing calls or after accepting incoming)
   useEffect(() => {
-    if (!agoraConfig || !open) return;
+    if (!agoraConfig || !open || hasJoinAttempted) return;
 
     // Skip join if cleanup is in progress
     if (isCleaningUp) {
-      console.log("[AgoraAudioCall] ⛔ useEffect blocked - cleanup in progress");
+      console.log(`[AgoraAudioCall-${callId || "pending"}] ⛔ useEffect blocked - cleanup in progress`);
       return;
     }
 
     // Skip auto-join for incoming calls (wait for user to accept)
     if (isIncoming && callStatus === "connecting") {
-      console.log("[AgoraAudioCall] Incoming call - waiting for user to accept");
+      console.log(`[AgoraAudioCall-${callId || "pending"}] Incoming call - waiting for user to accept`);
       return;
     }
 
     const joinChannel = async () => {
       try {
+        // Mark join attempt to prevent duplicates
+        setHasJoinAttempted(true);
+
         // Double-check cleanup state before proceeding
         if (isCleaningUp) {
-          console.log(`[AgoraAudioCall-${callId}] ⛔ Preventing join - cleanup in progress`);
+          console.log(`[AgoraAudioCall-${callId || "pending"}] ⛔ Preventing join - cleanup in progress`);
           return;
         }
 
-        console.log(`[AgoraAudioCall-${callId}] Joining Agora channel for audio call:`, agoraConfig.channel);
+        console.log(`[AgoraAudioCall-${callId || "pending"}] Joining Agora channel for audio call:`, agoraConfig.channel);
 
         // Add a small delay before joining to ensure any previous cleanup is complete
         await new Promise(resolve => setTimeout(resolve, 500));
 
         // Double-check again after delay
         if (isCleaningUp) {
-          console.log(`[AgoraAudioCall-${callId}] ⛔ Aborting join - cleanup started during delay`);
+          console.log(`[AgoraAudioCall-${callId || "pending"}] ⛔ Aborting join - cleanup started during delay`);
           return;
         }
 
@@ -273,15 +282,15 @@ export function AgoraAudioCall({
           uid: userId,
         });
 
-        console.log(`[AgoraAudioCall-${callId}] Successfully joined Agora channel for audio call`);
+        console.log(`[AgoraAudioCall-${callId || "pending"}] Successfully joined Agora channel for audio call`);
         
       } catch (error) {
-        console.error(`[AgoraAudioCall-${callId}] Failed to join Agora channel:`, error);
+        console.error(`[AgoraAudioCall-${callId || "pending"}] Failed to join Agora channel:`, error);
         
         // Handle specific cancellation case gracefully
         const errorMessage = error instanceof Error ? error.message : String(error);
-        if (errorMessage.includes("cancel") || errorMessage.includes("OPERATION_ABORTED") || errorMessage.includes("WS_ABORT") || errorMessage.includes("LEAVE")) {
-          console.log(`[AgoraAudioCall-${callId}] Call was cancelled/aborted by user or cleanup - this is expected`);
+        if (errorMessage.includes("cancel") || errorMessage.includes("OPERATION_ABORTED") || errorMessage.includes("WS_ABORT") || errorMessage.includes("LEAVE") || errorMessage.includes("INVALID_OPERATION")) {
+          console.log(`[AgoraAudioCall-${callId || "pending"}] Call was cancelled/aborted by user or cleanup - this is expected`);
           // Don't show error toast for expected cleanup operations
           return;
         }
@@ -297,7 +306,7 @@ export function AgoraAudioCall({
     if (!isIncoming || callStatus === "connected") {
       joinChannel();
     }
-  }, [agoraConfig, open, userId, callStatus, isIncoming, isCleaningUp]);
+  }, [agoraConfig, open, userId, callStatus, isIncoming, isCleaningUp, hasJoinAttempted, callId]);
 
   // WebSocket message handling
   useEffect(() => {
@@ -360,9 +369,9 @@ export function AgoraAudioCall({
       const shouldEnableAudio = isMuted;
       const newState = await agoraAudioService.toggleAudio(shouldEnableAudio);
       setIsMuted(!newState);
-      console.log(`[AgoraAudioCall-${callId}] Mute toggled - isMuted: ${!newState}, audioEnabled: ${newState}`);
+      console.log(`[AgoraAudioCall-${callId || "pending"}] Mute toggled - isMuted: ${!newState}, audioEnabled: ${newState}`);
     } catch (error) {
-      console.error(`[AgoraAudioCall-${callId}] Failed to toggle mute:`, error);
+      console.error(`[AgoraAudioCall-${callId || "pending"}] Failed to toggle mute:`, error);
       toast({
         title: "Audio Error",
         description: "Failed to toggle microphone",
@@ -398,8 +407,7 @@ export function AgoraAudioCall({
           type: "call_end",
           matchId,
           callId,
-          userId,
-          receiverId,
+          fromUserId: userId,
           toUserId: receiverId,
         });
       } else {
@@ -438,8 +446,7 @@ export function AgoraAudioCall({
           type: "call_cancel",
           matchId,
           callId,
-          userId,
-          receiverId,
+          fromUserId: userId,
           toUserId: receiverId,
         });
       }
@@ -479,8 +486,7 @@ export function AgoraAudioCall({
           type: "call_decline",
           matchId,
           callId,
-          userId,
-          receiverId,
+          fromUserId: userId,
           toUserId: receiverId,
         });
       }
@@ -496,10 +502,11 @@ export function AgoraAudioCall({
   const handleAcceptCall = async () => {
     try {
       setCallStatus("connected");
+      setHasJoinAttempted(true); // Prevent duplicate join attempts
 
       // Join Agora audio channel when accepting incoming call
       if (agoraConfig) {
-        console.log(`[AgoraAudioCall-${callId}] Accepting call - joining Agora audio channel`);
+        console.log(`[AgoraAudioCall-${callId || "pending"}] Accepting call - joining Agora audio channel`);
 
         // Join with audio-only (no video)
         await agoraAudioService.joinCall({
@@ -514,8 +521,7 @@ export function AgoraAudioCall({
             type: "call_accept",
             matchId,
             callId,
-            userId,
-            receiverId,
+            fromUserId: userId,
             toUserId: receiverId,
           });
         }
@@ -523,7 +529,7 @@ export function AgoraAudioCall({
 
       startCallTimer();
     } catch (error) {
-      console.error("[AgoraAudioCall] Error accepting call:", error);
+      console.error(`[AgoraAudioCall-${callId || "pending"}] Error accepting call:`, error);
       toast({
         title: "Connection Error",
         description: "Could not accept the call. Please try again.",
@@ -660,7 +666,7 @@ export function AgoraAudioCall({
                   onClick={handleAcceptCall}
                   size="lg"
                   className="w-16 h-16 rounded-full p-0 bg-green-600 hover:bg-green-700 text-white shadow-lg"
-                  disabled={isCleaningUp}
+                  disabled={isCleaningUp || hasJoinAttempted}
                 >
                   <Phone className="h-8 w-8" />
                 </Button>
@@ -668,7 +674,8 @@ export function AgoraAudioCall({
                 {/* Decline Button */}
                 <Button
                   onClick={() => {
-                    console.log(`[AgoraAudioCall-${callId}] Decline button clicked`);
+                    if (isCleaningUp) return;
+                    console.log(`[AgoraAudioCall-${callId || "pending"}] Decline button clicked`);
                     agoraAudioService.forceStopAllMedia();
                     handleDeclineCall();
                   }}
@@ -699,7 +706,8 @@ export function AgoraAudioCall({
                 {/* End Call Button */}
                 <Button
                   onClick={() => {
-                    console.log(`[AgoraAudioCall-${callId}] End call button clicked`);
+                    if (isCleaningUp) return;
+                    console.log(`[AgoraAudioCall-${callId || "pending"}] End call button clicked`);
                     agoraAudioService.forceStopAllMedia();
                     handleEndCall();
                   }}
@@ -717,7 +725,8 @@ export function AgoraAudioCall({
             {!isIncoming && callStatus === "connecting" && (
               <Button
                 onClick={() => {
-                  console.log(`[AgoraAudioCall-${callId}] Cancel call button clicked`);
+                  if (isCleaningUp) return;
+                  console.log(`[AgoraAudioCall-${callId || "pending"}] Cancel call button clicked`);
                   agoraAudioService.forceStopAllMedia();
                   handleCancelCall();
                 }}
@@ -734,7 +743,7 @@ export function AgoraAudioCall({
           {/* Call Status Debug Info (development only) */}
           {process.env.NODE_ENV === "development" && (
             <div className="text-xs text-muted-foreground text-center">
-              Status: {callStatus} | Incoming: {isIncoming ? "Yes" : "No"} | Cleaning: {isCleaningUp ? "Yes" : "No"}
+              Status: {callStatus} | Incoming: {isIncoming ? "Yes" : "No"} | Cleaning: {isCleaningUp ? "Yes" : "No"} | ID: {callId || "pending"} | Joined: {hasJoinAttempted ? "Yes" : "No"}
             </div>
           )}
 
