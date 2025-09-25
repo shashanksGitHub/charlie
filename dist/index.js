@@ -1880,27 +1880,17 @@ var init_schema = __esm({
 // server/db.ts
 var db_exports = {};
 __export(db_exports, {
-  db: () => db,
-  pool: () => pool
+  db: () => db
 });
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
-var pool, db;
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
+var sql, db;
 var init_db = __esm({
   "server/db.ts"() {
     "use strict";
     init_schema();
-    if (typeof process !== "undefined" && process.versions?.node) {
-      neonConfig.fetchConnectionCache = true;
-      neonConfig.webSocketConstructor = ws;
-      process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0";
-    }
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === "production" ? true : false
-    });
-    db = drizzle(pool, {
+    sql = neon(process.env.DATABASE_URL);
+    db = drizzle(sql, {
       schema: {
         users,
         userPreferences,
@@ -1937,7 +1927,7 @@ import {
   ne,
   desc,
   asc,
-  sql,
+  sql as sql2,
   count,
   notInArray,
   inArray,
@@ -1957,37 +1947,16 @@ var init_storage = __esm({
     DatabaseStorage = class {
       sessionStore;
       constructor() {
-        if (!process.env.DATABASE_URL) {
-          console.warn(
-            "[STORAGE] DATABASE_URL not set. Using in-memory session store (non-persistent)."
-          );
-          this.sessionStore = new MemoryStore({
-            // prune expired entries daily
-            checkPeriod: 24 * 60 * 60 * 1e3
-          });
-          return;
-        }
-        try {
-          this.sessionStore = new PostgresSessionStore({
-            conString: process.env.DATABASE_URL,
-            createTableIfMissing: true,
-            tableName: "user_sessions",
-            // Increased prune interval to keep more inactive sessions available
-            pruneSessionInterval: 24 * 60 * 60
-            // 24 hours in seconds
-          });
-          console.log(
-            "[STORAGE] \u2705 PostgreSQL session store initialized with connection string"
-          );
-        } catch (error) {
-          console.error(
-            "[STORAGE] Failed to initialize PostgreSQL session store:",
-            error
-          );
-          throw new Error(
-            `Failed to initialize PostgreSQL session store: ${error.message}`
-          );
-        }
+        console.log("[STORAGE] Using in-memory session store (faster, no DB connection issues)");
+        this.sessionStore = new MemoryStore({
+          // prune expired entries daily
+          checkPeriod: 24 * 60 * 60 * 1e3,
+          // Keep sessions for 24 hours in memory
+          ttl: 24 * 60 * 60 * 1e3,
+          // Store up to 10,000 sessions in memory (should be plenty)
+          max: 1e4
+        });
+        console.log("[STORAGE] \u2705 In-memory session store initialized (no database connection pool issues)");
       }
       // User operations
       async getUser(id) {
@@ -2010,10 +1979,7 @@ var init_storage = __esm({
         if (!phoneNumber) {
           return void 0;
         }
-        const allUsers = await this.getAllUsers();
-        const matchingUsers = allUsers.filter(
-          (user) => user.phoneNumber === phoneNumber
-        );
+        const matchingUsers = await db.select().from(users).where(eq(users.phoneNumber, phoneNumber));
         if (matchingUsers.length > 1) {
           console.warn(
             `WARNING: Found ${matchingUsers.length} users with the same phone number: ${phoneNumber}`
@@ -2054,7 +2020,7 @@ var init_storage = __esm({
         const now = /* @__PURE__ */ new Date();
         await db.delete(verificationCodes).where(
           // Using raw SQL to compare dates
-          sql`${verificationCodes.expiresAt} < ${now}`
+          sql2`${verificationCodes.expiresAt} < ${now}`
         );
       }
       // Blocked phone numbers for age compliance
@@ -2122,7 +2088,7 @@ var init_storage = __esm({
           if (isVisibilityPreferencesOnlyUpdate && profile.visibilityPreferences) {
             console.log("Special handling for visibilityPreferences-only update");
             try {
-              await db.execute(sql`
+              await db.execute(sql2`
             UPDATE users 
             SET visibility_preferences = ${profile.visibilityPreferences}
             WHERE id = ${id}
@@ -2219,115 +2185,115 @@ var init_storage = __esm({
         try {
           await db.transaction(async (tx) => {
             const userResult = await tx.execute(
-              sql`SELECT phone_number FROM users WHERE id = ${userId}`
+              sql2`SELECT phone_number FROM users WHERE id = ${userId}`
             );
             const userPhone = userResult.rows[0]?.phone_number;
             console.log(`Deleting all dependent records for user ${userId}...`);
             await tx.execute(
-              sql`DELETE FROM payment_history WHERE user_id = ${userId}`
+              sql2`DELETE FROM payment_history WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM payment_methods WHERE user_id = ${userId}`
+              sql2`DELETE FROM payment_methods WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM subscriptions WHERE user_id = ${userId}`
+              sql2`DELETE FROM subscriptions WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM promotional_code_usage WHERE user_id = ${userId}`
+              sql2`DELETE FROM promotional_code_usage WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM message_reactions WHERE user_id = ${userId}`
+              sql2`DELETE FROM message_reactions WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM messages WHERE sender_id = ${userId} OR receiver_id = ${userId} OR deleted_for_user_id = ${userId}`
+              sql2`DELETE FROM messages WHERE sender_id = ${userId} OR receiver_id = ${userId} OR deleted_for_user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM typing_status WHERE user_id = ${userId}`
+              sql2`DELETE FROM typing_status WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM video_calls WHERE initiator_id = ${userId} OR receiver_id = ${userId}`
+              sql2`DELETE FROM video_calls WHERE initiator_id = ${userId} OR receiver_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM matches WHERE user_id_1 = ${userId} OR user_id_2 = ${userId}`
+              sql2`DELETE FROM matches WHERE user_id_1 = ${userId} OR user_id_2 = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM swipe_history WHERE user_id = ${userId} OR target_user_id = ${userId}`
+              sql2`DELETE FROM swipe_history WHERE user_id = ${userId} OR target_user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM compatibility_analysis WHERE user1_id = ${userId} OR user2_id = ${userId}`
+              sql2`DELETE FROM compatibility_analysis WHERE user1_id = ${userId} OR user2_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM suite_compatibility_scores WHERE user_id = ${userId} OR target_user_id = ${userId}`
+              sql2`DELETE FROM suite_compatibility_scores WHERE user_id = ${userId} OR target_user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM suite_mentorship_compatibility_scores WHERE user_id = ${userId} OR target_user_id = ${userId}`
+              sql2`DELETE FROM suite_mentorship_compatibility_scores WHERE user_id = ${userId} OR target_user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM suite_networking_connections WHERE user_id = ${userId} OR target_user_id = ${userId}`
+              sql2`DELETE FROM suite_networking_connections WHERE user_id = ${userId} OR target_user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM suite_mentorship_connections WHERE user_id = ${userId} OR target_user_id = ${userId}`
+              sql2`DELETE FROM suite_mentorship_connections WHERE user_id = ${userId} OR target_user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM suite_job_applications WHERE user_id = ${userId} OR target_user_id = ${userId}`
+              sql2`DELETE FROM suite_job_applications WHERE user_id = ${userId} OR target_user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM suite_message_reactions WHERE user_id = ${userId}`
+              sql2`DELETE FROM suite_message_reactions WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM suite_messages WHERE sender_id = ${userId} OR receiver_id = ${userId}`
+              sql2`DELETE FROM suite_messages WHERE sender_id = ${userId} OR receiver_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM professional_reviews WHERE user_id = ${userId} OR target_user_id = ${userId}`
+              sql2`DELETE FROM professional_reviews WHERE user_id = ${userId} OR target_user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM user_report_strikes WHERE reporter_user_id = ${userId} OR reported_user_id = ${userId}`
+              sql2`DELETE FROM user_report_strikes WHERE reporter_user_id = ${userId} OR reported_user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM user_photos WHERE user_id = ${userId}`
+              sql2`DELETE FROM user_photos WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM user_preferences WHERE user_id = ${userId}`
+              sql2`DELETE FROM user_preferences WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM user_interests WHERE user_id = ${userId}`
+              sql2`DELETE FROM user_interests WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM user_match_settings WHERE user_id = ${userId}`
+              sql2`DELETE FROM user_match_settings WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM user_auto_delete_settings WHERE user_id = ${userId}`
+              sql2`DELETE FROM user_auto_delete_settings WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM connections_preferences WHERE user_id = ${userId}`
+              sql2`DELETE FROM connections_preferences WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM suite_job_profiles WHERE user_id = ${userId}`
+              sql2`DELETE FROM suite_job_profiles WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM suite_mentorship_profiles WHERE user_id = ${userId}`
+              sql2`DELETE FROM suite_mentorship_profiles WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM suite_networking_profiles WHERE user_id = ${userId}`
+              sql2`DELETE FROM suite_networking_profiles WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM suite_profile_settings WHERE user_id = ${userId}`
+              sql2`DELETE FROM suite_profile_settings WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM suite_field_visibility WHERE user_id = ${userId}`
+              sql2`DELETE FROM suite_field_visibility WHERE user_id = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM global_interests WHERE created_by = ${userId}`
+              sql2`DELETE FROM global_interests WHERE created_by = ${userId}`
             );
             await tx.execute(
-              sql`DELETE FROM global_deal_breakers WHERE created_by = ${userId}`
+              sql2`DELETE FROM global_deal_breakers WHERE created_by = ${userId}`
             );
             if (userPhone) {
               await tx.execute(
-                sql`DELETE FROM verification_codes WHERE phone_number = ${userPhone}`
+                sql2`DELETE FROM verification_codes WHERE phone_number = ${userPhone}`
               );
             }
-            await tx.execute(sql`DELETE FROM users WHERE id = ${userId}`);
+            await tx.execute(sql2`DELETE FROM users WHERE id = ${userId}`);
             console.log(
               `Successfully deleted user ${userId} and all related data using comprehensive SQL approach`
             );
@@ -2550,7 +2516,7 @@ var init_storage = __esm({
             or(
               isNull(matches.metadata),
               // Legacy MEET matches without metadata
-              sql`${matches.metadata}::jsonb->>'suiteType' IS NULL`
+              sql2`${matches.metadata}::jsonb->>'suiteType' IS NULL`
               // Explicit MEET matches
             ),
             // No blocking exists between users (bidirectional check)
@@ -2624,7 +2590,7 @@ var init_storage = __esm({
         return await db.select().from(matches).where(
           and(
             or(eq(matches.userId1, userId), eq(matches.userId2, userId)),
-            sql`${matches.createdAt} > ${since}`
+            sql2`${matches.createdAt} > ${since}`
           )
         ).orderBy(desc(matches.createdAt));
       }
@@ -2636,7 +2602,7 @@ var init_storage = __esm({
           );
           const startTime = Date.now();
           const [result] = await db.select({
-            unreadCount: sql`COUNT(*)`
+            unreadCount: sql2`COUNT(*)`
           }).from(messages).innerJoin(matches, eq(messages.matchId, matches.id)).where(
             and(
               eq(messages.receiverId, userId),
@@ -2667,7 +2633,7 @@ var init_storage = __esm({
       // Get count of conversations with unread messages for navigation badge - OPTIMIZED VERSION
       async getUnreadConversationsCount(userId) {
         try {
-          const result = await db.execute(sql`
+          const result = await db.execute(sql2`
         SELECT COUNT(DISTINCT msg.match_id) AS unread_conversation_count
         FROM messages msg
         JOIN matches m ON msg.match_id = m.id
@@ -2793,7 +2759,7 @@ var init_storage = __esm({
               eq(messages.senderId, message.senderId),
               eq(messages.receiverId, message.receiverId),
               eq(messages.content, message.content),
-              sql`${messages.createdAt} >= ${recentTime.toISOString()}`
+              sql2`${messages.createdAt} >= ${recentTime.toISOString()}`
             )
           ).limit(1);
           if (existingMessages.length > 0) {
@@ -2930,7 +2896,7 @@ var init_storage = __esm({
               eq(messages.matchId, matchId),
               eq(messages.senderId, senderId),
               eq(messages.messageType, messageType || "text"),
-              sql`${messages.createdAt} >= ${since}`
+              sql2`${messages.createdAt} >= ${since}`
             )
           ).orderBy(desc(messages.createdAt));
           const allMessages = await messagesQuery;
@@ -3078,9 +3044,9 @@ var init_storage = __esm({
               or(
                 isNull(matches.metadata),
                 // Legacy MEET matches
-                sql`${matches.metadata}::jsonb->>'suiteType' IS NULL`,
+                sql2`${matches.metadata}::jsonb->>'suiteType' IS NULL`,
                 // Explicit MEET matches
-                sql`${matches.metadata}::jsonb->'additionalConnections' ? 'MEET'`
+                sql2`${matches.metadata}::jsonb->'additionalConnections' ? 'MEET'`
                 // SUITE matches with MEET added
               )
             )
@@ -3090,8 +3056,8 @@ var init_storage = __esm({
                 eq(matches.userId2, userId),
                 or(
                   isNull(matches.metadata),
-                  sql`${matches.metadata}::jsonb->>'suiteType' IS NULL`,
-                  sql`${matches.metadata}::jsonb->'additionalConnections' ? 'MEET'`
+                  sql2`${matches.metadata}::jsonb->>'suiteType' IS NULL`,
+                  sql2`${matches.metadata}::jsonb->'additionalConnections' ? 'MEET'`
                 )
               )
             )
@@ -3607,14 +3573,14 @@ var init_storage = __esm({
         try {
           if (isActive) {
             const result = await db.execute(
-              sql`INSERT INTO active_chats (user_id, match_id, is_active, updated_at) 
+              sql2`INSERT INTO active_chats (user_id, match_id, is_active, updated_at) 
               VALUES (${userId}, ${matchId}, ${isActive}, NOW()) 
               ON CONFLICT (user_id, match_id) 
               DO UPDATE SET is_active = ${isActive}, updated_at = NOW()`
             );
           } else {
             await db.execute(
-              sql`UPDATE active_chats 
+              sql2`UPDATE active_chats 
               SET is_active = ${isActive}, updated_at = NOW() 
               WHERE user_id = ${userId} AND match_id = ${matchId}`
             );
@@ -3631,7 +3597,7 @@ var init_storage = __esm({
       async getActiveChatStatus(userId, matchId) {
         try {
           const result = await db.execute(
-            sql`SELECT is_active FROM active_chats 
+            sql2`SELECT is_active FROM active_chats 
             WHERE user_id = ${userId} AND match_id = ${matchId} 
             AND is_active = true 
             AND updated_at > NOW() - INTERVAL '5 minutes'`
@@ -3648,7 +3614,7 @@ var init_storage = __esm({
       async getUsersInActiveChat(matchId) {
         try {
           const result = await db.execute(
-            sql`SELECT user_id FROM active_chats 
+            sql2`SELECT user_id FROM active_chats 
             WHERE match_id = ${matchId} 
             AND is_active = true 
             AND updated_at > NOW() - INTERVAL '5 minutes'`
@@ -3820,8 +3786,8 @@ var init_storage = __esm({
           const now = /* @__PURE__ */ new Date();
           const messagesToDelete = await db.select().from(messages).where(
             and(
-              sql`${messages.autoDeleteScheduledAt} IS NOT NULL`,
-              sql`${messages.autoDeleteScheduledAt} <= ${now.toISOString()}`
+              sql2`${messages.autoDeleteScheduledAt} IS NOT NULL`,
+              sql2`${messages.autoDeleteScheduledAt} <= ${now.toISOString()}`
             )
           );
           for (const message of messagesToDelete) {
@@ -3901,7 +3867,7 @@ var init_storage = __esm({
           console.log("Creating/updating job profile for user:", userId);
           console.log("Job profile data:", jobProfileData);
           await db.update(suiteJobProfiles).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq(suiteJobProfiles.userId, userId));
-          const [existingProfile] = await db.select().from(suiteJobProfiles).where(eq(suiteJobProfiles.userId, userId)).orderBy(sql`${suiteJobProfiles.createdAt} DESC`).limit(1);
+          const [existingProfile] = await db.select().from(suiteJobProfiles).where(eq(suiteJobProfiles.userId, userId)).orderBy(sql2`${suiteJobProfiles.createdAt} DESC`).limit(1);
           if (existingProfile) {
             const cleanData = { ...jobProfileData };
             delete cleanData.createdAt;
@@ -4087,27 +4053,27 @@ var init_storage = __esm({
               eq(suiteProfileSettings.hiddenInJobDiscovery, false),
               // COMPLETE BIDIRECTIONAL FILTERING: Use efficient SQL NOT EXISTS clauses like networking/mentorship
               // 1. Exclude profiles current user has already swiped on
-              sql`NOT EXISTS (
+              sql2`NOT EXISTS (
               SELECT 1 FROM suite_job_applications sja1
               WHERE sja1.user_id = ${userId} 
               AND sja1.target_profile_id = suite_job_profiles.id
             )`,
               // 2. Exclude profiles owned by users who have already swiped on current user's profile
-              sql`NOT EXISTS (
+              sql2`NOT EXISTS (
               SELECT 1 FROM suite_job_applications sja2
               WHERE sja2.user_id = suite_job_profiles.user_id 
               AND sja2.target_user_id = ${userId}
             )`,
               // 3. Exclude profiles for users in swipe history for SUITE_JOBS
-              sql`NOT EXISTS (
+              sql2`NOT EXISTS (
               SELECT 1 FROM swipe_history sh
               WHERE sh.user_id = ${userId} 
               AND sh.target_user_id = suite_job_profiles.user_id
               AND sh.app_mode = 'SUITE_JOBS'
             )`,
               or(
-                sql`${suiteJobProfiles.expiresAt} IS NULL`,
-                sql`${suiteJobProfiles.expiresAt} > NOW()`
+                sql2`${suiteJobProfiles.expiresAt} IS NULL`,
+                sql2`${suiteJobProfiles.expiresAt} > NOW()`
               )
             )
           ).orderBy(desc(suiteJobProfiles.createdAt)).limit(limit).offset(offset);
@@ -4318,7 +4284,7 @@ var init_storage = __esm({
               eq(suiteMentorshipProfiles.userId, userId),
               eq(suiteMentorshipProfiles.role, role)
             )
-          ).orderBy(sql`${suiteMentorshipProfiles.createdAt} DESC`).limit(1);
+          ).orderBy(sql2`${suiteMentorshipProfiles.createdAt} DESC`).limit(1);
           if (existingProfile) {
             const cleanData = { ...mentorshipProfileData };
             delete cleanData.createdAt;
@@ -4483,18 +4449,18 @@ var init_storage = __esm({
               eq(suiteMentorshipProfiles.isActive, true),
               eq(suiteProfileSettings.hiddenInMentorshipDiscovery, false),
               // Optimized bidirectional filtering using efficient table aliases and indexed lookups
-              sql`NOT EXISTS (
+              sql2`NOT EXISTS (
               SELECT 1 FROM suite_mentorship_connections smc1
               WHERE smc1.user_id = ${userId} 
               AND smc1.target_profile_id = suite_mentorship_profiles.id
             )`,
-              sql`NOT EXISTS (
+              sql2`NOT EXISTS (
               SELECT 1 FROM suite_mentorship_connections smc2
               WHERE smc2.user_id = suite_mentorship_profiles.user_id 
               AND smc2.target_user_id = ${userId}
             )`,
               // 3. Exclude profiles for users in swipe history for SUITE_MENTORSHIP
-              sql`NOT EXISTS (
+              sql2`NOT EXISTS (
               SELECT 1 FROM swipe_history sh
               WHERE sh.user_id = ${userId} 
               AND sh.target_user_id = suite_mentorship_profiles.user_id
@@ -4606,7 +4572,7 @@ var init_storage = __esm({
           console.log("Creating/updating networking profile for user:", userId);
           console.log("Profile data received:", networkingProfileData);
           await db.update(suiteNetworkingProfiles).set({ isActive: false, updatedAt: /* @__PURE__ */ new Date() }).where(eq(suiteNetworkingProfiles.userId, userId));
-          const [existingProfile] = await db.select().from(suiteNetworkingProfiles).where(eq(suiteNetworkingProfiles.userId, userId)).orderBy(sql`${suiteNetworkingProfiles.createdAt} DESC`).limit(1);
+          const [existingProfile] = await db.select().from(suiteNetworkingProfiles).where(eq(suiteNetworkingProfiles.userId, userId)).orderBy(sql2`${suiteNetworkingProfiles.createdAt} DESC`).limit(1);
           if (existingProfile) {
             const cleanData = { ...networkingProfileData };
             delete cleanData.createdAt;
@@ -4776,18 +4742,18 @@ var init_storage = __esm({
               eq(suiteProfileSettings.hiddenInNetworkingDiscovery, false),
               eq(suiteNetworkingProfiles.lookingForOpportunities, true),
               // Optimized bidirectional filtering using efficient EXISTS clauses instead of slow NOT IN
-              sql`NOT EXISTS (
+              sql2`NOT EXISTS (
               SELECT 1 FROM suite_networking_connections snc1
               WHERE snc1.user_id = ${userId} 
               AND snc1.target_profile_id = suite_networking_profiles.id
             )`,
-              sql`NOT EXISTS (
+              sql2`NOT EXISTS (
               SELECT 1 FROM suite_networking_connections snc2
               WHERE snc2.user_id = suite_networking_profiles.user_id 
               AND snc2.target_user_id = ${userId}
             )`,
               // 3. Exclude profiles for users in swipe history for SUITE_NETWORKING
-              sql`NOT EXISTS (
+              sql2`NOT EXISTS (
               SELECT 1 FROM swipe_history sh
               WHERE sh.user_id = ${userId} 
               AND sh.target_user_id = suite_networking_profiles.user_id
@@ -4890,7 +4856,7 @@ var init_storage = __esm({
             ],
             set: {
               isVisible,
-              updatedAt: sql`NOW()`
+              updatedAt: sql2`NOW()`
             }
           }).returning();
           return visibility;
@@ -5462,7 +5428,7 @@ var init_storage = __esm({
       // Professional Reviews System
       async createProfessionalReview(reviewData) {
         try {
-          const result = await db.execute(sql`
+          const result = await db.execute(sql2`
         INSERT INTO professional_reviews (
           user_id, target_user_id, rating, review_text, category, is_anonymous, created_at, updated_at
         ) VALUES (
@@ -5495,7 +5461,7 @@ var init_storage = __esm({
       }
       async getProfessionalReviewsForUser(reviewedUserId) {
         try {
-          const reviews = await db.execute(sql`
+          const reviews = await db.execute(sql2`
         SELECT 
           pr.id,
           pr.target_user_id as reviewed_user_id,
@@ -5539,7 +5505,7 @@ var init_storage = __esm({
       }
       async getProfessionalReviewStats(reviewedUserId) {
         try {
-          const reviews = await db.execute(sql`
+          const reviews = await db.execute(sql2`
         SELECT rating 
         FROM professional_reviews 
         WHERE target_user_id = ${reviewedUserId}
@@ -5569,7 +5535,7 @@ var init_storage = __esm({
       }
       async getExistingReview(reviewedUserId, reviewerUserId, category = "overall") {
         try {
-          const review = await db.execute(sql`
+          const review = await db.execute(sql2`
         SELECT * FROM professional_reviews 
         WHERE target_user_id = ${reviewedUserId} 
         AND user_id = ${reviewerUserId} 
@@ -5596,7 +5562,7 @@ var init_storage = __esm({
       }
       async deleteProfessionalReview(reviewId, userId) {
         try {
-          const result = await db.execute(sql`
+          const result = await db.execute(sql2`
         DELETE FROM professional_reviews 
         WHERE id = ${reviewId} AND user_id = ${userId}
         RETURNING id
@@ -5609,7 +5575,7 @@ var init_storage = __esm({
       }
       async updateProfessionalReview(id, updates) {
         try {
-          const result = await db.execute(sql`
+          const result = await db.execute(sql2`
         UPDATE professional_reviews 
         SET 
           rating = ${updates.rating}, 
@@ -5645,7 +5611,7 @@ var init_storage = __esm({
           if (!jobProfile) {
             throw new Error("Job profile not found");
           }
-          const result = await db.execute(sql`
+          const result = await db.execute(sql2`
         INSERT INTO suite_job_applications (user_id, target_profile_id, target_user_id, action, application_status, matched) 
         VALUES (${applicationData.userId}, ${applicationData.jobProfileId}, ${jobProfile.userId}, ${applicationData.action}, ${applicationData.action === "like" ? "pending" : "rejected"}, false)
         ON CONFLICT (user_id, target_profile_id) 
@@ -5867,7 +5833,7 @@ var init_storage = __esm({
                     arrayValue
                   );
                   await db.execute(
-                    sql.raw(`UPDATE connections_preferences 
+                    sql2.raw(`UPDATE connections_preferences 
                 SET ${field} = '${arrayValue}'::text[], 
                     updated_at = NOW() 
                 WHERE user_id = ${userId}`)
@@ -5909,7 +5875,7 @@ var init_storage = __esm({
               updatedAt: /* @__PURE__ */ new Date()
             };
             if (updateData.networking_location_preference !== void 0) {
-              await db.execute(sql`
+              await db.execute(sql2`
             UPDATE connections_preferences 
             SET networking_location_preference = ${updateData.networking_location_preference}, 
                 updated_at = ${updateData.updatedAt}
@@ -5921,7 +5887,7 @@ var init_storage = __esm({
               );
             }
             if (updateData.mentorship_location_preference !== void 0) {
-              await db.execute(sql`
+              await db.execute(sql2`
             UPDATE connections_preferences 
             SET mentorship_location_preference = ${updateData.mentorship_location_preference}, 
                 updated_at = ${updateData.updatedAt}
@@ -5933,7 +5899,7 @@ var init_storage = __esm({
               );
             }
             if (updateData.jobs_work_location !== void 0) {
-              await db.execute(sql`
+              await db.execute(sql2`
             UPDATE connections_preferences 
             SET jobs_work_location = ${updateData.jobs_work_location}, 
                 updated_at = ${updateData.updatedAt}
@@ -5945,7 +5911,7 @@ var init_storage = __esm({
               );
             }
             if (data.jobs_weights !== void 0) {
-              await db.execute(sql`
+              await db.execute(sql2`
             UPDATE connections_preferences 
             SET jobs_weights = ${JSON.stringify(data.jobs_weights)}, 
                 updated_at = ${updateData.updatedAt}
@@ -5957,7 +5923,7 @@ var init_storage = __esm({
               );
             }
             if (data.jobs_salary_currency !== void 0) {
-              await db.execute(sql`
+              await db.execute(sql2`
             UPDATE connections_preferences 
             SET jobs_salary_currency = ${data.jobs_salary_currency}, 
                 updated_at = ${updateData.updatedAt}
@@ -5969,7 +5935,7 @@ var init_storage = __esm({
               );
             }
             if (data.jobs_salary_min !== void 0) {
-              await db.execute(sql`
+              await db.execute(sql2`
             UPDATE connections_preferences 
             SET jobs_salary_min = ${data.jobs_salary_min}, 
                 updated_at = ${updateData.updatedAt}
@@ -5981,7 +5947,7 @@ var init_storage = __esm({
               );
             }
             if (data.jobs_salary_max !== void 0) {
-              await db.execute(sql`
+              await db.execute(sql2`
             UPDATE connections_preferences 
             SET jobs_salary_max = ${data.jobs_salary_max}, 
                 updated_at = ${updateData.updatedAt}
@@ -5993,7 +5959,7 @@ var init_storage = __esm({
               );
             }
             if (data.jobs_salary_period !== void 0) {
-              await db.execute(sql`
+              await db.execute(sql2`
             UPDATE connections_preferences 
             SET jobs_salary_period = ${data.jobs_salary_period}, 
                 updated_at = ${updateData.updatedAt}
@@ -6005,7 +5971,7 @@ var init_storage = __esm({
               );
             }
             if (data.mentorship_weights !== void 0) {
-              await db.execute(sql`
+              await db.execute(sql2`
             UPDATE connections_preferences 
             SET mentorship_weights = ${JSON.stringify(data.mentorship_weights)}, 
                 updated_at = ${updateData.updatedAt}
@@ -6017,7 +5983,7 @@ var init_storage = __esm({
               );
             }
             if (data.networking_weights !== void 0) {
-              await db.execute(sql`
+              await db.execute(sql2`
             UPDATE connections_preferences 
             SET networking_weights = ${JSON.stringify(data.networking_weights)}, 
                 updated_at = ${updateData.updatedAt}
@@ -6072,7 +6038,7 @@ var init_storage = __esm({
         return await db.select().from(userReportStrikes).where(
           and(
             eq(userReportStrikes.reportedUserId, reportedUserId),
-            sql`${userReportStrikes.createdAt} >= ${yesterday}`
+            sql2`${userReportStrikes.createdAt} >= ${yesterday}`
           )
         ).orderBy(desc(userReportStrikes.createdAt));
       }
@@ -6111,7 +6077,7 @@ var init_storage = __esm({
             and(
               eq(subscriptions.userId, userId),
               eq(subscriptions.status, "active"),
-              sql`${subscriptions.currentPeriodEnd} > NOW()`
+              sql2`${subscriptions.currentPeriodEnd} > NOW()`
             )
           ).orderBy(desc(subscriptions.createdAt)).limit(1);
           return subscription || void 0;
@@ -6148,7 +6114,7 @@ var init_storage = __esm({
           return await db.select().from(subscriptions).where(
             and(
               eq(subscriptions.status, "active"),
-              sql`${subscriptions.currentPeriodEnd} < NOW()`
+              sql2`${subscriptions.currentPeriodEnd} < NOW()`
             )
           );
         } catch (error) {
@@ -6371,7 +6337,7 @@ var init_storage = __esm({
               eq(regionalPricing.isActive, true),
               or(
                 eq(regionalPricing.validUntil, null),
-                sql`${regionalPricing.validUntil} > NOW()`
+                sql2`${regionalPricing.validUntil} > NOW()`
               )
             )
           ).orderBy(desc(regionalPricing.createdAt)).limit(1);
@@ -6389,7 +6355,7 @@ var init_storage = __esm({
               eq(regionalPricing.isActive, true),
               or(
                 eq(regionalPricing.validUntil, null),
-                sql`${regionalPricing.validUntil} > NOW()`
+                sql2`${regionalPricing.validUntil} > NOW()`
               )
             )
           ).orderBy(regionalPricing.planType, desc(regionalPricing.createdAt));
@@ -6416,7 +6382,7 @@ var init_storage = __esm({
               eq(regionalPricing.isActive, true),
               or(
                 eq(regionalPricing.validUntil, null),
-                sql`${regionalPricing.validUntil} > NOW()`
+                sql2`${regionalPricing.validUntil} > NOW()`
               )
             )
           ).orderBy(desc(regionalPricing.createdAt)).limit(1);
@@ -6442,10 +6408,10 @@ var init_storage = __esm({
             and(
               eq(promotionalCodes.code, code),
               eq(promotionalCodes.isActive, true),
-              sql`${promotionalCodes.validFrom} <= NOW()`,
+              sql2`${promotionalCodes.validFrom} <= NOW()`,
               or(
                 eq(promotionalCodes.validUntil, null),
-                sql`${promotionalCodes.validUntil} > NOW()`
+                sql2`${promotionalCodes.validUntil} > NOW()`
               )
             )
           );
@@ -6530,7 +6496,7 @@ var init_storage = __esm({
       async incrementPromotionalCodeUsage(promoCodeId) {
         try {
           const [promoCode] = await db.update(promotionalCodes).set({
-            currentUses: sql`${promotionalCodes.currentUses} + 1`,
+            currentUses: sql2`${promotionalCodes.currentUses} + 1`,
             updatedAt: /* @__PURE__ */ new Date()
           }).where(eq(promotionalCodes.id, promoCodeId)).returning();
           return promoCode || void 0;
@@ -6544,19 +6510,19 @@ var init_storage = __esm({
         try {
           const conditions = [eq(paymentHistory.status, "succeeded")];
           if (startDate) {
-            conditions.push(sql`${paymentHistory.createdAt} >= ${startDate}`);
+            conditions.push(sql2`${paymentHistory.createdAt} >= ${startDate}`);
           }
           if (endDate) {
-            conditions.push(sql`${paymentHistory.createdAt} <= ${endDate}`);
+            conditions.push(sql2`${paymentHistory.createdAt} <= ${endDate}`);
           }
           const results = await db.select({
             region: subscriptions.region,
-            revenue: sql`SUM(${paymentHistory.amount})`,
+            revenue: sql2`SUM(${paymentHistory.amount})`,
             currency: paymentHistory.currency
           }).from(paymentHistory).innerJoin(
             subscriptions,
             eq(paymentHistory.subscriptionId, subscriptions.id)
-          ).where(and(...conditions)).groupBy(subscriptions.region, paymentHistory.currency).orderBy(desc(sql`SUM(${paymentHistory.amount})`));
+          ).where(and(...conditions)).groupBy(subscriptions.region, paymentHistory.currency).orderBy(desc(sql2`SUM(${paymentHistory.amount})`));
           return results;
         } catch (error) {
           console.error("Error getting revenue by region:", error);
@@ -6601,8 +6567,8 @@ var init_storage = __esm({
         try {
           const results = await db.select({
             type: paymentHistory.paymentMethod,
-            count: sql`COUNT(*)`
-          }).from(paymentHistory).where(eq(paymentHistory.status, "succeeded")).groupBy(paymentHistory.paymentMethod).orderBy(desc(sql`COUNT(*)`)).limit(10);
+            count: sql2`COUNT(*)`
+          }).from(paymentHistory).where(eq(paymentHistory.status, "succeeded")).groupBy(paymentHistory.paymentMethod).orderBy(desc(sql2`COUNT(*)`)).limit(10);
           return results;
         } catch (error) {
           console.error("Error getting most used payment methods:", error);
@@ -6760,7 +6726,7 @@ var init_storage = __esm({
               eq(regionalPricing.isActive, true),
               or(
                 eq(regionalPricing.validUntil, null),
-                sql`${regionalPricing.validUntil} > NOW()`
+                sql2`${regionalPricing.validUntil} > NOW()`
               )
             )
           ).orderBy(regionalPricing.planType);
@@ -6910,9 +6876,9 @@ var init_storage = __esm({
           );
           const startTime = Date.now();
           const [result] = await db.select({
-            confirmed: sql`COUNT(CASE WHEN matched = true THEN 1 END)`,
-            pending: sql`COUNT(CASE WHEN matched = false AND is_dislike = false THEN 1 END)`,
-            total: sql`COUNT(*)`
+            confirmed: sql2`COUNT(CASE WHEN matched = true THEN 1 END)`,
+            pending: sql2`COUNT(CASE WHEN matched = false AND is_dislike = false THEN 1 END)`,
+            total: sql2`COUNT(*)`
           }).from(matches).where(or(eq(matches.userId1, userId), eq(matches.userId2, userId)));
           const duration = Date.now() - startTime;
           console.log(
@@ -6959,16 +6925,16 @@ var init_storage = __esm({
           );
           const startTime = Date.now();
           const [networkingResult] = await db.select({
-            confirmed: sql`COUNT(CASE WHEN matched = true THEN 1 END)`,
-            pending: sql`COUNT(CASE WHEN matched = false AND is_dislike = false THEN 1 END)`
+            confirmed: sql2`COUNT(CASE WHEN matched = true THEN 1 END)`,
+            pending: sql2`COUNT(CASE WHEN matched = false AND is_dislike = false THEN 1 END)`
           }).from(suiteNetworkingConnections).where(eq(suiteNetworkingConnections.userId, userId));
           const [mentorshipResult] = await db.select({
-            confirmed: sql`COUNT(CASE WHEN matched = true THEN 1 END)`,
-            pending: sql`COUNT(CASE WHEN matched = false AND is_dislike = false THEN 1 END)`
+            confirmed: sql2`COUNT(CASE WHEN matched = true THEN 1 END)`,
+            pending: sql2`COUNT(CASE WHEN matched = false AND is_dislike = false THEN 1 END)`
           }).from(suiteMentorshipConnections).where(eq(suiteMentorshipConnections.userId, userId));
           const [jobsResult] = await db.select({
-            accepted: sql`COUNT(CASE WHEN action = 'accepted' THEN 1 END)`,
-            pending: sql`COUNT(CASE WHEN action = 'pending' THEN 1 END)`
+            accepted: sql2`COUNT(CASE WHEN action = 'accepted' THEN 1 END)`,
+            pending: sql2`COUNT(CASE WHEN action = 'pending' THEN 1 END)`
           }).from(suiteJobApplications).where(eq(suiteJobApplications.userId, userId));
           const duration = Date.now() - startTime;
           console.log(
@@ -12747,21 +12713,21 @@ __export(user_behavior_patterns_exports, {
   UserBehaviorPatterns: () => UserBehaviorPatterns,
   userBehaviorPatterns: () => userBehaviorPatterns
 });
-import { neon } from "@neondatabase/serverless";
+import { neon as neon2 } from "@neondatabase/serverless";
 import dotenv2 from "dotenv";
 function getSql() {
-  if (!sql3) {
-    sql3 = neon(process.env.DATABASE_URL);
+  if (!sql4) {
+    sql4 = neon2(process.env.DATABASE_URL);
   }
-  return sql3;
+  return sql4;
 }
-var sql3, UserBehaviorPatterns, userBehaviorPatterns;
+var sql4, UserBehaviorPatterns, userBehaviorPatterns;
 var init_user_behavior_patterns = __esm({
   "server/user-behavior-patterns.ts"() {
     "use strict";
     init_geocoding_service();
     dotenv2.config();
-    sql3 = null;
+    sql4 = null;
     UserBehaviorPatterns = class {
       /**
        * TEMPORAL FACTOR 1: Online Status Detection
@@ -13257,7 +13223,7 @@ var init_user_behavior_patterns = __esm({
         try {
           console.log(`[PROFILE-HEALTH] Calculating profile health metrics for user ${userId}`);
           const [userData, userPhotos2] = await Promise.all([
-            sql3`
+            sql4`
           SELECT 
             id, bio, profession, ethnicity, religion, photo_url,
             date_of_birth, relationship_goal, high_school, college_university,
@@ -13265,7 +13231,7 @@ var init_user_behavior_patterns = __esm({
           FROM users 
           WHERE id = ${userId}
         `,
-            sql3`
+            sql4`
           SELECT 
             id, photo_url, is_primary_for_meet, created_at
           FROM user_photos 
@@ -13658,9 +13624,9 @@ var init_user_behavior_patterns = __esm({
         try {
           console.log("[READINESS-CHECK] Auditing Mutual Interest Indicators implementation readiness");
           const [messagesCount, swipeCount, profileViewsExists] = await Promise.all([
-            sql3`SELECT COUNT(*) as count FROM messages`,
-            sql3`SELECT COUNT(*) as count FROM swipe_history`,
-            sql3`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profile_views')`
+            sql4`SELECT COUNT(*) as count FROM messages`,
+            sql4`SELECT COUNT(*) as count FROM swipe_history`,
+            sql4`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'profile_views')`
           ]);
           const hasMessages = Number(messagesCount[0].count) > 0;
           const hasSwipes = Number(swipeCount[0].count) > 0;
@@ -13707,8 +13673,8 @@ var init_user_behavior_patterns = __esm({
         try {
           console.log(`[COMPREHENSIVE-CONTEXT] Calculating context score: ${userId} \u2192 ${targetUserId}`);
           const [userProfile, targetProfile] = await Promise.all([
-            sql3`SELECT * FROM users WHERE id = ${userId}`.then((r) => r[0] || null),
-            sql3`SELECT * FROM users WHERE id = ${targetUserId}`.then((r) => r[0] || null)
+            sql4`SELECT * FROM users WHERE id = ${userId}`.then((r) => r[0] || null),
+            sql4`SELECT * FROM users WHERE id = ${targetUserId}`.then((r) => r[0] || null)
           ]);
           if (!userProfile || !targetProfile) {
             console.log(`[COMPREHENSIVE-CONTEXT] Missing user profiles: ${userId}=${!!userProfile}, ${targetUserId}=${!!targetProfile}`);
@@ -14883,7 +14849,7 @@ __export(archiving_service_exports, {
   ArchivingService: () => ArchivingService,
   default: () => archiving_service_default
 });
-import { eq as eq5, and as and4, sql as sql4 } from "drizzle-orm";
+import { eq as eq5, and as and4, sql as sql5 } from "drizzle-orm";
 var ArchivingService, archiving_service_default;
 var init_archiving_service = __esm({
   "server/archiving-service.ts"() {
@@ -14972,13 +14938,13 @@ var init_archiving_service = __esm({
             throw new Error(`User ${userId} not found`);
           }
           const user = userData[0];
-          const matchCount = await db.select({ count: sql4`count(*)` }).from(matches).where(
+          const matchCount = await db.select({ count: sql5`count(*)` }).from(matches).where(
             and4(
-              sql4`(${matches.userId1} = ${userId} OR ${matches.userId2} = ${userId})`,
+              sql5`(${matches.userId1} = ${userId} OR ${matches.userId2} = ${userId})`,
               eq5(matches.matched, true)
             )
           );
-          const messageCount = await db.select({ count: sql4`count(*)` }).from(messages).where(eq5(messages.senderId, userId));
+          const messageCount = await db.select({ count: sql5`count(*)` }).from(messages).where(eq5(messages.senderId, userId));
           const totalMatches = matchCount[0]?.count || 0;
           const totalMessages = messageCount[0]?.count || 0;
           console.log(`[ARCHIVE] User ${userId} statistics: ${totalMatches} matches, ${totalMessages} messages`);
@@ -15036,8 +15002,8 @@ var init_archiving_service = __esm({
       static async getArchivedMatchHistory(userId) {
         try {
           const archivedMatchHistory = await db.select().from(archivedMatches).where(
-            sql4`(${archivedMatches.userId1} = ${userId} OR ${archivedMatches.userId2} = ${userId})`
-          ).orderBy(sql4`${archivedMatches.archivedAt} DESC`);
+            sql5`(${archivedMatches.userId1} = ${userId} OR ${archivedMatches.userId2} = ${userId})`
+          ).orderBy(sql5`${archivedMatches.archivedAt} DESC`);
           return archivedMatchHistory;
         } catch (error) {
           console.error(`[ARCHIVE] Failed to get archived match history for user ${userId}:`, error);
@@ -15049,7 +15015,7 @@ var init_archiving_service = __esm({
        */
       static async getArchivedUser(originalUserId) {
         try {
-          const archivedUser = await db.select().from(archivedUsers).where(eq5(archivedUsers.originalUserId, originalUserId)).orderBy(sql4`${archivedUsers.archivedAt} DESC`).limit(1);
+          const archivedUser = await db.select().from(archivedUsers).where(eq5(archivedUsers.originalUserId, originalUserId)).orderBy(sql5`${archivedUsers.archivedAt} DESC`).limit(1);
           return archivedUser[0] || null;
         } catch (error) {
           console.error(`[ARCHIVE] Failed to get archived user for ID ${originalUserId}:`, error);
@@ -15064,9 +15030,9 @@ var init_archiving_service = __esm({
           console.log(`[ARCHIVE] Starting cleanup of archives older than ${retentionDays} days`);
           const cutoffDate = /* @__PURE__ */ new Date();
           cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
-          const deletedMessages = await db.delete(archivedMessages).where(sql4`${archivedMessages.archivedAt} < ${cutoffDate}`);
-          const deletedMatches = await db.delete(archivedMatches).where(sql4`${archivedMatches.archivedAt} < ${cutoffDate}`);
-          const deletedUsers = await db.delete(archivedUsers).where(sql4`${archivedUsers.archivedAt} < ${cutoffDate}`);
+          const deletedMessages = await db.delete(archivedMessages).where(sql5`${archivedMessages.archivedAt} < ${cutoffDate}`);
+          const deletedMatches = await db.delete(archivedMatches).where(sql5`${archivedMatches.archivedAt} < ${cutoffDate}`);
+          const deletedUsers = await db.delete(archivedUsers).where(sql5`${archivedUsers.archivedAt} < ${cutoffDate}`);
           console.log(`[ARCHIVE] Cleanup completed: ${deletedMatches} matches, ${deletedMessages} messages, ${deletedUsers} users`);
           return {
             deletedMatches: deletedMatches.rowCount || 0,
@@ -24139,7 +24105,7 @@ function searchUniversities(req, res) {
 
 // server/routes.ts
 init_schema();
-import { eq as eq6, and as and5, or as or4, sql as sql5, gte } from "drizzle-orm";
+import { eq as eq6, and as and5, or as or4, sql as sql6, gte } from "drizzle-orm";
 var stripe2 = null;
 var stripeSecretKey2 = process.env.STRIPE_LIVE_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
 var isLiveMode2 = !!process.env.STRIPE_LIVE_SECRET_KEY;
@@ -28792,7 +28758,7 @@ ${message.trim()}`
           `[SUBSCRIPTION-EXPIRY] Checking for expired subscriptions...`
         );
         const expiredUsers = await db.select().from(users).where(
-          sql5`subscription_status = 'canceled' 
+          sql6`subscription_status = 'canceled' 
               AND premium_access = true 
               AND subscription_expires_at < NOW()`
         );
@@ -29103,9 +29069,9 @@ ${message.trim()}`
     httpServer.on("upgrade", (request, socket, head) => {
       if (request.url === "/websocket" || request.url === "/ws") {
         console.log("\u{1F4E1} [WebSocket] Handling upgrade request for:", request.url);
-        wss.handleUpgrade(request, socket, head, (ws2) => {
+        wss.handleUpgrade(request, socket, head, (ws) => {
           console.log("\u{1F4E1} [WebSocket] WebSocket connection established");
-          wss.emit("connection", ws2, request);
+          wss.emit("connection", ws, request);
         });
       } else {
         console.log("\u{1F4E1} [WebSocket] Ignoring upgrade request for:", request.url);
@@ -29134,10 +29100,10 @@ ${message.trim()}`
     console.log(
       `Broadcasting networking profile update for user ${userId} to ${connectedUsers4.size} connected users`
     );
-    connectedUsers4.forEach((ws2, connectedUserId) => {
-      if (connectedUserId !== userId && ws2.readyState === WebSocket4.OPEN) {
+    connectedUsers4.forEach((ws, connectedUserId) => {
+      if (connectedUserId !== userId && ws.readyState === WebSocket4.OPEN) {
         try {
-          ws2.send(updateMessage);
+          ws.send(updateMessage);
           console.log(
             `Sent networking profile update to user ${connectedUserId}`
           );
@@ -29160,10 +29126,10 @@ ${message.trim()}`
   setKwameWebSocketConnections(connectedUsers4);
   const activeChats = /* @__PURE__ */ new Map();
   const rateLimits = /* @__PURE__ */ new Map();
-  wss.on("connection", (ws2, req) => {
+  wss.on("connection", (ws, req) => {
     console.log("WebSocket connection established");
     let userId = null;
-    ws2.on("message", async (message) => {
+    ws.on("message", async (message) => {
       try {
         const data = JSON.parse(message);
         console.log("\u{1F4E1} [WebSocket] Received message:", {
@@ -29187,7 +29153,7 @@ ${message.trim()}`
             try {
               const user = await storage.getUser(userId);
               if (!user) {
-                ws2.send(
+                ws.send(
                   JSON.stringify({
                     type: "auth_error",
                     message: "User not found"
@@ -29195,14 +29161,14 @@ ${message.trim()}`
                 );
                 return;
               }
-              connectedUsers4.set(userId, ws2);
+              connectedUsers4.set(userId, ws);
               await storage.updateUserOnlineStatus(userId, true);
               const connectTime = /* @__PURE__ */ new Date();
               const timestampISO = connectTime.toISOString();
               console.log(
                 `[PRESENCE] User ${userId} authenticated and is now online at ${timestampISO}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "auth_success",
                   userId,
@@ -29210,7 +29176,7 @@ ${message.trim()}`
                 })
               );
               const onlineCount = connectedUsers4.size;
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "online_count_update",
                   count: onlineCount,
@@ -29237,7 +29203,7 @@ ${message.trim()}`
                 `WebSocket authentication error for user ${userId}:`,
                 error
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "auth_error",
                   message: "Authentication failed"
@@ -29245,7 +29211,7 @@ ${message.trim()}`
               );
             }
           } else {
-            ws2.send(
+            ws.send(
               JSON.stringify({
                 type: "auth_error",
                 message: "Invalid user ID"
@@ -29258,7 +29224,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} sent message without matchId`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Missing match ID for message",
@@ -29271,7 +29237,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} sent message without receiverId`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Missing recipient ID for message",
@@ -29284,7 +29250,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} attempted to send empty message content`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Message content cannot be empty",
@@ -29297,7 +29263,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} attempted to send invalid message content type: ${typeof data.content}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Message content must be a string",
@@ -29310,7 +29276,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} attempted to send whitespace-only message`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Message content cannot be empty",
@@ -29324,7 +29290,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} attempted to send message for non-existent match ${data.matchId}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Match not found",
@@ -29337,7 +29303,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} attempted to send message for match ${data.matchId} they're not part of. Match participants: ${match.userId1}, ${match.userId2}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Not authorized to send messages in this match",
@@ -29351,7 +29317,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} attempted to send message to unauthorized recipient ${data.receiverId} in match ${data.matchId}. Authorized recipient: ${otherUserId}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Invalid recipient for this match",
@@ -29364,7 +29330,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] Match ID mismatch: requested ${data.matchId}, found ${match.id}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Match ID validation failed",
@@ -29404,7 +29370,7 @@ ${message.trim()}`
                 })
               );
             }
-            ws2.send(
+            ws.send(
               JSON.stringify({
                 type: "message_sent",
                 messageId: newMessage.id,
@@ -29418,7 +29384,7 @@ ${message.trim()}`
             );
           } catch (error) {
             console.error("Error processing message:", error);
-            ws2.send(
+            ws.send(
               JSON.stringify({
                 type: "error",
                 message: "Failed to process message"
@@ -29431,7 +29397,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} sent typing status without matchId`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Missing match ID for typing status",
@@ -29445,7 +29411,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} attempted to update typing status for non-existent match ${data.matchId}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Match not found for typing status update",
@@ -29458,7 +29424,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} attempted to update typing status for match ${data.matchId} they're not part of. Match participants: ${match.userId1}, ${match.userId2}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Not authorized to update typing status in this match",
@@ -29541,7 +29507,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} sent message_read without messageId`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Missing message ID for read status update",
@@ -29555,7 +29521,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} attempted to mark non-existent message ${data.messageId} as read`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Message not found",
@@ -29569,7 +29535,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] Message ${data.messageId} belongs to non-existent match ${message2.matchId}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Match not found for this message",
@@ -29582,7 +29548,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} attempted to mark message as read for match ${message2.matchId} they're not part of. Match participants: ${match.userId1}, ${match.userId2}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Not authorized to access messages in this match",
@@ -29595,7 +29561,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} attempted to mark message ${data.messageId} as read but is not the recipient. Actual recipient: ${message2.receiverId}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Not authorized to mark this message as read",
@@ -29608,7 +29574,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] Message ID mismatch: requested ${data.messageId}, found ${message2.id}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Message ID validation failed",
@@ -29647,7 +29613,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} sent active chat status without matchId`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Missing match ID for active chat status",
@@ -29661,7 +29627,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} attempted to update active status for non-existent match ${matchId}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Match not found for active chat status update",
@@ -29674,7 +29640,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] User ${userId} attempted to update active status for match ${matchId} they're not part of. Match participants: ${match.userId1}, ${match.userId2}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Not authorized to update active chat status in this match",
@@ -29687,7 +29653,7 @@ ${message.trim()}`
               console.error(
                 `[PRIVACY VIOLATION] Match ID mismatch: requested ${matchId}, found ${match.id}`
               );
-              ws2.send(
+              ws.send(
                 JSON.stringify({
                   type: "error",
                   message: "Match ID validation failed",
@@ -29738,8 +29704,8 @@ ${message.trim()}`
                     // Override any previous status
                   })
                 );
-                if (ws2.readyState === WebSocket4.OPEN) {
-                  ws2.send(
+                if (ws.readyState === WebSocket4.OPEN) {
+                  ws.send(
                     JSON.stringify({
                       type: "user_status",
                       userId: otherUserId,
@@ -29970,7 +29936,7 @@ ${message.trim()}`
             console.error("Error handling swipe action event:", error);
           }
         } else if (data.type === "ping") {
-          ws2.send(
+          ws.send(
             JSON.stringify({
               type: "pong",
               timestamp: (/* @__PURE__ */ new Date()).toISOString()
@@ -29978,7 +29944,7 @@ ${message.trim()}`
           );
         } else if (data.type === "get_online_count") {
           const onlineCount = connectedUsers4.size;
-          ws2.send(
+          ws.send(
             JSON.stringify({
               type: "online_count_update",
               count: onlineCount,
@@ -30238,7 +30204,7 @@ ${message.trim()}`
         console.error("Error processing WebSocket message:", error);
       }
     });
-    ws2.on("close", async () => {
+    ws.on("close", async () => {
       if (userId) {
         console.log(`User ${userId} disconnected`);
         await storage.updateUserOnlineStatus(userId, false);
@@ -30339,9 +30305,9 @@ ${message.trim()}`
     });
   });
   function broadcastToAllUsers(data) {
-    connectedUsers4.forEach((ws2) => {
-      if (ws2.readyState === WebSocket4.OPEN) {
-        ws2.send(JSON.stringify(data));
+    connectedUsers4.forEach((ws) => {
+      if (ws.readyState === WebSocket4.OPEN) {
+        ws.send(JSON.stringify(data));
       }
     });
   }
@@ -30361,10 +30327,10 @@ ${message.trim()}`
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     };
     let notifiedCount = 0;
-    connectedUsers4.forEach((ws2, connectedUserId) => {
-      if (connectedUserId !== userId && ws2.readyState === WebSocket4.OPEN) {
+    connectedUsers4.forEach((ws, connectedUserId) => {
+      if (connectedUserId !== userId && ws.readyState === WebSocket4.OPEN) {
         try {
-          ws2.send(JSON.stringify(visibilityChangeMessage));
+          ws.send(JSON.stringify(visibilityChangeMessage));
           notifiedCount++;
         } catch (wsError) {
           console.error(
@@ -30386,10 +30352,10 @@ ${message.trim()}`
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     };
     let notifiedCount = 0;
-    connectedUsers4.forEach((ws2, connectedUserId) => {
-      if (connectedUserId !== userId && ws2.readyState === WebSocket4.OPEN) {
+    connectedUsers4.forEach((ws, connectedUserId) => {
+      if (connectedUserId !== userId && ws.readyState === WebSocket4.OPEN) {
         try {
-          ws2.send(JSON.stringify(ghostModeChangeMessage));
+          ws.send(JSON.stringify(ghostModeChangeMessage));
           notifiedCount++;
         } catch (wsError) {
           console.error(
@@ -30411,10 +30377,10 @@ ${message.trim()}`
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     };
     let notifiedCount = 0;
-    connectedUsers4.forEach((ws2, connectedUserId) => {
-      if (ws2.readyState === WebSocket4.OPEN) {
+    connectedUsers4.forEach((ws, connectedUserId) => {
+      if (ws.readyState === WebSocket4.OPEN) {
         try {
-          ws2.send(JSON.stringify(verificationChangeMessage));
+          ws.send(JSON.stringify(verificationChangeMessage));
           notifiedCount++;
         } catch (wsError) {
           console.error(
@@ -32476,9 +32442,9 @@ ${message.trim()}`
           console.log(
             `[FALLBACK] Source user ${currentUserId} WebSocket not found, broadcasting removal to all users`
           );
-          connectedUsers4.forEach((ws2, userId) => {
-            if (userId === currentUserId && ws2.readyState === WebSocket4.OPEN) {
-              ws2.send(
+          connectedUsers4.forEach((ws, userId) => {
+            if (userId === currentUserId && ws.readyState === WebSocket4.OPEN) {
+              ws.send(
                 JSON.stringify({
                   type: "suite_remove_from_discover",
                   suiteType: "networking",
@@ -32514,9 +32480,9 @@ ${message.trim()}`
           console.log(
             `[FALLBACK] Target user ${targetProfile.userId} WebSocket not found, broadcasting removal to all users`
           );
-          connectedUsers4.forEach((ws2, userId) => {
-            if (userId === targetProfile.userId && ws2.readyState === WebSocket4.OPEN) {
-              ws2.send(
+          connectedUsers4.forEach((ws, userId) => {
+            if (userId === targetProfile.userId && ws.readyState === WebSocket4.OPEN) {
+              ws.send(
                 JSON.stringify({
                   type: "suite_remove_from_discover",
                   suiteType: "networking",
@@ -32576,9 +32542,9 @@ ${message.trim()}`
         console.log(
           `[DISCOVERY-REFRESH] Broadcasting discovery refresh to all connected users`
         );
-        connectedUsers4.forEach((ws2, userId) => {
-          if (ws2.readyState === WebSocket4.OPEN) {
-            ws2.send(
+        connectedUsers4.forEach((ws, userId) => {
+          if (ws.readyState === WebSocket4.OPEN) {
+            ws.send(
               JSON.stringify({
                 type: "discover:refresh",
                 suiteType: "networking",
@@ -32590,9 +32556,9 @@ ${message.trim()}`
           }
         });
         if (isMatch) {
-          connectedUsers4.forEach((ws2, userId) => {
-            if ((userId === currentUserId || userId === targetProfile.userId) && ws2.readyState === WebSocket4.OPEN) {
-              ws2.send(
+          connectedUsers4.forEach((ws, userId) => {
+            if ((userId === currentUserId || userId === targetProfile.userId) && ws.readyState === WebSocket4.OPEN) {
+              ws.send(
                 JSON.stringify({
                   type: "connections:refresh",
                   suiteType: "networking",
@@ -34608,9 +34574,9 @@ ${message.trim()}`
         );
       }
       if (isMatch) {
-        [sourceUserWs, targetUserWs].forEach((ws2, index) => {
-          if (ws2 && ws2.readyState === WebSocket4.OPEN) {
-            ws2.send(
+        [sourceUserWs, targetUserWs].forEach((ws, index) => {
+          if (ws && ws.readyState === WebSocket4.OPEN) {
+            ws.send(
               JSON.stringify({
                 type: "suite_connections_refresh",
                 suiteType: "jobs",
@@ -34873,7 +34839,7 @@ init_db();
 import fs3 from "fs";
 import path3 from "path";
 import { fileURLToPath } from "url";
-import { sql as sql6 } from "drizzle-orm";
+import { sql as sql7 } from "drizzle-orm";
 function loadStatements() {
   try {
     const __filename3 = fileURLToPath(import.meta.url);
@@ -34905,7 +34871,7 @@ function registerGodmodelAPI(app2) {
     const userId = req.user?.id;
     try {
       const result = await db().execute(
-        sql6`SELECT personality_records FROM users WHERE id = ${userId} LIMIT 1;`
+        sql7`SELECT personality_records FROM users WHERE id = ${userId} LIMIT 1;`
       );
       const value = result?.rows?.[0]?.personality_records || null;
       res.json({ records: value ? JSON.parse(value) : null });
@@ -34922,7 +34888,7 @@ function registerGodmodelAPI(app2) {
     const { progress } = req.body || {};
     try {
       await db().execute(
-        sql6`UPDATE users SET personality_records = ${JSON.stringify(progress)} WHERE id = ${userId};`
+        sql7`UPDATE users SET personality_records = ${JSON.stringify(progress)} WHERE id = ${userId};`
       );
       res.json({ success: true });
     } catch (e) {
@@ -34942,7 +34908,7 @@ function registerGodmodelAPI(app2) {
       console.log(
         `[GODMODEL] Saving personality records to database for user ${userId}`
       );
-      await db().execute(sql6`
+      await db().execute(sql7`
         UPDATE users 
         SET personality_records = ${finalData}, 
             personality_test_completed = TRUE 
@@ -34973,7 +34939,7 @@ function registerGodmodelAPI(app2) {
         console.log(`[GODMODEL-BIG5] Sample mapped responses:`, big5Responses.slice(0, 5));
         console.log(`[GODMODEL-BIG5] Total responses for Big 5:`, big5Responses.length);
         const big5Profile = big5ScoringService.generateBig5Profile(big5Responses);
-        await db().execute(sql6`
+        await db().execute(sql7`
           UPDATE users 
           SET big5_profile = ${JSON.stringify(big5Profile)},
               big5_computed_at = ${/* @__PURE__ */ new Date()},
@@ -35112,8 +35078,36 @@ function serveStatic(app2) {
 }
 
 // server/index.ts
+init_db();
+init_schema();
 import dotenv3 from "dotenv";
 dotenv3.config();
+function startDatabaseKeepAlive() {
+  console.log("[DATABASE-KEEPALIVE] Starting keep-alive mechanism for Neon HTTP database");
+  const pingDatabase = async () => {
+    try {
+      const start = Date.now();
+      await db.select().from(blockedPhoneNumbers).limit(1);
+      const duration = Date.now() - start;
+      console.log(`[DATABASE-KEEPALIVE] HTTP ping successful in ${duration}ms`);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("[DATABASE-KEEPALIVE] HTTP ping failed:", errorMsg);
+    }
+  };
+  console.log("[DATABASE-KEEPALIVE] Testing initial database connection...");
+  pingDatabase();
+  const keepAliveInterval = setInterval(pingDatabase, 24e4);
+  process.on("SIGTERM", () => {
+    console.log("[DATABASE-KEEPALIVE] Cleaning up keep-alive on shutdown");
+    clearInterval(keepAliveInterval);
+  });
+  process.on("SIGINT", () => {
+    console.log("[DATABASE-KEEPALIVE] Cleaning up keep-alive on shutdown");
+    clearInterval(keepAliveInterval);
+  });
+  console.log("[DATABASE-KEEPALIVE] HTTP keep-alive mechanism started (ping every 4 minutes)");
+}
 var app = express2();
 app.use(express2.json({ limit: "10gb" }));
 app.use(express2.urlencoded({ extended: false, limit: "10gb" }));
@@ -35173,6 +35167,7 @@ app.use((req, res, next) => {
     startServer(server, () => {
       console.log("[SERVER-DEBUG] Server startup callback executed");
       log("Server started successfully");
+      startDatabaseKeepAlive();
     });
   } catch (error) {
     console.error("[SERVER-DEBUG] Fatal error during server initialization:");

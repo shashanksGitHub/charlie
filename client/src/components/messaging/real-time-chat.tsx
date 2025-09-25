@@ -142,7 +142,8 @@ import { SimpleCameraCapture } from "@/components/messaging/simple-camera-captur
 import { ReportUserDialog } from "@/components/messaging/report-user-dialog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import EmojiPicker from "@/components/ui/emoji-picker";
-import { CallLauncher } from "@/components/messaging/call-launcher";
+import { AudioCallLauncher } from "@/components/messaging/audio-call-launcher";
+import { VideoCallLauncher } from "@/components/messaging/video-call-launcher";
 
 // Message interface
 interface Message {
@@ -6590,11 +6591,16 @@ export function RealTimeChat({ matchId }: { matchId: number }) {
             <Phone className="h-4 w-4 sm:h-5 sm:w-5 group-hover:scale-110 transition-transform" />
           </Button>
 
-          <CallLauncher
+          <AudioCallLauncher
             matchId={matchId}
             userId={user?.id as number}
             receiverId={otherUser.id}
-            isDarkMode={isDarkMode}
+          />
+          
+          <VideoCallLauncher
+            matchId={matchId}
+            userId={user?.id as number}
+            receiverId={otherUser.id}
           />
 
           <DropdownMenu>
