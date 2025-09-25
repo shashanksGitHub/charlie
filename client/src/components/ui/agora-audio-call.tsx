@@ -12,7 +12,7 @@ import {
   sendCallDecline,
   sendCallEnd,
 } from "@/services/websocket-service";
-import { agoraService, CallStatus, CallParticipant } from "@/services/agora-service";
+import { agoraAudioService, AudioCallStatus, AudioCallParticipant } from "@/services/agora-audio-service";
 import type { UID, IRemoteAudioTrack } from "agora-rtc-sdk-ng";
 
 interface AgoraAudioCallProps {
@@ -35,10 +35,10 @@ export function AgoraAudioCall({
   existingCallId,
 }: AgoraAudioCallProps) {
   const [isMuted, setIsMuted] = useState(false);
-  const [callStatus, setCallStatus] = useState<CallStatus>("connecting");
+  const [callStatus, setCallStatus] = useState<AudioCallStatus>("connecting");
   const [callId, setCallId] = useState<number | undefined>(existingCallId);
   const [callTimer, setCallTimer] = useState(0);
-  const [participants, setParticipants] = useState<CallParticipant[]>([]);
+  const [participants, setParticipants] = useState<AudioCallParticipant[]>([]);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
   const [agoraConfig, setAgoraConfig] = useState<{
     appId: string;
@@ -54,30 +54,42 @@ export function AgoraAudioCall({
   useEffect(() => {
     if (!open) return;
 
-    const handleStatusChange = (status: CallStatus) => {
-      console.log(`[AgoraAudioCall] Status changed to: ${status}`);
+    console.log(`[AgoraAudioCall-${callId}] Setting up event handlers for audio call`);
+
+    const handleStatusChange = (status: AudioCallStatus) => {
+      console.log(`[AgoraAudioCall-${callId}] Status changed to: ${status}`);
       setCallStatus(status);
     };
 
-    const handleParticipantJoined = (participant: CallParticipant) => {
-      console.log(`[AgoraAudioCall] Participant joined:`, participant);
+    const handleParticipantJoined = (participant: AudioCallParticipant) => {
+      console.log(`[AgoraAudioCall-${callId}] Participant joined:`, participant);
       setParticipants(prev => [...prev.filter(p => p.uid !== participant.uid), participant]);
     };
 
     const handleParticipantLeft = (uid: UID) => {
-      console.log(`[AgoraAudioCall] Participant left:`, uid);
+      console.log(`[AgoraAudioCall-${callId}] Participant left:`, uid);
       setParticipants(prev => prev.filter(p => p.uid !== uid));
     };
 
     const handleTrackSubscribed = (uid: UID, track: IRemoteAudioTrack) => {
-      console.log(`[AgoraAudioCall] Audio track subscribed from ${uid}`);
+      console.log(`[AgoraAudioCall-${callId}] Audio track subscribed from ${uid}`);
       if (track.trackMediaType === "audio") {
         track.play();
       }
     };
 
     const handleError = (error: Error) => {
-      console.error("[AgoraAudioCall] Agora error:", error);
+      console.error(`[AgoraAudioCall-${callId}] Agora error:`, error);
+      
+      // Handle specific error types gracefully
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("WS_ABORT") || errorMessage.includes("LEAVE")) {
+        console.log(`[AgoraAudioCall-${callId}] Call was cancelled/aborted - this is expected during cleanup`);
+        // Don't show error toast for expected cleanup operations
+        handleEndCall();
+        return;
+      }
+      
       toast({
         title: "Call Error",
         description: error.message || "An error occurred during the call",
@@ -85,34 +97,34 @@ export function AgoraAudioCall({
       });
       
       // IMMEDIATELY stop all microphone access on any error
-      console.log("[AgoraAudioCall] IMMEDIATELY stopping microphone due to Agora error");
-      agoraService.forceStopAllMedia();
+      console.log(`[AgoraAudioCall-${callId}] IMMEDIATELY stopping microphone due to Agora error`);
+      agoraAudioService.forceStopAllMedia();
       
       // Then do full cleanup
-      console.log("[AgoraAudioCall] Performing full cleanup after error");
+      console.log(`[AgoraAudioCall-${callId}] Performing full cleanup after error`);
       handleEndCall();
     };
 
-    agoraService.setEventHandlers({
+    agoraAudioService.setEventHandlers({
       onStatusChange: handleStatusChange,
       onParticipantJoined: handleParticipantJoined,
       onParticipantLeft: handleParticipantLeft,
-      onParticipantTrackSubscribed: handleTrackSubscribed,
+      onParticipantAudioSubscribed: handleTrackSubscribed,
       onError: handleError,
     });
 
     return () => {
       // Clean up event handlers when component unmounts
-      agoraService.setEventHandlers({});
+      agoraAudioService.setEventHandlers({});
     };
   }, [open]);
 
   // Cleanup microphone when component unmounts or page unloads
   useEffect(() => {
     const handleBeforeUnload = () => {
-      console.log("[AgoraAudioCall] Page unloading, ensuring microphone cleanup");
-      agoraService.leaveCall().catch(error => {
-        console.error("[AgoraAudioCall] Error during page unload cleanup:", error);
+      console.log(`[AgoraAudioCall-${callId}] Page unloading, ensuring microphone cleanup`);
+      agoraAudioService.leaveCall().catch(error => {
+        console.error(`[AgoraAudioCall-${callId}] Error during page unload cleanup:`, error);
       });
     };
 
@@ -123,16 +135,16 @@ export function AgoraAudioCall({
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       if (open && !isCleaningUp) {
-        console.log("[AgoraAudioCall] Component unmounting, IMMEDIATE microphone cleanup");
+        console.log(`[AgoraAudioCall-${callId}] Component unmounting, IMMEDIATE microphone cleanup`);
         // Immediately stop microphone first
-        agoraService.forceStopAllMedia();
+        agoraAudioService.forceStopAllMedia();
         // Then do full cleanup
-        agoraService.leaveCall().catch(error => {
-          console.error("[AgoraAudioCall] Error during unmount cleanup:", error);
+        agoraAudioService.leaveCall().catch(error => {
+          console.error(`[AgoraAudioCall-${callId}] Error during unmount cleanup:`, error);
         });
       }
     };
-  }, [open]);
+  }, [open, callId]);
 
   // Setup call when dialog opens
   useEffect(() => {
@@ -146,7 +158,7 @@ export function AgoraAudioCall({
 
         // Create new call if not joining existing one
         if (!existingCallId) {
-          console.log("📞 [AgoraAudioCall] Creating new audio call...");
+          console.log(`📞 [AgoraAudioCall] Creating new audio call for match ${matchId}...`);
           
           const response = await apiRequest("/api/agora-calls", {
             method: "POST",
@@ -169,7 +181,7 @@ export function AgoraAudioCall({
             channel: data.agoraConfig.channel,
           });
 
-          console.log("📞 [AgoraAudioCall] Call created, sending initiate signal:", {
+          console.log(`📞 [AgoraAudioCall-${currentCallId}] Audio call created, sending initiate signal:`, {
             callId: currentCallId,
             matchId,
             callerId: userId,
@@ -238,39 +250,47 @@ export function AgoraAudioCall({
       try {
         // Double-check cleanup state before proceeding
         if (isCleaningUp) {
-          console.log("[AgoraAudioCall] ⛔ Preventing join - cleanup in progress");
+          console.log(`[AgoraAudioCall-${callId}] ⛔ Preventing join - cleanup in progress`);
           return;
         }
 
-        console.log("[AgoraAudioCall] Joining Agora channel:", agoraConfig.channel);
+        console.log(`[AgoraAudioCall-${callId}] Joining Agora channel for audio call:`, agoraConfig.channel);
+
+        // Add a small delay before joining to ensure any previous cleanup is complete
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Double-check again after delay
+        if (isCleaningUp) {
+          console.log(`[AgoraAudioCall-${callId}] ⛔ Aborting join - cleanup started during delay`);
+          return;
+        }
 
         // Join with audio-only (no video)
-        await agoraService.joinCall({
+        await agoraAudioService.joinCall({
           appId: agoraConfig.appId,
           token: agoraConfig.token,
           channel: agoraConfig.channel,
           uid: userId,
         });
 
-        // Create audio-only tracks (no video)
-        await agoraService.createLocalTracks(false, true); // enableVideo: false, enableAudio: true
-
-        console.log("[AgoraAudioCall] Successfully joined Agora channel for audio call");
+        console.log(`[AgoraAudioCall-${callId}] Successfully joined Agora channel for audio call`);
         
       } catch (error) {
-        console.error("[AgoraAudioCall] Failed to join Agora channel:", error);
+        console.error(`[AgoraAudioCall-${callId}] Failed to join Agora channel:`, error);
         
         // Handle specific cancellation case gracefully
         const errorMessage = error instanceof Error ? error.message : String(error);
-        if (!errorMessage.includes("cancel") && !errorMessage.includes("OPERATION_ABORTED")) {
-          toast({
-            title: "Connection Failed",
-            description: "Could not join the audio call. Please try again.",
-            variant: "destructive",
-          });
-        } else {
-          console.log("[AgoraAudioCall] Call was cancelled by user, no error toast needed");
+        if (errorMessage.includes("cancel") || errorMessage.includes("OPERATION_ABORTED") || errorMessage.includes("WS_ABORT") || errorMessage.includes("LEAVE")) {
+          console.log(`[AgoraAudioCall-${callId}] Call was cancelled/aborted by user or cleanup - this is expected`);
+          // Don't show error toast for expected cleanup operations
+          return;
         }
+        
+        toast({
+          title: "Connection Failed",
+          description: "Could not join the audio call. Please try again.",
+          variant: "destructive",
+        });
       }
     };
 
@@ -338,11 +358,11 @@ export function AgoraAudioCall({
   const toggleMute = async () => {
     try {
       const shouldEnableAudio = isMuted;
-      const newState = await agoraService.toggleAudio(shouldEnableAudio);
+      const newState = await agoraAudioService.toggleAudio(shouldEnableAudio);
       setIsMuted(!newState);
-      console.log(`[AgoraAudioCall] Mute toggled - isMuted: ${!newState}, audioEnabled: ${newState}`);
+      console.log(`[AgoraAudioCall-${callId}] Mute toggled - isMuted: ${!newState}, audioEnabled: ${newState}`);
     } catch (error) {
-      console.error("[AgoraAudioCall] Failed to toggle mute:", error);
+      console.error(`[AgoraAudioCall-${callId}] Failed to toggle mute:`, error);
       toast({
         title: "Audio Error",
         description: "Failed to toggle microphone",
@@ -354,20 +374,20 @@ export function AgoraAudioCall({
   // End call
   const handleEndCall = async () => {
     if (isCleaningUp) {
-      console.log("[AgoraAudioCall] Already cleaning up, skipping duplicate end call");
+      console.log(`[AgoraAudioCall-${callId}] Already cleaning up, skipping duplicate end call`);
       return;
     }
     setIsCleaningUp(true);
 
-    console.log(`[AgoraAudioCall] Starting call end cleanup - callId: ${callId}, userId: ${userId}, receiverId: ${receiverId}`);
+    console.log(`[AgoraAudioCall-${callId}] Starting call end cleanup - callId: ${callId}, userId: ${userId}, receiverId: ${receiverId}`);
 
     try {
-      // Leave Agora channel
-      await agoraService.leaveCall();
+      // Leave Agora audio channel
+      await agoraAudioService.leaveCall();
 
       // Update call status in backend
       if (callId) {
-        console.log(`[AgoraAudioCall] Updating call ${callId} status to completed`);
+        console.log(`[AgoraAudioCall-${callId}] Updating call ${callId} status to completed`);
         await apiRequest(`/api/agora-calls/${callId}/status`, {
           method: "PATCH",
           data: { status: "completed" },
@@ -398,15 +418,15 @@ export function AgoraAudioCall({
   // Cancel call (before connection)
   const handleCancelCall = async () => {
     if (isCleaningUp) {
-      console.log("[AgoraAudioCall] Already cleaning up, skipping duplicate cancel call");
+      console.log(`[AgoraAudioCall-${callId}] Already cleaning up, skipping duplicate cancel call`);
       return;
     }
     setIsCleaningUp(true);
 
-    console.log("[AgoraAudioCall] Starting call cancel cleanup");
+    console.log(`[AgoraAudioCall-${callId}] Starting call cancel cleanup`);
 
     try {
-      await agoraService.leaveCall();
+      await agoraAudioService.leaveCall();
 
       if (callId) {
         await apiRequest(`/api/agora-calls/${callId}/status`, {
@@ -439,15 +459,15 @@ export function AgoraAudioCall({
   // Decline incoming call
   const handleDeclineCall = async () => {
     if (isCleaningUp) {
-      console.log("[AgoraAudioCall] Already cleaning up, skipping duplicate decline call");
+      console.log(`[AgoraAudioCall-${callId}] Already cleaning up, skipping duplicate decline call`);
       return;
     }
     setIsCleaningUp(true);
 
-    console.log("[AgoraAudioCall] Starting call decline cleanup");
+    console.log(`[AgoraAudioCall-${callId}] Starting call decline cleanup`);
 
     try {
-      await agoraService.leaveCall();
+      await agoraAudioService.leaveCall();
 
       if (callId) {
         await apiRequest(`/api/agora-calls/${callId}/status`, {
@@ -477,20 +497,17 @@ export function AgoraAudioCall({
     try {
       setCallStatus("connected");
 
-      // Join Agora channel when accepting incoming call
+      // Join Agora audio channel when accepting incoming call
       if (agoraConfig) {
-        console.log("[AgoraAudioCall] Accepting call - joining Agora channel");
+        console.log(`[AgoraAudioCall-${callId}] Accepting call - joining Agora audio channel`);
 
         // Join with audio-only (no video)
-        await agoraService.joinCall({
+        await agoraAudioService.joinCall({
           appId: agoraConfig.appId,
           token: agoraConfig.token,
           channel: agoraConfig.channel,
           uid: userId,
         });
-
-        // Create audio-only tracks (no video)
-        await agoraService.createLocalTracks(false, true); // enableVideo: false, enableAudio: true
 
         if (callId) {
           sendCallAccept({
@@ -519,18 +536,18 @@ export function AgoraAudioCall({
   // Handle remote close
   const handleRemoteClose = async () => {
     if (isCleaningUp) {
-      console.log("[AgoraAudioCall] Already cleaning up, skipping duplicate remote close");
+      console.log(`[AgoraAudioCall-${callId}] Already cleaning up, skipping duplicate remote close`);
       return;
     }
     setIsCleaningUp(true);
 
-    console.log("[AgoraAudioCall] Starting remote close cleanup");
+    console.log(`[AgoraAudioCall-${callId}] Starting remote close cleanup`);
 
     try {
-      await agoraService.leaveCall();
+      await agoraAudioService.leaveCall();
       stopCallTimer();
     } catch (error) {
-      console.error("[AgoraAudioCall] Error during remote close cleanup:", error);
+      console.error(`[AgoraAudioCall-${callId}] Error during remote close cleanup:`, error);
     } finally {
       onClose();
       setIsCleaningUp(false);
@@ -666,19 +683,19 @@ export function AgoraAudioCall({
                   return;
                 }
 
-                console.log("[AgoraAudioCall] End button clicked - IMMEDIATELY stopping microphone");
-                agoraService.forceStopAllMedia();
+              console.log(`[AgoraAudioCall-${callId}] End button clicked - IMMEDIATELY stopping microphone`);
+              agoraAudioService.forceStopAllMedia();
 
-                if (isIncoming && callStatus === "connecting") {
-                  console.log("[AgoraAudioCall] Declining incoming call");
-                  handleDeclineCall();
-                } else if (callStatus === "connected") {
-                  console.log("[AgoraAudioCall] Ending active call");
-                  handleEndCall();
-                } else {
-                  console.log("[AgoraAudioCall] Cancelling outgoing call");
-                  handleCancelCall();
-                }
+              if (isIncoming && callStatus === "connecting") {
+                console.log(`[AgoraAudioCall-${callId}] Declining incoming call`);
+                handleDeclineCall();
+              } else if (callStatus === "connected") {
+                console.log(`[AgoraAudioCall-${callId}] Ending active call`);
+                handleEndCall();
+              } else {
+                console.log(`[AgoraAudioCall-${callId}] Cancelling outgoing call`);
+                handleCancelCall();
+              }
               }}
               variant="destructive"
               size="lg"
