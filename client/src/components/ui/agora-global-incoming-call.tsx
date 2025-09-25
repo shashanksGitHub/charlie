@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { AgoraVideoCall } from "./agora-video-call";
+import { AgoraAudioCall } from "./agora-audio-call";
 import { useAuth } from "@/hooks/use-auth";
 
 export function AgoraGlobalIncomingCall() {
@@ -8,6 +9,7 @@ export function AgoraGlobalIncomingCall() {
   const [matchId, setMatchId] = useState<number | null>(null);
   const [callId, setCallId] = useState<number | null>(null);
   const [otherUserId, setOtherUserId] = useState<number | null>(null);
+  const [callType, setCallType] = useState<"video" | "audio">("video");
   const { user } = useAuth();
 
   useEffect(() => {
@@ -18,6 +20,7 @@ export function AgoraGlobalIncomingCall() {
       setMatchId(e.detail.matchId);
       setCallId(e.detail.callId);
       setOtherUserId(e.detail.fromUserId || e.detail.callerId);
+      setCallType(e.detail.callType || "video"); // Default to video if not specified
       setOpen(true);
     };
 
@@ -54,18 +57,35 @@ export function AgoraGlobalIncomingCall() {
     return null;
   }
 
-  console.log("🚨 [AgoraGlobalIncomingCall] Rendering AgoraVideoCall with:", {
+  console.log(`🚨 [AgoraGlobalIncomingCall] Rendering Agora${callType === "audio" ? "Audio" : "Video"}Call with:`, {
     matchId,
     userId: user.id,
     receiverId: otherUserId,
     open,
     isIncoming: true,
-    existingCallId: callId
+    existingCallId: callId,
+    callType
   });
+
+  // Render appropriate call component based on call type
+  if (callType === "audio") {
+    return (
+      <AgoraAudioCall
+        key={`audio-${callId}-${matchId}-${otherUserId}`}
+        matchId={matchId}
+        userId={user.id}
+        receiverId={otherUserId}
+        open={open}
+        onClose={() => setOpen(false)}
+        isIncoming
+        existingCallId={callId}
+      />
+    );
+  }
 
   return (
     <AgoraVideoCall
-      key={`${callId}-${matchId}-${otherUserId}`}
+      key={`video-${callId}-${matchId}-${otherUserId}`}
       matchId={matchId}
       userId={user.id}
       receiverId={otherUserId}
