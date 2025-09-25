@@ -651,60 +651,92 @@ export function AgoraAudioCall({
           </div>
 
           {/* Controls */}
-          <div className="flex items-center space-x-4">
-            {/* Mute Button - only show during connected state */}
-            {callStatus === "connected" && (
-              <Button
-                onClick={toggleMute}
-                variant={isMuted ? "destructive" : "outline"}
-                size="lg"
-                className="w-14 h-14 rounded-full p-0"
-              >
-                {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
-              </Button>
-            )}
-
-            {/* Accept Button - only show for incoming calls */}
+          <div className="flex items-center justify-center space-x-6">
+            {/* Incoming Call Controls */}
             {isIncoming && callStatus === "connecting" && (
-              <Button
-                onClick={handleAcceptCall}
-                className="w-14 h-14 rounded-full p-0 bg-green-600 hover:bg-green-700"
-              >
-                <Phone className="h-6 w-6" />
-              </Button>
+              <>
+                {/* Accept Button */}
+                <Button
+                  onClick={handleAcceptCall}
+                  size="lg"
+                  className="w-16 h-16 rounded-full p-0 bg-green-600 hover:bg-green-700 text-white shadow-lg"
+                  disabled={isCleaningUp}
+                >
+                  <Phone className="h-8 w-8" />
+                </Button>
+
+                {/* Decline Button */}
+                <Button
+                  onClick={() => {
+                    console.log(`[AgoraAudioCall-${callId}] Decline button clicked`);
+                    agoraAudioService.forceStopAllMedia();
+                    handleDeclineCall();
+                  }}
+                  variant="destructive"
+                  size="lg"
+                  className="w-16 h-16 rounded-full p-0 shadow-lg"
+                  disabled={isCleaningUp}
+                >
+                  <PhoneOff className="h-8 w-8" />
+                </Button>
+              </>
             )}
 
-            {/* End/Decline Button */}
-            <Button
-              onClick={() => {
-                if (isCleaningUp) {
-                  console.log("[AgoraAudioCall] Force closing due to stuck cleanup state");
-                  handleClose(true);
-                  return;
-                }
+            {/* Connected Call Controls */}
+            {callStatus === "connected" && (
+              <>
+                {/* Mute/Unmute Button */}
+                <Button
+                  onClick={toggleMute}
+                  variant={isMuted ? "destructive" : "outline"}
+                  size="lg"
+                  className="w-16 h-16 rounded-full p-0 shadow-lg"
+                  disabled={isCleaningUp}
+                >
+                  {isMuted ? <MicOff className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
+                </Button>
 
-              console.log(`[AgoraAudioCall-${callId}] End button clicked - IMMEDIATELY stopping microphone`);
-              agoraAudioService.forceStopAllMedia();
+                {/* End Call Button */}
+                <Button
+                  onClick={() => {
+                    console.log(`[AgoraAudioCall-${callId}] End call button clicked`);
+                    agoraAudioService.forceStopAllMedia();
+                    handleEndCall();
+                  }}
+                  variant="destructive"
+                  size="lg"
+                  className="w-16 h-16 rounded-full p-0 shadow-lg"
+                  disabled={isCleaningUp}
+                >
+                  <PhoneOff className="h-8 w-8" />
+                </Button>
+              </>
+            )}
 
-              if (isIncoming && callStatus === "connecting") {
-                console.log(`[AgoraAudioCall-${callId}] Declining incoming call`);
-                handleDeclineCall();
-              } else if (callStatus === "connected") {
-                console.log(`[AgoraAudioCall-${callId}] Ending active call`);
-                handleEndCall();
-              } else {
-                console.log(`[AgoraAudioCall-${callId}] Cancelling outgoing call`);
-                handleCancelCall();
-              }
-              }}
-              variant="destructive"
-              size="lg"
-              className="w-14 h-14 rounded-full p-0"
-              disabled={isCleaningUp}
-            >
-              <PhoneOff className="h-6 w-6" />
-            </Button>
+            {/* Outgoing Call Controls (connecting state, not incoming) */}
+            {!isIncoming && callStatus === "connecting" && (
+              <Button
+                onClick={() => {
+                  console.log(`[AgoraAudioCall-${callId}] Cancel call button clicked`);
+                  agoraAudioService.forceStopAllMedia();
+                  handleCancelCall();
+                }}
+                variant="destructive"
+                size="lg"
+                className="w-16 h-16 rounded-full p-0 shadow-lg"
+                disabled={isCleaningUp}
+              >
+                <PhoneOff className="h-8 w-8" />
+              </Button>
+            )}
           </div>
+
+          {/* Call Status Debug Info (development only) */}
+          {process.env.NODE_ENV === "development" && (
+            <div className="text-xs text-muted-foreground text-center">
+              Status: {callStatus} | Incoming: {isIncoming ? "Yes" : "No"} | Cleaning: {isCleaningUp ? "Yes" : "No"}
+            </div>
+          )}
 
           {/* Participants indicator */}
           {participants.length > 0 && (
