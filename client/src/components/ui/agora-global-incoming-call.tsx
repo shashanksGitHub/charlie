@@ -13,7 +13,6 @@ export function AgoraGlobalIncomingCall() {
   const [callType, setCallType] = useState<"video" | "audio">("video");
   const [activeCallId, setActiveCallId] = useState<number | null>(null); // Track active call to prevent duplicates
   const [lastEventTimestamp, setLastEventTimestamp] = useState<number>(0); // Prevent rapid duplicate events
-  const [processedCallIds, setProcessedCallIds] = useState<Set<number>>(new Set()); // Track processed calls to prevent infinite loops
   const { user } = useAuth();
 
   // Debug state changes
@@ -32,9 +31,6 @@ export function AgoraGlobalIncomingCall() {
 
   useEffect(() => {
     console.log("📞 [AgoraGlobalIncomingCall] Component mounted, user:", user?.id);
-    
-    // Clear processed call IDs on mount to prevent stale state
-    setProcessedCallIds(new Set());
 
     const onIncoming = (e: CustomEvent) => {
       const now = Date.now();
@@ -51,15 +47,15 @@ export function AgoraGlobalIncomingCall() {
         timeSinceLastEvent: now - lastEventTimestamp
       });
 
-      // Prevent rapid duplicate events (within 1000ms)
-      if (now - lastEventTimestamp < 1000) {
+      // Only prevent rapid duplicates within 500ms (reduced from 1000ms)
+      if (now - lastEventTimestamp < 500) {
         console.log(`📞 [AgoraGlobalIncomingCall] ⚠️ RAPID DUPLICATE EVENT IGNORED - Only ${now - lastEventTimestamp}ms since last event`);
         return;
       }
 
-      // Prevent processing the same call ID multiple times (infinite loop protection)
-      if (e.detail.callId && processedCallIds.has(e.detail.callId)) {
-        console.log(`📞 [AgoraGlobalIncomingCall] ⚠️ CALL ID ALREADY PROCESSED - Ignoring duplicate callId: ${e.detail.callId}`);
+      // Only prevent processing the same call ID if it's currently active (less aggressive)
+      if (e.detail.callId && activeCallId === e.detail.callId) {
+        console.log(`📞 [AgoraGlobalIncomingCall] ⚠️ SAME CALL ID ALREADY ACTIVE - Ignoring duplicate callId: ${e.detail.callId}`);
         return;
       }
 
@@ -124,9 +120,6 @@ export function AgoraGlobalIncomingCall() {
       setActiveCallId(detail.callId);
       setOpen(true);
       
-      // Mark this call ID as processed to prevent infinite loops
-      setProcessedCallIds(prev => new Set([...prev, detail.callId]));
-      
       // Update global call state
       callStateManager.setCallActive(incomingCallType as "audio" | "video", detail.callId, false);
       
@@ -136,13 +129,6 @@ export function AgoraGlobalIncomingCall() {
     const onCancel = () => {
       console.log("📞 [AgoraGlobalIncomingCall] Call cancelled");
       setOpen(false);
-      if (activeCallId) {
-        setProcessedCallIds(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(activeCallId);
-          return newSet;
-        });
-      }
       setActiveCallId(null);
       callStateManager.setCallInactive();
     };
@@ -150,13 +136,6 @@ export function AgoraGlobalIncomingCall() {
     const onEnd = () => {
       console.log("📞 [AgoraGlobalIncomingCall] Call ended");
       setOpen(false);
-      if (activeCallId) {
-        setProcessedCallIds(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(activeCallId);
-          return newSet;
-        });
-      }
       setActiveCallId(null);
       callStateManager.setCallInactive();
     };
@@ -217,13 +196,6 @@ export function AgoraGlobalIncomingCall() {
         onClose={() => {
           console.log(`📞 [AgoraGlobalIncomingCall] 🔴 INCOMING AUDIO CALL CLOSED`);
           setOpen(false);
-          if (callId) {
-            setProcessedCallIds(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(callId);
-              return newSet;
-            });
-          }
           setActiveCallId(null);
           callStateManager.setCallInactive();
         }}
@@ -243,13 +215,6 @@ export function AgoraGlobalIncomingCall() {
       onClose={() => {
         console.log(`📞 [AgoraGlobalIncomingCall] 🔴 INCOMING VIDEO CALL CLOSED`);
         setOpen(false);
-        if (callId) {
-          setProcessedCallIds(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(callId);
-            return newSet;
-          });
-        }
         setActiveCallId(null);
         callStateManager.setCallInactive();
       }}

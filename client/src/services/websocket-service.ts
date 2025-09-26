@@ -2346,7 +2346,9 @@ export function sendCallInitiate(payload: CallInitiateMessage): boolean {
     callerId: payload.callerId,
     receiverId: payload.receiverId,
     callId: payload.callId,
-    callType: payload.callType, // ← Add this to confirm callType is being sent
+    callType: payload.callType,
+    timestamp: payload.timestamp,
+    fullPayload: payload
   });
 
   console.log(

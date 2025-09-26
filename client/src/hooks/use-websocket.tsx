@@ -64,7 +64,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isConnected, setIsConnected] = useState<boolean>(false);
-  const processedMessageIds = useRef<Set<string>>(new Set()); // Prevent duplicate message processing
+  const processedMessageIds = useRef<Map<string, number>>(new Map()); // Prevent duplicate message processing
   const [isTyping, setIsTyping] = useState<Map<number, boolean>>(new Map());
   const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set());
   const [userPresence, setUserPresence] = useState<
@@ -651,19 +651,22 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             case "webrtc_offer":
             case "webrtc_answer":
             case "webrtc_ice": {
-              // Create unique message ID for deduplication
-              const messageId = `${data.type}-${data.callId}-${data.timestamp || Date.now()}`;
+              // Create unique message ID for deduplication (less aggressive - only callId based)
+              const messageId = `${data.type}-${data.callId}`;
               
-              // Prevent duplicate processing of the same message
-              if (processedMessageIds.current.has(messageId)) {
-                console.log(`📞 [WebSocketProvider] ⚠️ DUPLICATE MESSAGE IGNORED: ${messageId}`);
+              // Only prevent duplicates for the same call within a short time window
+              const now = Date.now();
+              const lastProcessedTime = processedMessageIds.current.get(messageId);
+              
+              if (lastProcessedTime && (now - lastProcessedTime) < 2000) {
+                console.log(`📞 [WebSocketProvider] ⚠️ DUPLICATE MESSAGE IGNORED: ${messageId} (${now - lastProcessedTime}ms ago)`);
                 break;
               }
-              processedMessageIds.current.add(messageId);
+              processedMessageIds.current.set(messageId, now);
               
               // Clean up old message IDs to prevent memory leak (keep only last 100)
               if (processedMessageIds.current.size > 100) {
-                const oldIds = Array.from(processedMessageIds.current).slice(0, 50);
+                const oldIds = Array.from(processedMessageIds.current.keys()).slice(0, 50);
                 oldIds.forEach(id => processedMessageIds.current.delete(id));
               }
               
