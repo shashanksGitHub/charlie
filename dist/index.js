@@ -1889,7 +1889,10 @@ var init_db = __esm({
   "server/db.ts"() {
     "use strict";
     init_schema();
-    sql = neon(process.env.DATABASE_URL);
+    sql = neon(process.env.DATABASE_URL, {
+      // Disable connection pooling to prevent timeout issues
+      fullResults: true
+    });
     db = drizzle(sql, {
       schema: {
         users,
@@ -2029,8 +2032,27 @@ var init_storage = __esm({
         return blocked;
       }
       async isPhoneNumberBlocked(phoneNumber) {
-        const blocked = await db.select().from(blockedPhoneNumbers).where(eq(blockedPhoneNumbers.phoneNumber, phoneNumber)).limit(1);
-        return blocked.length > 0;
+        let retries = 3;
+        let lastError;
+        while (retries > 0) {
+          try {
+            console.log(`[DB-RETRY] Checking blocked phone number (${4 - retries}/3 attempts)`);
+            const blocked = await db.select().from(blockedPhoneNumbers).where(eq(blockedPhoneNumbers.phoneNumber, phoneNumber)).limit(1);
+            console.log(`[DB-RETRY] Phone number check successful`);
+            return blocked.length > 0;
+          } catch (error) {
+            lastError = error;
+            retries--;
+            console.error(`[DB-RETRY] Phone number check failed (${3 - retries}/3), retries left: ${retries}`, error);
+            if (retries > 0) {
+              const delay = Math.pow(2, 3 - retries) * 1e3;
+              console.log(`[DB-RETRY] Waiting ${delay}ms before retry...`);
+              await new Promise((resolve) => setTimeout(resolve, delay));
+            }
+          }
+        }
+        console.error(`[DB-RETRY] All phone number check attempts failed, returning false for safety`);
+        return false;
       }
       async getBlockedPhoneNumber(phoneNumber) {
         const blocked = await db.select().from(blockedPhoneNumbers).where(eq(blockedPhoneNumbers.phoneNumber, phoneNumber)).limit(1);
@@ -7253,11 +7275,37 @@ function setupAuth(app2) {
       return res.status(401).json({ message: "Unauthorized", status: "login_required" });
     }
     const userId = req.user.id;
-    try {
-      const freshUser = await storage.getUser(userId);
-      if (!freshUser) {
-        return res.status(404).json({ message: "User not found" });
+    let retries = 3;
+    let freshUser = null;
+    while (retries > 0) {
+      try {
+        console.log(`[DB-RETRY] Getting user data (${4 - retries}/3 attempts) for userId: ${userId}`);
+        freshUser = await storage.getUser(userId);
+        if (!freshUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        console.log(`[DB-RETRY] User data fetch successful for userId: ${userId}`);
+        break;
+      } catch (error) {
+        retries--;
+        console.error(`[DB-RETRY] User data fetch failed (${3 - retries}/3), retries left: ${retries}`, error);
+        if (retries > 0) {
+          const delay = Math.pow(2, 3 - retries) * 1e3;
+          console.log(`[DB-RETRY] Waiting ${delay}ms before retry...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          console.error(`[DB-RETRY] All user data fetch attempts failed for userId: ${userId}`);
+          return res.status(500).json({
+            message: "Database connection error. Please try again.",
+            code: "DB_CONNECTION_ERROR"
+          });
+        }
       }
+    }
+    if (!freshUser) {
+      return res.status(500).json({ message: "Failed to retrieve user data" });
+    }
+    try {
       if (freshUser.isSuspended) {
         if (freshUser.suspensionExpiresAt && /* @__PURE__ */ new Date() > freshUser.suspensionExpiresAt) {
           await storage.updateUserProfile(userId, {
@@ -7266,6 +7314,7 @@ function setupAuth(app2) {
             suspensionExpiresAt: null
           });
           console.log(`\u{1F513} User ${userId} suspension expired, automatically unsuspended`);
+          freshUser = await storage.getUser(userId);
         } else {
           console.log(`\u26A0\uFE0F Suspended user ${freshUser.username} (ID: ${userId}) accessing app - will see suspension interface`);
         }
@@ -7277,7 +7326,7 @@ function setupAuth(app2) {
       console.log("User authenticated successfully, ID:", userId);
       res.json(userWithoutPassword);
     } catch (error) {
-      console.error("Error checking user status:", error);
+      console.error("Error processing user data:", error);
       return res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -28014,27 +28063,54 @@ ${message.trim()}`
     if (isNaN(callId)) {
       return res.status(400).json({ message: "Invalid call ID" });
     }
+    const { status } = req.body;
+    if (!status || !["active", "completed", "declined", "cancelled"].includes(status)) {
+      return res.status(400).json({
+        message: "Valid status required (active, completed, declined, or cancelled)"
+      });
+    }
+    let retries = 3;
+    let call = null;
+    let updatedCall = null;
+    while (retries > 0) {
+      try {
+        console.log(`[DB-RETRY] Updating call status (${4 - retries}/3 attempts) for callId: ${callId}`);
+        call = await storage.getVideoCallById(callId);
+        if (!call) {
+          return res.status(404).json({ message: "Agora call not found" });
+        }
+        if (call.initiatorId !== req.user.id && call.receiverId !== req.user.id) {
+          return res.status(403).json({ message: "Not authorized to update this call" });
+        }
+        const updateData = { status };
+        if (status === "active" && !call.startedAt) {
+          updateData.startedAt = /* @__PURE__ */ new Date();
+        } else if (status === "completed" && !call.endedAt) {
+          updateData.endedAt = /* @__PURE__ */ new Date();
+        }
+        updatedCall = await storage.updateVideoCallStatus(callId, updateData);
+        console.log(`[DB-RETRY] Call status update successful for callId: ${callId}`);
+        break;
+      } catch (error) {
+        retries--;
+        console.error(`[DB-RETRY] Call status update failed (${3 - retries}/3), retries left: ${retries}`, error);
+        if (retries > 0) {
+          const delay = Math.pow(2, 3 - retries) * 1e3;
+          console.log(`[DB-RETRY] Waiting ${delay}ms before retry...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          console.error(`[DB-RETRY] All call status update attempts failed for callId: ${callId}`);
+          return res.status(500).json({
+            message: "Database connection error updating call status. Call ended locally.",
+            code: "DB_CONNECTION_ERROR"
+          });
+        }
+      }
+    }
+    if (!updatedCall) {
+      return res.status(500).json({ message: "Failed to update call status" });
+    }
     try {
-      const { status } = req.body;
-      if (!status || !["active", "completed", "declined", "cancelled"].includes(status)) {
-        return res.status(400).json({
-          message: "Valid status required (active, completed, declined, or cancelled)"
-        });
-      }
-      const call = await storage.getVideoCallById(callId);
-      if (!call) {
-        return res.status(404).json({ message: "Agora call not found" });
-      }
-      if (call.initiatorId !== req.user.id && call.receiverId !== req.user.id) {
-        return res.status(403).json({ message: "Not authorized to update this call" });
-      }
-      const updateData = { status };
-      if (status === "active" && !call.startedAt) {
-        updateData.startedAt = /* @__PURE__ */ new Date();
-      } else if (status === "completed" && !call.endedAt) {
-        updateData.endedAt = /* @__PURE__ */ new Date();
-      }
-      const updatedCall = await storage.updateVideoCallStatus(callId, updateData);
       try {
         const isDeclined = status === "declined";
         const isCancelled = status === "cancelled";

@@ -5345,36 +5345,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ message: "Invalid call ID" });
     }
 
+    const { status } = req.body;
+    if (!status || !["active", "completed", "declined", "cancelled"].includes(status)) {
+      return res.status(400).json({
+        message: "Valid status required (active, completed, declined, or cancelled)",
+      });
+    }
+
+    // Retry database operations with exponential backoff
+    let retries = 3;
+    let call = null;
+    let updatedCall = null;
+
+    while (retries > 0) {
+      try {
+        console.log(`[DB-RETRY] Updating call status (${4 - retries}/3 attempts) for callId: ${callId}`);
+
+        // Get the current call
+        call = await storage.getVideoCallById(callId);
+        if (!call) {
+          return res.status(404).json({ message: "Agora call not found" });
+        }
+
+        // Ensure user is part of this call
+        if (call.initiatorId !== req.user.id && call.receiverId !== req.user.id) {
+          return res
+            .status(403)
+            .json({ message: "Not authorized to update this call" });
+        }
+
+        // Set timestamps based on status
+        const updateData: any = { status };
+        if (status === "active" && !call.startedAt) {
+          updateData.startedAt = new Date();
+        } else if (status === "completed" && !call.endedAt) {
+          updateData.endedAt = new Date();
+        }
+
+        updatedCall = await storage.updateVideoCallStatus(callId, updateData);
+        console.log(`[DB-RETRY] Call status update successful for callId: ${callId}`);
+        break; // Success, exit retry loop
+
+      } catch (error) {
+        retries--;
+        console.error(`[DB-RETRY] Call status update failed (${3 - retries}/3), retries left: ${retries}`, error);
+        
+        if (retries > 0) {
+          // Exponential backoff: 1s, 2s, 4s
+          const delay = Math.pow(2, 3 - retries) * 1000;
+          console.log(`[DB-RETRY] Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          // All retries failed, return error
+          console.error(`[DB-RETRY] All call status update attempts failed for callId: ${callId}`);
+          return res.status(500).json({ 
+            message: "Database connection error updating call status. Call ended locally.", 
+            code: "DB_CONNECTION_ERROR" 
+          });
+        }
+      }
+    }
+
+    if (!updatedCall) {
+      return res.status(500).json({ message: "Failed to update call status" });
+    }
+
     try {
-      const { status } = req.body;
-      if (!status || !["active", "completed", "declined", "cancelled"].includes(status)) {
-        return res.status(400).json({
-          message: "Valid status required (active, completed, declined, or cancelled)",
-        });
-      }
-
-      // Get the current call
-      const call = await storage.getVideoCallById(callId);
-      if (!call) {
-        return res.status(404).json({ message: "Agora call not found" });
-      }
-
-      // Ensure user is part of this call
-      if (call.initiatorId !== req.user.id && call.receiverId !== req.user.id) {
-        return res
-          .status(403)
-          .json({ message: "Not authorized to update this call" });
-      }
-
-      // Set timestamps based on status
-      const updateData: any = { status };
-      if (status === "active" && !call.startedAt) {
-        updateData.startedAt = new Date();
-      } else if (status === "completed" && !call.endedAt) {
-        updateData.endedAt = new Date();
-      }
-
-      const updatedCall = await storage.updateVideoCallStatus(callId, updateData);
 
       // Handle no-answer messages for declined or cancelled calls
       try {

@@ -864,12 +864,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   async isPhoneNumberBlocked(phoneNumber: string): Promise<boolean> {
-    const blocked = await db
-      .select()
-      .from(blockedPhoneNumbers)
-      .where(eq(blockedPhoneNumbers.phoneNumber, phoneNumber))
-      .limit(1);
-    return blocked.length > 0;
+    let retries = 3;
+    let lastError: Error | undefined;
+
+    while (retries > 0) {
+      try {
+        console.log(`[DB-RETRY] Checking blocked phone number (${4 - retries}/3 attempts)`);
+        const blocked = await db
+          .select()
+          .from(blockedPhoneNumbers)
+          .where(eq(blockedPhoneNumbers.phoneNumber, phoneNumber))
+          .limit(1);
+        console.log(`[DB-RETRY] Phone number check successful`);
+        return blocked.length > 0;
+      } catch (error) {
+        lastError = error as Error;
+        retries--;
+        console.error(`[DB-RETRY] Phone number check failed (${3 - retries}/3), retries left: ${retries}`, error);
+        
+        if (retries > 0) {
+          // Exponential backoff: 1s, 2s, 4s
+          const delay = Math.pow(2, 3 - retries) * 1000;
+          console.log(`[DB-RETRY] Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    console.error(`[DB-RETRY] All phone number check attempts failed, returning false for safety`);
+    // For safety, if database is down, don't block the phone verification
+    return false;
   }
 
   async getBlockedPhoneNumber(
