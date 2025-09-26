@@ -3,6 +3,17 @@ import { AgoraVideoCall } from "./agora-video-call";
 import { AgoraAudioCall } from "./agora-audio-call";
 import { useAuth } from "@/hooks/use-auth";
 
+// Global state to prevent multiple call instances
+let globalCallActive = false;
+
+// Make global call state accessible from window for other components
+(window as any).globalCallActive = globalCallActive;
+(window as any).setGlobalCallActive = (active: boolean) => {
+  globalCallActive = active;
+  (window as any).globalCallActive = active;
+  console.log(`📞 [GLOBAL] Global call state set to: ${active}`);
+};
+
 export function AgoraGlobalIncomingCall() {
   console.log("🚨 [AgoraGlobalIncomingCall] Component rendered!");
   const [open, setOpen] = useState(false);
@@ -80,6 +91,12 @@ export function AgoraGlobalIncomingCall() {
         return;
       }
 
+      // CRITICAL: Global call guard - prevent multiple call instances
+      if (globalCallActive) {
+        console.log(`📞 [AgoraGlobalIncomingCall] ⛔ IGNORING INCOMING CALL - Another call already active globally`);
+        return;
+      }
+
       // CRITICAL: Close any existing call before opening new one
       if (open) {
         console.log(`📞 [AgoraGlobalIncomingCall] ⚠️ Closing existing call before opening new one`);
@@ -97,6 +114,10 @@ export function AgoraGlobalIncomingCall() {
     const handleNewIncomingCall = (detail: any) => {
       console.log(`📞 [AgoraGlobalIncomingCall] 🔄 PROCESSING NEW INCOMING CALL:`, detail);
       
+      // Set global call guard
+      globalCallActive = true;
+      (window as any).globalCallActive = true;
+      
       setMatchId(detail.matchId);
       setCallId(detail.callId);
       setOtherUserId(detail.fromUserId || detail.callerId);
@@ -113,16 +134,20 @@ export function AgoraGlobalIncomingCall() {
       
       setOpen(true);
       
-      console.log(`📞 [AgoraGlobalIncomingCall] 🎯 NEW CALL OPENED - Type: ${incomingCallType || "video"}, CallId: ${detail.callId}`);
+      console.log(`📞 [AgoraGlobalIncomingCall] 🎯 NEW CALL OPENED - Type: ${incomingCallType || "video"}, CallId: ${detail.callId}, Global guard: ACTIVE`);
     };
 
     const onCancel = () => {
       console.log("📞 [AgoraGlobalIncomingCall] Call cancelled");
+      globalCallActive = false;
+      (window as any).globalCallActive = false;
       setOpen(false);
     };
 
     const onEnd = () => {
       console.log("📞 [AgoraGlobalIncomingCall] Call ended");
+      globalCallActive = false;
+      (window as any).globalCallActive = false;
       setOpen(false);
     };
 
@@ -196,6 +221,8 @@ export function AgoraGlobalIncomingCall() {
         open={open}
         onClose={() => {
           console.log(`📞 [AgoraGlobalIncomingCall] 🔴 INCOMING AUDIO CALL CLOSED`);
+          globalCallActive = false;
+      (window as any).globalCallActive = false;
           setOpen(false);
         }}
         isIncoming
@@ -225,6 +252,8 @@ export function AgoraGlobalIncomingCall() {
         open={open}
         onClose={() => {
           console.log(`📞 [AgoraGlobalIncomingCall] 🔴 INCOMING VIDEO CALL CLOSED`);
+          globalCallActive = false;
+      (window as any).globalCallActive = false;
           setOpen(false);
         }}
         isIncoming

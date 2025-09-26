@@ -640,7 +640,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           const data = JSON.parse(event.data);
 
           switch (data.type) {
-            // ===== Video/Voice Call Signaling (ensure receiver UI gets events) =====
+            // ===== Call Signaling - REMOVED DUPLICATE DISPATCHER =====
+            // Call events are now handled ONLY by websocket-service.ts to prevent duplicate popups
             case "call_initiate":
             case "call_ringing":
             case "call_cancel":
@@ -650,29 +651,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             case "webrtc_offer":
             case "webrtc_answer":
             case "webrtc_ice": {
-              const map: Record<string, string> = {
-                call_initiate: "call:incoming",
-                call_ringing: "call:ringing",
-                call_cancel: "call:cancel",
-                call_accept: "call:accept",
-                call_decline: "call:decline",
-                call_end: "call:end",
-                webrtc_offer: "call:offer",
-                webrtc_answer: "call:answer",
-                webrtc_ice: "call:ice",
-              };
-              const evt = map[data.type];
-              const detail = {
-                ...data,
-                receiverId: data.receiverId ?? data.toUserId,
-              };
-              console.log(
-                "📞 [WebSocketProvider] Dispatching call event:",
-                evt,
-                "with data:",
-                detail,
-              );
-              window.dispatchEvent(new CustomEvent(evt, { detail }));
+              console.log("📞 [WebSocketProvider] ⚠️ CALL EVENT RECEIVED - Delegating to websocket-service.ts to prevent duplicate events:", data.type);
+              // DO NOT dispatch here - websocket-service.ts handles all call events with proper callType support
               break;
             }
             case "auth_success":

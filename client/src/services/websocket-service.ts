@@ -1603,6 +1603,16 @@ function handleSocketMessage(event: MessageEvent): void {
         // Normalize fields for receiver matching
         receiverId: data.receiverId ?? data.toUserId,
       };
+      
+      // CRITICAL: Add callType preservation for proper call routing
+      if (data.type === "call_initiate") {
+        console.log(`📞 [WebSocketService] 🎯 CALL INITIATE - Type: "${data.callType || 'undefined'}", CallId: ${data.callId}`);
+        if (!data.callType) {
+          console.warn("📞 [WebSocketService] ⚠️ Missing callType in call_initiate, defaulting to 'video'");
+          detail.callType = "video";
+        }
+      }
+      
       console.log(
         "📞 [WebSocketService] Dispatching event:",
         evt,
