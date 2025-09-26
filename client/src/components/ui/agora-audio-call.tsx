@@ -52,6 +52,8 @@ export function AgoraAudioCall({
   const callTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const callTimerRef = useRef<NodeJS.Timeout | null>(null);
   const hasSetupStarted = useRef<boolean>(false);
+  const isComponentStable = useRef<boolean>(false);
+  const callStabilizationTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize Agora service events
   useEffect(() => {
@@ -140,6 +142,11 @@ export function AgoraAudioCall({
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       if (open && !isCleaningUp) {
+        // Check if component should be protected from rapid unmounting
+        if (!isComponentStable.current && isIncoming) {
+          console.log(`[AgoraAudioCall-${callId}] ⚠️ Incoming call component unmounting before stabilization - this may cause connection issues`);
+        }
+        
         console.log(`[AgoraAudioCall-${callId}] Component unmounting, IMMEDIATE microphone cleanup`);
         // Immediately stop microphone first
         agoraAudioService.forceStopAllMedia();
@@ -210,17 +217,33 @@ export function AgoraAudioCall({
             });
           }
         } else {
-          // Get existing call configuration
+          // Get existing call configuration for incoming calls
+          console.log(`📞 [AgoraAudioCall] 📋 FETCHING EXISTING CALL CONFIG for callId: ${existingCallId}`);
+          
           const response = await apiRequest(`/api/agora-calls/${existingCallId}`, {
             method: "GET",
           });
           
+          if (!response.ok) {
+            throw new Error(`Failed to get call config: ${response.status} ${response.statusText}`);
+          }
+          
           const data = await response.json();
+          console.log(`📞 [AgoraAudioCall] 📋 RECEIVED CALL CONFIG:`, {
+            callId: existingCallId,
+            channel: data.agoraConfig.channel,
+            appId: data.agoraConfig.appId.slice(0, 8) + "...",
+            hasToken: !!data.agoraConfig.token,
+            callStatus: data.call.status
+          });
+          
           setAgoraConfig({
             appId: data.agoraConfig.appId,
             token: data.agoraConfig.token,
             channel: data.agoraConfig.channel,
           });
+          
+          console.log(`📞 [AgoraAudioCall] ✅ AGORA CONFIG SET FOR INCOMING CALL - Channel: ${data.agoraConfig.channel}`);
         }
 
       } catch (error) {
@@ -239,12 +262,33 @@ export function AgoraAudioCall({
     setupCall();
   }, [open, existingCallId, matchId, userId, receiverId, onClose]);
 
-  // Reset setup flag when dialog opens/closes
+  // Component stabilization to prevent rapid unmounting
   useEffect(() => {
     if (open) {
       hasSetupStarted.current = false;
+      isComponentStable.current = false;
+      
+      // Set component as stable after a short delay
+      callStabilizationTimer.current = setTimeout(() => {
+        isComponentStable.current = true;
+        console.log(`[AgoraAudioCall-${callId || "pending"}] 🛡️ Component stabilized - preventing rapid unmount`);
+      }, 2000); // 2 second stabilization period
+    } else {
+      // Clear stabilization when closing
+      if (callStabilizationTimer.current) {
+        clearTimeout(callStabilizationTimer.current);
+        callStabilizationTimer.current = null;
+      }
+      isComponentStable.current = false;
     }
-  }, [open]);
+
+    return () => {
+      if (callStabilizationTimer.current) {
+        clearTimeout(callStabilizationTimer.current);
+        callStabilizationTimer.current = null;
+      }
+    };
+  }, [open, callId]);
 
   // Join Agora channel when config is ready (only for outgoing calls or after accepting incoming)
   useEffect(() => {
@@ -581,6 +625,20 @@ export function AgoraAudioCall({
           try {
             await agoraAudioService.retryAudioPlayback();
             console.log(`[AgoraAudioCall-${callId || "pending"}] 🔊 Retried audio playback after call accept`);
+            
+            // Debug: Check if we're in the right channel and if there are other users
+            const currentChannel = agoraAudioService.getCurrentChannel();
+            const participants = agoraAudioService.getParticipants();
+            console.log(`[AgoraAudioCall-${callId || "pending"}] 🔍 POST-ACCEPT DEBUG:`, {
+              currentChannel,
+              participantsCount: participants.length,
+              isInCall: agoraAudioService.isInCall(),
+              expectedChannel: agoraConfig?.channel
+            });
+            
+            if (currentChannel && currentChannel !== agoraConfig?.channel) {
+              console.error(`[AgoraAudioCall-${callId || "pending"}] ❌ CHANNEL MISMATCH! In: ${currentChannel}, Expected: ${agoraConfig?.channel}`);
+            }
           } catch (retryError) {
             console.warn(`[AgoraAudioCall-${callId || "pending"}] Audio playback retry after accept failed:`, retryError);
           }

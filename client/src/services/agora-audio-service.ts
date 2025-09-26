@@ -423,7 +423,13 @@ class AgoraAudioService {
   // Leave the current audio call
   async leaveCall(): Promise<void> {
     try {
-      console.log(`[AgoraAudioService] Leaving audio call... (isJoined: ${this.isJoined}, isJoining: ${this.isJoining})`);
+      console.log(`[AgoraAudioService] 🚪 LEAVE CALL REQUESTED - Current state: isJoined=${this.isJoined}, isJoining=${this.isJoining}, channel=${this.currentChannel}`);
+
+      // Don't leave if not actually joined to anything
+      if (!this.isJoined && !this.isJoining && !this.currentChannel) {
+        console.log("[AgoraAudioService] ✅ Nothing to leave - already clean state");
+        return;
+      }
 
       // Always try to leave the client
       try {
@@ -433,9 +439,9 @@ class AgoraAudioService {
         // Ignore "not joined" errors - this is expected for cleanup calls
         const errorMsg = clientError instanceof Error ? clientError.message : String(clientError);
         if (!errorMsg.includes("not joined") && !errorMsg.includes("INVALID_OPERATION")) {
-          console.error("[AgoraAudioService] Error leaving audio client:", clientError);
+          console.error("[AgoraAudioService] ❌ Error leaving audio client:", clientError);
         } else {
-          console.log("[AgoraAudioService] Audio client was already left (expected for cleanup)");
+          console.log("[AgoraAudioService] ✅ Audio client was already left (expected for cleanup)");
         }
       }
 

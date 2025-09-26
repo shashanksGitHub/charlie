@@ -12,16 +12,41 @@ export function AgoraGlobalIncomingCall() {
   const [callType, setCallType] = useState<"video" | "audio">("video");
   const { user } = useAuth();
 
+  // Debug state changes
+  useEffect(() => {
+    if (open && callId && matchId && otherUserId) {
+      console.log(`🎯 [AgoraGlobalIncomingCall] INCOMING CALL STATE READY:`, {
+        callType,
+        callId,
+        matchId,
+        otherUserId,
+        userId: user?.id,
+        open
+      });
+    }
+  }, [open, callId, matchId, otherUserId, callType, user?.id]);
+
   useEffect(() => {
     console.log("📞 [AgoraGlobalIncomingCall] Component mounted, user:", user?.id);
 
     const onIncoming = (e: CustomEvent) => {
-      console.log("📞 [AgoraGlobalIncomingCall] Incoming call:", e.detail);
+      console.log("📞 [AgoraGlobalIncomingCall] 🚨 INCOMING CALL RECEIVED:", e.detail);
+      console.log("📞 [AgoraGlobalIncomingCall] 🔍 PARSING CALL DATA:", {
+        matchId: e.detail.matchId,
+        callId: e.detail.callId,
+        fromUserId: e.detail.fromUserId,
+        callerId: e.detail.callerId,
+        callType: e.detail.callType,
+        roomName: e.detail.roomName
+      });
+      
       setMatchId(e.detail.matchId);
       setCallId(e.detail.callId);
       setOtherUserId(e.detail.fromUserId || e.detail.callerId);
       setCallType(e.detail.callType || "video"); // Default to video if not specified
       setOpen(true);
+      
+      console.log(`📞 [AgoraGlobalIncomingCall] 🎯 STATE SET - Type: ${e.detail.callType || "video"}, CallId: ${e.detail.callId}, Opening: true`);
     };
 
     const onCancel = () => {
@@ -69,6 +94,16 @@ export function AgoraGlobalIncomingCall() {
 
   // Render appropriate call component based on call type
   if (callType === "audio") {
+    console.log(`📞 [AgoraGlobalIncomingCall] 🎧 RENDERING AUDIO CALL COMPONENT:`, {
+      callId,
+      matchId,
+      userId: user.id,
+      receiverId: otherUserId,
+      open,
+      isIncoming: true,
+      existingCallId: callId
+    });
+    
     return (
       <AgoraAudioCall
         key={`audio-${callId}-${matchId}-${otherUserId}`}
@@ -76,7 +111,10 @@ export function AgoraGlobalIncomingCall() {
         userId={user.id}
         receiverId={otherUserId}
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          console.log(`📞 [AgoraGlobalIncomingCall] 🔴 INCOMING AUDIO CALL CLOSED`);
+          setOpen(false);
+        }}
         isIncoming
         existingCallId={callId}
       />
