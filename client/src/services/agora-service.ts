@@ -200,22 +200,17 @@ class AgoraService {
       // CRITICAL FIX: Always ensure clean state before new call
       console.log(`[AgoraService] Current state before join - isJoined: ${this.isJoined}, isJoining: ${this.isJoining}`);
       
-      // Set joining flag immediately to prevent race conditions
+      // Force cleanup any existing state to prevent state sync issues
+      if (this.isJoined || this.localVideoTrack || this.localAudioTrack) {
+        console.log("[AgoraService] 🔄 Forcing cleanup of previous call state for fresh start");
+        await this.leaveCall();
+        // Small delay to ensure cleanup completes
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
       this.isJoining = true;
 
       try {
-        // Force cleanup any existing state to prevent state sync issues
-        if (this.isJoined || this.localVideoTrack || this.localAudioTrack) {
-          console.log("[AgoraService] 🔄 Forcing cleanup of previous call state for fresh start");
-          // Temporarily reset joining flag during cleanup to avoid conflicts
-          this.isJoining = false;
-          await this.leaveCall();
-          // Small delay to ensure cleanup completes
-          await new Promise(resolve => setTimeout(resolve, 300));
-          // Reset joining flag after cleanup
-          this.isJoining = true;
-        }
-
         // Create local tracks first (before joining)
         await this.createLocalTracks();
 

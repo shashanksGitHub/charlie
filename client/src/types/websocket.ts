@@ -199,7 +199,6 @@ export interface CallInitiateMessage extends WebSocketMessage {
   toUserId: number; // 🎯 FIX: Add explicit toUserId for server
   callId: number; // created server-side or via REST then echoed
   roomName: string;
-  callType?: "video" | "audio"; // Add call type to distinguish between video and audio calls
 }
 
 export interface CallRingingMessage extends WebSocketMessage {

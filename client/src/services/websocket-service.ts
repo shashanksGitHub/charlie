@@ -165,23 +165,6 @@ export function initWebSocketService(
     return result;
   };
 
-  // DEBUG: Add function to check WebSocket connection status
-  (window as any).checkWebSocketStatus = () => {
-    const status = {
-      exists: !!window.chatSocket,
-      readyState: window.chatSocket?.readyState,
-      readyStateText: window.chatSocket?.readyState === 0 ? 'CONNECTING' : 
-                     window.chatSocket?.readyState === 1 ? 'OPEN' : 
-                     window.chatSocket?.readyState === 2 ? 'CLOSING' : 
-                     window.chatSocket?.readyState === 3 ? 'CLOSED' : 'UNKNOWN',
-      connectionStatus: window.socketConnectionStatus,
-      lastConnectAttempt: window.socketLastConnectAttempt,
-      reconnectAttempts: window.socketReconnectAttempts
-    };
-    console.log("🔍 [DEBUG] WebSocket Status:", status);
-    return status;
-  };
-
   // Initialize memory cache for faster message processing
   if (!window.__processedMessageIds) {
     window.__processedMessageIds = new Set<number>();
@@ -1582,9 +1565,7 @@ function handleSocketMessage(event: MessageEvent): void {
     console.error("[WebSocketService] Error parsing message:", error);
   }
 
-  // Call signaling routing: DISABLED - handled by use-websocket.tsx to prevent duplicates
-  // The websocket-service.ts handleSocketMessage function is not actually hooked to the WebSocket connection
-  // so we handle call events in use-websocket.tsx where the actual WebSocket message handler is located
+  // Call signaling routing: dispatch high-level events for UI/WebRTC hooks
   if (data && typeof data.type === "string") {
     if (
       data.type === "call_initiate" ||
@@ -1597,13 +1578,38 @@ function handleSocketMessage(event: MessageEvent): void {
       data.type === "webrtc_answer" ||
       data.type === "webrtc_ice"
     ) {
-      console.log("📞 [WebSocketService] Call event detected but not processed (handled by use-websocket.tsx):", {
+      console.log("📞 [WebSocketService] Received call signaling message:", {
         type: data.type,
         callId: data.callId,
-        callType: data.callType,
+        matchId: data.matchId,
+        fromUserId: data.fromUserId,
+        toUserId: data.toUserId,
+        hasSDPOrCandidate: !!(data.sdp || data.candidate),
       });
-      // Skip processing - handled by use-websocket.tsx
-      return;
+      const map: Record<string, string> = {
+        call_initiate: "call:incoming",
+        call_ringing: "call:ringing",
+        call_cancel: "call:cancel",
+        call_accept: "call:accept",
+        call_decline: "call:decline",
+        call_end: "call:end",
+        webrtc_offer: "call:offer",
+        webrtc_answer: "call:answer",
+        webrtc_ice: "call:ice",
+      };
+      const evt = map[data.type];
+      const detail = {
+        ...data,
+        // Normalize fields for receiver matching
+        receiverId: data.receiverId ?? data.toUserId,
+      };
+      console.log(
+        "📞 [WebSocketService] Dispatching event:",
+        evt,
+        "with data:",
+        detail,
+      );
+      window.dispatchEvent(new CustomEvent(evt, { detail }));
     }
   }
 }
@@ -2363,9 +2369,6 @@ export function sendCallInitiate(payload: CallInitiateMessage): boolean {
     callerId: payload.callerId,
     receiverId: payload.receiverId,
     callId: payload.callId,
-    callType: payload.callType,
-    timestamp: payload.timestamp,
-    fullPayload: payload
   });
 
   console.log(

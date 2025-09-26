@@ -64,7 +64,6 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isConnected, setIsConnected] = useState<boolean>(false);
-  const processedMessageIds = useRef<Map<string, number>>(new Map()); // Prevent duplicate message processing
   const [isTyping, setIsTyping] = useState<Map<number, boolean>>(new Map());
   const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set());
   const [userPresence, setUserPresence] = useState<
@@ -639,24 +638,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       socket.addEventListener("message", (event) => {
         try {
           const data = JSON.parse(event.data);
-          
-          // Debug: Log ALL incoming WebSocket messages for call debugging
-          if (data.type && data.type.includes('call')) {
-            console.log(`🔍 [WebSocketProvider] RAW WEBSOCKET MESSAGE RECEIVED:`, {
-              type: data.type,
-              callId: data.callId,
-              callType: data.callType,
-              matchId: data.matchId,
-              fromUserId: data.fromUserId,
-              toUserId: data.toUserId,
-              receiverId: data.receiverId,
-              timestamp: data.timestamp,
-              rawData: data
-            });
-          }
 
           switch (data.type) {
-            // ===== Video/Voice Call Signaling (RE-ENABLED with proper callType handling) =====
+            // ===== Video/Voice Call Signaling (ensure receiver UI gets events) =====
             case "call_initiate":
             case "call_ringing":
             case "call_cancel":
@@ -666,25 +650,6 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             case "webrtc_offer":
             case "webrtc_answer":
             case "webrtc_ice": {
-              // Create unique message ID for deduplication (less aggressive - only callId based)
-              const messageId = `${data.type}-${data.callId}`;
-              
-              // Only prevent duplicates for the same call within a short time window
-              const now = Date.now();
-              const lastProcessedTime = processedMessageIds.current.get(messageId);
-              
-              if (lastProcessedTime && (now - lastProcessedTime) < 2000) {
-                console.log(`📞 [WebSocketProvider] ⚠️ DUPLICATE MESSAGE IGNORED: ${messageId} (${now - lastProcessedTime}ms ago)`);
-                break;
-              }
-              processedMessageIds.current.set(messageId, now);
-              
-              // Clean up old message IDs to prevent memory leak (keep only last 100)
-              if (processedMessageIds.current.size > 100) {
-                const oldIds = Array.from(processedMessageIds.current.keys()).slice(0, 50);
-                oldIds.forEach(id => processedMessageIds.current.delete(id));
-              }
-              
               const map: Record<string, string> = {
                 call_initiate: "call:incoming",
                 call_ringing: "call:ringing",
@@ -702,26 +667,11 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                 receiverId: data.receiverId ?? data.toUserId,
               };
               console.log(
-                "📞 [WebSocketProvider] PROCESSING call event:",
+                "📞 [WebSocketProvider] Dispatching call event:",
                 evt,
-                "messageId:",
-                messageId,
                 "with data:",
                 detail,
-                "callType in detail:",
-                detail.callType,
-                "raw data.callType:",
-                data.callType,
-                "timestamp:",
-                data.timestamp
               );
-              
-              // CRITICAL: Ensure callType is properly set for call_initiate events
-              if (data.type === "call_initiate" && !detail.callType) {
-                console.warn("📞 [WebSocketProvider] ⚠️ call_initiate missing callType - defaulting to 'video'");
-                detail.callType = "video";
-              }
-              
               window.dispatchEvent(new CustomEvent(evt, { detail }));
               break;
             }

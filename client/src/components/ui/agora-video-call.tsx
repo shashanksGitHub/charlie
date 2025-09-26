@@ -71,14 +71,6 @@ export function AgoraVideoCall({
     const handleParticipantLeft = (uid: UID) => {
       console.log(`[AgoraVideoCall] Participant left:`, uid);
       setParticipants(prev => prev.filter(p => p.uid !== uid));
-      
-      // End call when remote participant leaves
-      console.log(`[AgoraVideoCall] Remote participant left - ending call`);
-      toast({
-        title: "Call Ended",
-        description: "The other person left the call.",
-      });
-      handleEndCall();
     };
 
     const handleTrackSubscribed = (uid: UID, track: IRemoteVideoTrack | IRemoteAudioTrack) => {
@@ -200,7 +192,6 @@ export function AgoraVideoCall({
               toUserId: receiverId,
               callId: currentCallId,
               roomName: data.agoraConfig.channel,
-              callType: "video", // Add call type to WebSocket message
             });
           }
         } else {
