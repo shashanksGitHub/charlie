@@ -12,6 +12,7 @@ export function AgoraGlobalIncomingCall() {
   const [otherUserId, setOtherUserId] = useState<number | null>(null);
   const [callType, setCallType] = useState<"video" | "audio">("video");
   const [activeCallId, setActiveCallId] = useState<number | null>(null); // Track active call to prevent duplicates
+  const [lastEventTimestamp, setLastEventTimestamp] = useState<number>(0); // Prevent rapid duplicate events
   const { user } = useAuth();
 
   // Debug state changes
@@ -32,6 +33,7 @@ export function AgoraGlobalIncomingCall() {
     console.log("📞 [AgoraGlobalIncomingCall] Component mounted, user:", user?.id);
 
     const onIncoming = (e: CustomEvent) => {
+      const now = Date.now();
       console.log("📞 [AgoraGlobalIncomingCall] 🚨 INCOMING CALL RECEIVED:", e.detail);
       console.log("📞 [AgoraGlobalIncomingCall] 🔍 PARSING CALL DATA:", {
         matchId: e.detail.matchId,
@@ -41,8 +43,16 @@ export function AgoraGlobalIncomingCall() {
         callType: e.detail.callType,
         roomName: e.detail.roomName,
         currentActiveCallId: activeCallId,
-        currentOpen: open
+        currentOpen: open,
+        timeSinceLastEvent: now - lastEventTimestamp
       });
+
+      // Prevent rapid duplicate events (within 500ms)
+      if (now - lastEventTimestamp < 500) {
+        console.log(`📞 [AgoraGlobalIncomingCall] ⚠️ RAPID DUPLICATE EVENT IGNORED - Only ${now - lastEventTimestamp}ms since last event`);
+        return;
+      }
+      setLastEventTimestamp(now);
 
       // Check if we can accept this incoming call
       if (!callStateManager.canAcceptIncomingCall(e.detail.callId)) {
@@ -72,12 +82,28 @@ export function AgoraGlobalIncomingCall() {
     };
 
     const handleIncomingCall = (detail: any) => {
-      const incomingCallType = detail.callType || "video";
+      // More robust callType detection with multiple fallbacks
+      let incomingCallType = detail.callType;
+      
+      // If no callType, check if it's explicitly an audio call from the room name or other indicators
+      if (!incomingCallType) {
+        // Check room name for audio indicators
+        if (detail.roomName && detail.roomName.includes('audio')) {
+          incomingCallType = "audio";
+        } else {
+          // Default to video for backward compatibility
+          incomingCallType = "video";
+        }
+        console.log(`📞 [AgoraGlobalIncomingCall] ⚠️ NO CALLTYPE PROVIDED - Using fallback: ${incomingCallType}`);
+      }
+      
       console.log(`📞 [AgoraGlobalIncomingCall] 🎯 HANDLING INCOMING ${incomingCallType.toUpperCase()} CALL:`, {
         callId: detail.callId,
         matchId: detail.matchId,
         fromUserId: detail.fromUserId,
-        callType: incomingCallType
+        callType: incomingCallType,
+        originalCallType: detail.callType,
+        roomName: detail.roomName
       });
       
       setMatchId(detail.matchId);

@@ -1584,6 +1584,7 @@ function handleSocketMessage(event: MessageEvent): void {
         matchId: data.matchId,
         fromUserId: data.fromUserId,
         toUserId: data.toUserId,
+        callType: data.callType, // ← Add this to see if callType is being received
         hasSDPOrCandidate: !!(data.sdp || data.candidate),
       });
       const map: Record<string, string> = {
@@ -1608,6 +1609,8 @@ function handleSocketMessage(event: MessageEvent): void {
         evt,
         "with data:",
         detail,
+        "callType in detail:",
+        detail.callType
       );
       window.dispatchEvent(new CustomEvent(evt, { detail }));
     }
@@ -2369,6 +2372,7 @@ export function sendCallInitiate(payload: CallInitiateMessage): boolean {
     callerId: payload.callerId,
     receiverId: payload.receiverId,
     callId: payload.callId,
+    callType: payload.callType, // ← Add this to confirm callType is being sent
   });
 
   console.log(
