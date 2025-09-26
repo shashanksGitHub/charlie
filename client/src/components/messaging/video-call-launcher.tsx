@@ -46,6 +46,9 @@ export function VideoCallLauncher({
       stream.getTracks().forEach(track => track.stop()); // Just testing permissions
       console.log("✅ [VideoCallLauncher] Media permissions granted");
       setIsVideoCallOpen(true);
+      
+      // Notify global system that outgoing call started
+      window.dispatchEvent(new CustomEvent("outgoing-call:start"));
       // Don't reset isStartingCall here - let the call component handle it
     } catch (error) {
       console.warn("⚠️ [VideoCallLauncher] Media permission denied:", error);
@@ -65,6 +68,9 @@ export function VideoCallLauncher({
     setIsVideoCallOpen(false);
     setIsStartingCall(false);
     callInProgress.current = false;
+    
+    // Notify global system that outgoing call ended
+    window.dispatchEvent(new CustomEvent("outgoing-call:end"));
   };
 
   return (
