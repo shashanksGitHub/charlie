@@ -75,6 +75,14 @@ export function AgoraAudioCall({
     const handleParticipantLeft = (uid: UID) => {
       console.log(`[AgoraAudioCall-${currentCallId}] Participant left:`, uid);
       setParticipants(prev => prev.filter(p => p.uid !== uid));
+      
+      // End call when remote participant leaves
+      console.log(`[AgoraAudioCall-${currentCallId}] Remote participant left - ending call`);
+      toast({
+        title: "Call Ended",
+        description: "The other person left the call.",
+      });
+      handleEndCall();
     };
 
     const handleTrackSubscribed = (uid: UID, track: IRemoteAudioTrack) => {

@@ -6579,18 +6579,6 @@ export function RealTimeChat({ matchId }: { matchId: number }) {
           </div>
         </div>
         <div className="flex items-center space-x-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`rounded-full h-9 w-9 sm:h-11 sm:w-11 transition-all duration-200 ${
-              isDarkMode
-                ? "text-gray-300 hover:text-white hover:bg-gradient-to-br from-green-500/20 to-green-600/30 hover:shadow-lg hover:shadow-green-500/20"
-                : "text-gray-600 hover:text-gray-900 hover:bg-gradient-to-br from-green-500/10 to-green-600/20 hover:shadow-lg hover:shadow-green-500/20"
-            } hover:scale-105 group`}
-          >
-            <Phone className="h-4 w-4 sm:h-5 sm:w-5 group-hover:scale-110 transition-transform" />
-          </Button>
-
           <AudioCallLauncher
             matchId={matchId}
             userId={user?.id as number}
