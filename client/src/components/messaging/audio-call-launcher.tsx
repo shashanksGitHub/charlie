@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Phone } from "lucide-react";
 import { AgoraAudioCall } from "@/components/ui/agora-audio-call";
 import { toast } from "@/hooks/use-toast";
+import { callStateManager } from "@/services/call-state-manager";
 
 interface AudioCallLauncherProps {
   matchId: number;
@@ -35,6 +36,17 @@ export function AudioCallLauncher({
       return;
     }
 
+    // Check if already in any call
+    if (callStateManager.isInCall()) {
+      console.log("📞 [AudioCallLauncher] Cannot start audio call - already in another call");
+      toast({
+        title: "Call in Progress",
+        description: "Please end your current call before starting a new one.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     lastCallAttempt.current = now;
     console.log("📞 [AudioCallLauncher] Starting Agora audio call");
     setIsStartingCall(true);
@@ -46,6 +58,8 @@ export function AudioCallLauncher({
       stream.getTracks().forEach(track => track.stop()); // Just testing permissions
       console.log("✅ [AudioCallLauncher] Audio permission granted");
       setIsAudioCallOpen(true);
+      // Set global call state - we'll get the actual callId from the call component
+      callStateManager.setCallActive("audio", 0, true); // Temporary callId, will be updated
       // Don't reset isStartingCall here - let the call component handle it
     } catch (error) {
       console.warn("⚠️ [AudioCallLauncher] Audio permission denied:", error);
@@ -65,6 +79,7 @@ export function AudioCallLauncher({
     setIsAudioCallOpen(false);
     setIsStartingCall(false);
     callInProgress.current = false;
+    callStateManager.setCallInactive();
   };
 
   return (

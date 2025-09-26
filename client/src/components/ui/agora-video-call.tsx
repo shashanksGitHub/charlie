@@ -200,6 +200,7 @@ export function AgoraVideoCall({
               toUserId: receiverId,
               callId: currentCallId,
               roomName: data.agoraConfig.channel,
+              callType: "video", // Add call type to WebSocket message
             });
           }
         } else {

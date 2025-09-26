@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Video } from "lucide-react";
 import { AgoraVideoCall } from "@/components/ui/agora-video-call";
 import { toast } from "@/hooks/use-toast";
+import { callStateManager } from "@/services/call-state-manager";
 
 interface VideoCallLauncherProps {
   matchId: number;
@@ -35,6 +36,17 @@ export function VideoCallLauncher({
       return;
     }
 
+    // Check if already in any call
+    if (callStateManager.isInCall()) {
+      console.log("📞 [VideoCallLauncher] Cannot start video call - already in another call");
+      toast({
+        title: "Call in Progress",
+        description: "Please end your current call before starting a new one.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     lastCallAttempt.current = now;
     console.log("📞 [VideoCallLauncher] Starting Agora video call");
     setIsStartingCall(true);
@@ -46,6 +58,8 @@ export function VideoCallLauncher({
       stream.getTracks().forEach(track => track.stop()); // Just testing permissions
       console.log("✅ [VideoCallLauncher] Media permissions granted");
       setIsVideoCallOpen(true);
+      // Set global call state - we'll get the actual callId from the call component
+      callStateManager.setCallActive("video", 0, true); // Temporary callId, will be updated
       // Don't reset isStartingCall here - let the call component handle it
     } catch (error) {
       console.warn("⚠️ [VideoCallLauncher] Media permission denied:", error);
@@ -65,6 +79,7 @@ export function VideoCallLauncher({
     setIsVideoCallOpen(false);
     setIsStartingCall(false);
     callInProgress.current = false;
+    callStateManager.setCallInactive();
   };
 
   return (
