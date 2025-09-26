@@ -78,7 +78,8 @@ export function AgoraAudioCall({
     const handleTrackSubscribed = (uid: UID, track: IRemoteAudioTrack) => {
       console.log(`[AgoraAudioCall-${currentCallId}] Audio track subscribed from ${uid}`);
       if (track.trackMediaType === "audio") {
-        track.play();
+        // Audio playback is already handled in the AgoraAudioService
+        console.log(`[AgoraAudioCall-${currentCallId}] 🔊 Audio track ready for user ${uid} (playback handled in service)`);
       }
     };
 
@@ -379,6 +380,14 @@ export function AgoraAudioCall({
       const newState = await agoraAudioService.toggleAudio(shouldEnableAudio);
       setIsMuted(!newState);
       console.log(`[AgoraAudioCall-${callId || "pending"}] Mute toggled - isMuted: ${!newState}, audioEnabled: ${newState}`);
+      
+      // Retry audio playback on user interaction (handles browser autoplay policy)
+      try {
+        await agoraAudioService.retryAudioPlayback();
+        console.log(`[AgoraAudioCall-${callId || "pending"}] 🔊 Retried audio playback on user interaction`);
+      } catch (retryError) {
+        console.warn(`[AgoraAudioCall-${callId || "pending"}] Audio playback retry failed:`, retryError);
+      }
     } catch (error) {
       console.error(`[AgoraAudioCall-${callId || "pending"}] Failed to toggle mute:`, error);
       toast({
@@ -534,6 +543,16 @@ export function AgoraAudioCall({
             toUserId: receiverId,
           });
         }
+
+        // CRITICAL: Retry audio playback after user accepts (handles browser autoplay policy)
+        setTimeout(async () => {
+          try {
+            await agoraAudioService.retryAudioPlayback();
+            console.log(`[AgoraAudioCall-${callId || "pending"}] 🔊 Retried audio playback after call accept`);
+          } catch (retryError) {
+            console.warn(`[AgoraAudioCall-${callId || "pending"}] Audio playback retry after accept failed:`, retryError);
+          }
+        }, 1000); // Small delay to let tracks get set up
       }
 
       startCallTimer();

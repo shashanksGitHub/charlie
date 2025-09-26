@@ -114,6 +114,29 @@ class AgoraAudioService {
           participant.hasAudio = true;
           this.participants.set(user.uid, participant);
           
+          // CRITICAL: Immediately play the audio track with proper settings
+          console.log(`[AgoraAudioService] 🔊 Starting audio playback for user ${user.uid}`);
+          try {
+            // Set volume to ensure audio is audible
+            user.audioTrack.setVolume(100);
+            
+            // Play the audio track immediately
+            await user.audioTrack.play();
+            console.log(`[AgoraAudioService] ✅ Successfully started audio playback for user ${user.uid}`);
+          } catch (playError) {
+            console.error(`[AgoraAudioService] ❌ Failed to play audio for user ${user.uid}:`, playError);
+            
+            // Handle browser autoplay policy
+            const playErrorMsg = playError instanceof Error ? playError.message : String(playError);
+            if (playErrorMsg.includes("autoplay") || playErrorMsg.includes("user interaction")) {
+              console.warn(`[AgoraAudioService] ⚠️ Browser autoplay policy blocked audio. Audio will play after user interaction.`);
+              // Store the track for later playback after user interaction
+              (window as any).__pendingAudioTrack = user.audioTrack;
+            } else {
+              console.error(`[AgoraAudioService] 🔊 Audio playback error:`, playErrorMsg);
+            }
+          }
+          
           this.events.onParticipantAudioSubscribed?.(user.uid, user.audioTrack);
         }
       } catch (error) {
@@ -286,14 +309,19 @@ class AgoraAudioService {
       }
 
       if (this.localAudioTrack) {
-        console.log("[AgoraAudioService] Publishing local audio track...");
+        console.log("[AgoraAudioService] 📢 Publishing local audio track...");
         await this.client.publish(this.localAudioTrack);
-        console.log("[AgoraAudioService] Successfully published local audio track");
+        console.log("[AgoraAudioService] ✅ Successfully published local audio track");
+        
+        // Debug: Check microphone is active
+        const isEnabled = this.localAudioTrack.enabled;
+        const volume = this.localAudioTrack.getVolumeLevel();
+        console.log(`[AgoraAudioService] 🎤 Local mic status: enabled=${isEnabled}, volume=${volume}`);
       } else {
-        console.log("[AgoraAudioService] No local audio track to publish");
+        console.warn("[AgoraAudioService] ⚠️ No local audio track to publish - microphone not available");
       }
     } catch (error) {
-      console.error("[AgoraAudioService] Failed to publish local audio track:", error);
+      console.error("[AgoraAudioService] ❌ Failed to publish local audio track:", error);
       if (!this.isJoining) {
         this.events.onError?.(error as Error);
         throw error;
@@ -426,6 +454,34 @@ class AgoraAudioService {
       
       this.events.onError?.(error as Error);
       throw error;
+    }
+  }
+
+  // Retry audio playback (for browser autoplay policy)
+  async retryAudioPlayback(): Promise<void> {
+    console.log("[AgoraAudioService] 🔄 Retrying audio playback for all participants");
+    
+    for (const [uid, participant] of this.participants.entries()) {
+      if (participant.audioTrack && participant.hasAudio) {
+        try {
+          await participant.audioTrack.play();
+          console.log(`[AgoraAudioService] ✅ Successfully retried audio playback for user ${uid}`);
+        } catch (error) {
+          console.error(`[AgoraAudioService] ❌ Still cannot play audio for user ${uid}:`, error);
+        }
+      }
+    }
+
+    // Also try any pending track stored by browser autoplay policy
+    const pendingTrack = (window as any).__pendingAudioTrack;
+    if (pendingTrack) {
+      try {
+        await pendingTrack.play();
+        console.log("[AgoraAudioService] ✅ Successfully played pending audio track");
+        delete (window as any).__pendingAudioTrack;
+      } catch (error) {
+        console.error("[AgoraAudioService] ❌ Still cannot play pending audio track:", error);
+      }
     }
   }
 
