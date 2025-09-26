@@ -294,6 +294,12 @@ export function AgoraAudioCall({
 
         console.log(`[AgoraAudioCall-${callId || "pending"}] Successfully joined Agora channel for audio call`);
         
+        // Start call timer when successfully joined (for outgoing calls)
+        if (!isIncoming) {
+          console.log(`[AgoraAudioCall-${callId || "pending"}] Starting call timer for outgoing call`);
+          startCallTimer();
+        }
+        
       } catch (error) {
         console.error(`[AgoraAudioCall-${callId || "pending"}] Failed to join Agora channel:`, error);
         
@@ -318,58 +324,70 @@ export function AgoraAudioCall({
     }
   }, [agoraConfig, open, userId, callStatus, isIncoming, isCleaningUp, hasJoinAttempted, callId]);
 
-  // WebSocket message handling
+  // WebSocket call signaling events
   useEffect(() => {
-    if (!open) return;
+    if (!open || !callId) return;
 
-    const handleWebSocketMessage = (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-
-        if (data.type === "call_accept" && data.callId === callId) {
-          console.log("[AgoraAudioCall] Call accepted by remote user");
-          setCallStatus("connected");
-          if (callTimeoutRef.current) {
-            clearTimeout(callTimeoutRef.current);
-            callTimeoutRef.current = null;
-          }
-          startCallTimer();
-        } else if (data.type === "call_decline" && data.callId === callId) {
-          console.log("[AgoraAudioCall] Call declined by remote user");
-          toast({
-            title: "Call Declined",
-            description: "The other person declined your call.",
-          });
-          handleRemoteClose();
-        } else if (data.type === "call_end" && data.callId === callId) {
-          console.log("[AgoraAudioCall] Call ended by remote user");
-          toast({
-            title: "Call Ended",
-            description: "The call has been ended.",
-          });
-          handleRemoteClose();
-        } else if (data.type === "call_cancel" && data.callId === callId) {
-          console.log("[AgoraAudioCall] Call cancelled by remote user");
-          toast({
-            title: "Call Cancelled",
-            description: "The caller cancelled the call.",
-          });
-          handleRemoteClose();
+    const handleCallAccept = (event: CustomEvent) => {
+      const data = event.detail;
+      if (data.callId === callId) {
+        console.log(`[AgoraAudioCall-${callId}] ✅ Call accepted by remote user`);
+        setCallStatus("connected");
+        if (callTimeoutRef.current) {
+          clearTimeout(callTimeoutRef.current);
+          callTimeoutRef.current = null;
         }
-      } catch (error) {
-        console.error("[AgoraAudioCall] Error parsing WebSocket message:", error);
+        startCallTimer();
       }
     };
 
-    // Add WebSocket event listener
-    if (window.WebSocket) {
-      window.addEventListener("message", handleWebSocketMessage);
-    }
+    const handleCallDecline = (event: CustomEvent) => {
+      const data = event.detail;
+      if (data.callId === callId) {
+        console.log(`[AgoraAudioCall-${callId}] ❌ Call declined by remote user`);
+        toast({
+          title: "Call Declined",
+          description: "The other person declined your call.",
+        });
+        handleRemoteClose();
+      }
+    };
+
+    const handleCallEnd = (event: CustomEvent) => {
+      const data = event.detail;
+      if (data.callId === callId) {
+        console.log(`[AgoraAudioCall-${callId}] 📞 Call ended by remote user`);
+        toast({
+          title: "Call Ended",
+          description: "The call has been ended.",
+        });
+        handleRemoteClose();
+      }
+    };
+
+    const handleCallCancel = (event: CustomEvent) => {
+      const data = event.detail;
+      if (data.callId === callId) {
+        console.log(`[AgoraAudioCall-${callId}] 🚫 Call cancelled by remote user`);
+        toast({
+          title: "Call Cancelled",
+          description: "The caller cancelled the call.",
+        });
+        handleRemoteClose();
+      }
+    };
+
+    // Listen to custom events from WebSocket service
+    window.addEventListener("call:accept", handleCallAccept as any);
+    window.addEventListener("call:decline", handleCallDecline as any);
+    window.addEventListener("call:end", handleCallEnd as any);
+    window.addEventListener("call:cancel", handleCallCancel as any);
 
     return () => {
-      if (window.WebSocket) {
-        window.removeEventListener("message", handleWebSocketMessage);
-      }
+      window.removeEventListener("call:accept", handleCallAccept as any);
+      window.removeEventListener("call:decline", handleCallDecline as any);
+      window.removeEventListener("call:end", handleCallEnd as any);
+      window.removeEventListener("call:cancel", handleCallCancel as any);
     };
   }, [open, callId]);
 
@@ -518,13 +536,19 @@ export function AgoraAudioCall({
 
   // Accept incoming call
   const handleAcceptCall = async () => {
+    if (isCleaningUp || hasJoinAttempted) {
+      console.log(`[AgoraAudioCall-${callId || "pending"}] ⛔ Cannot accept - cleanup: ${isCleaningUp}, joinAttempted: ${hasJoinAttempted}`);
+      return;
+    }
+
     try {
+      console.log(`[AgoraAudioCall-${callId || "pending"}] 🎯 ACCEPTING INCOMING CALL - Config ready: ${!!agoraConfig}`);
       setCallStatus("connected");
       setHasJoinAttempted(true); // Prevent duplicate join attempts
 
       // Join Agora audio channel when accepting incoming call
       if (agoraConfig) {
-        console.log(`[AgoraAudioCall-${callId || "pending"}] Accepting call - joining Agora audio channel`);
+        console.log(`[AgoraAudioCall-${callId || "pending"}] 📡 Joining Agora audio channel: ${agoraConfig.channel}`);
 
         // Join with audio-only (no video)
         await agoraAudioService.joinCall({
@@ -534,7 +558,11 @@ export function AgoraAudioCall({
           uid: userId,
         });
 
+        console.log(`[AgoraAudioCall-${callId || "pending"}] ✅ Successfully joined Agora channel as accepting user`);
+
+        // Send WebSocket accept signal AFTER successfully joining Agora
         if (callId) {
+          console.log(`[AgoraAudioCall-${callId}] 📡 Sending call accept WebSocket signal`);
           sendCallAccept({
             type: "call_accept",
             matchId,
@@ -543,6 +571,10 @@ export function AgoraAudioCall({
             toUserId: receiverId,
           });
         }
+
+        // Start call timer for incoming calls
+        console.log(`[AgoraAudioCall-${callId || "pending"}] ⏱️ Starting call timer for accepted incoming call`);
+        startCallTimer();
 
         // CRITICAL: Retry audio playback after user accepts (handles browser autoplay policy)
         setTimeout(async () => {
@@ -553,11 +585,17 @@ export function AgoraAudioCall({
             console.warn(`[AgoraAudioCall-${callId || "pending"}] Audio playback retry after accept failed:`, retryError);
           }
         }, 1000); // Small delay to let tracks get set up
+      } else {
+        console.error(`[AgoraAudioCall-${callId || "pending"}] ❌ Cannot accept call - Agora config not ready`);
+        toast({
+          title: "Configuration Error",
+          description: "Call configuration not ready. Please try again.",
+          variant: "destructive",
+        });
+        onClose();
       }
-
-      startCallTimer();
     } catch (error) {
-      console.error(`[AgoraAudioCall-${callId || "pending"}] Error accepting call:`, error);
+      console.error(`[AgoraAudioCall-${callId || "pending"}] ❌ Error accepting call:`, error);
       toast({
         title: "Connection Error",
         description: "Could not accept the call. Please try again.",
@@ -670,9 +708,14 @@ export function AgoraAudioCall({
             
             <div className="text-center">
               <p className="text-lg font-semibold">Audio Call</p>
-              {callStatus === "connected" && (
+              {callStatus === "connected" && participants.length > 0 && (
                 <p className="text-sm text-muted-foreground">
                   {formatCallDuration(callTimer)}
+                </p>
+              )}
+              {callStatus === "connected" && participants.length === 0 && (
+                <p className="text-sm text-yellow-600">
+                  Waiting for other person...
                 </p>
               )}
               {callStatus === "connecting" && !isIncoming && (
@@ -770,8 +813,16 @@ export function AgoraAudioCall({
 
           {/* Call Status Debug Info (development only) */}
           {process.env.NODE_ENV === "development" && (
-            <div className="text-xs text-muted-foreground text-center">
-              Status: {callStatus} | Incoming: {isIncoming ? "Yes" : "No"} | Cleaning: {isCleaningUp ? "Yes" : "No"} | ID: {callId || "pending"} | Joined: {hasJoinAttempted ? "Yes" : "No"}
+            <div className="text-xs text-muted-foreground text-center space-y-1">
+              <div>📊 Status: <span className="font-bold">{callStatus}</span> | 🆔 ID: <span className="font-bold">{callId || "pending"}</span></div>
+              <div>📥 Incoming: {isIncoming ? "Yes" : "No"} | 🔗 Joined: {hasJoinAttempted ? "Yes" : "No"} | 🧹 Cleaning: {isCleaningUp ? "Yes" : "No"}</div>
+              <div>👥 Participants: <span className="font-bold text-green-600">{participants.length}</span> | ⚙️ Config: {agoraConfig ? "Ready" : "Loading"}</div>
+              {participants.length === 0 && callStatus === "connected" && (
+                <div className="text-orange-600 font-bold">⚠️ WAITING FOR REMOTE USER TO JOIN AGORA</div>
+              )}
+              {participants.length > 0 && (
+                <div className="text-green-600 font-bold">✅ AUDIO SHOULD BE WORKING</div>
+              )}
             </div>
           )}
 

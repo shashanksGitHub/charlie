@@ -79,7 +79,7 @@ class AgoraAudioService {
 
     // Handle remote users joining
     this.client.on("user-joined", async (user) => {
-      console.log(`[AgoraAudioService] Remote user ${user.uid} joined`);
+      console.log(`[AgoraAudioService] 🎉 REMOTE USER ${user.uid} JOINED THE AUDIO CHANNEL!`);
       
       const participant: AudioCallParticipant = {
         uid: user.uid,
@@ -89,6 +89,12 @@ class AgoraAudioService {
       
       this.participants.set(user.uid, participant);
       this.events.onParticipantJoined?.(participant);
+      
+      // Debug: Log all current participants
+      console.log(`[AgoraAudioService] 👥 Total participants in audio call:`, this.participants.size);
+      for (const [uid, p] of this.participants.entries()) {
+        console.log(`[AgoraAudioService] 👤 Participant ${uid}: hasAudio=${p.hasAudio}, isLocal=${p.isLocal}`);
+      }
     });
 
     // Handle remote users leaving
@@ -190,16 +196,23 @@ class AgoraAudioService {
   // Join an audio call
   async joinCall(config: AgoraAudioConfig): Promise<void> {
     try {
-      console.log(`[AgoraAudioService] Joining audio channel: ${config.channel}`);
+      console.log(`[AgoraAudioService] 🚀 STARTING AUDIO CALL JOIN PROCESS`);
+      console.log(`[AgoraAudioService] 📋 Config - Channel: ${config.channel}, UID: ${config.uid}, AppId: ${config.appId.slice(0, 8)}...`);
       
       // Prevent multiple simultaneous join attempts
       if (this.isJoining) {
-        console.log("[AgoraAudioService] Already joining an audio channel, skipping duplicate join");
+        console.log("[AgoraAudioService] ⚠️ Already joining an audio channel, skipping duplicate join");
+        return;
+      }
+
+      if (this.isJoined) {
+        console.log("[AgoraAudioService] ⚠️ Already joined to an audio channel, skipping duplicate join");
         return;
       }
 
       // Set joining flag immediately to prevent race conditions
       this.isJoining = true;
+      console.log(`[AgoraAudioService] 🔄 Set joining flag to true, starting join sequence...`);
 
       try {
         // Cleanup any existing state
@@ -222,13 +235,16 @@ class AgoraAudioService {
           config.uid || null
         );
 
-        console.log(`[AgoraAudioService] Successfully joined audio channel with UID: ${uid}`);
+        console.log(`[AgoraAudioService] ✅ SUCCESSFULLY JOINED AUDIO CHANNEL with UID: ${uid}`);
+        console.log(`[AgoraAudioService] 📡 Now listening for other participants to join channel: ${config.channel}`);
         
         this.isJoined = true;
         this.currentChannel = config.channel;
 
         // Publish the audio track
         await this.publishAudioTrack();
+        
+        console.log(`[AgoraAudioService] 🎤 Local audio publishing complete - waiting for remote participants...`);
         
       } finally {
         this.isJoining = false;
