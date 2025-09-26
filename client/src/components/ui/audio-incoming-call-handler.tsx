@@ -54,11 +54,16 @@ export function AudioIncomingCallHandler() {
     const onIncoming = (e: CustomEvent) => {
       console.log("🎧 [AudioIncomingCallHandler] 🚨 INCOMING CALL RECEIVED:", e.detail);
       
-      // CRITICAL: Only handle AUDIO calls
+      // CRITICAL: Only handle AUDIO calls - be very strict
       if (e.detail.callType !== "audio") {
-        console.log(`🎧 [AudioIncomingCallHandler] ⛔ IGNORING NON-AUDIO CALL - Type: "${e.detail.callType}"`);
+        console.log(`🎧 [AudioIncomingCallHandler] ⛔ IGNORING NON-AUDIO CALL - Type: "${e.detail.callType || 'undefined'}"`);
         return;
       }
+      
+      // PRIORITY: Stop event propagation for audio calls to prevent video handler from processing
+      e.stopPropagation();
+      e.preventDefault();
+      console.log("🎧 [AudioIncomingCallHandler] 🛡️ CLAIMED AUDIO CALL - Stopped event propagation");
 
       console.log("🎧 [AudioIncomingCallHandler] 🔍 PARSING AUDIO CALL DATA:", {
         matchId: e.detail.matchId,
@@ -130,12 +135,13 @@ export function AudioIncomingCallHandler() {
       setOpen(false);
     };
 
-    window.addEventListener("call:incoming", onIncoming as any);
+    // Add with capture=true to get events before video handler
+    window.addEventListener("call:incoming", onIncoming as any, true);
     window.addEventListener("call:cancel", onCancel as any);
     window.addEventListener("call:end", onEnd as any);
     
     return () => {
-      window.removeEventListener("call:incoming", onIncoming as any);
+      window.removeEventListener("call:incoming", onIncoming as any, true);
       window.removeEventListener("call:cancel", onCancel as any);
       window.removeEventListener("call:end", onEnd as any);
     };

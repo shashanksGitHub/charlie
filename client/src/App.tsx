@@ -644,7 +644,7 @@ function AppContent() {
         <Toaster />
         <GlobalMatchPopup />
 
-        {/* Separate handlers for incoming audio and video calls */}
+        {/* Separate handlers for incoming audio and video calls - ORDER MATTERS: Audio first */}
         <AudioIncomingCallHandler />
         <VideoIncomingCallHandler />
         {/* Global notification system - works across all pages */}

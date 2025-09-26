@@ -54,11 +54,22 @@ export function VideoIncomingCallHandler() {
     const onIncoming = (e: CustomEvent) => {
       console.log("📹 [VideoIncomingCallHandler] 🚨 INCOMING CALL RECEIVED:", e.detail);
       
-      // CRITICAL: Only handle VIDEO calls (including calls without callType - default to video)
-      if (e.detail.callType && e.detail.callType !== "video") {
-        console.log(`📹 [VideoIncomingCallHandler] ⛔ IGNORING NON-VIDEO CALL - Type: "${e.detail.callType}"`);
+      // CRITICAL: Reject audio calls immediately and completely
+      if (e.detail.callType === "audio") {
+        console.log(`📹 [VideoIncomingCallHandler] ⛔ REJECTING AUDIO CALL - Type: "${e.detail.callType}" (handled by AudioIncomingCallHandler)`);
         return;
       }
+      
+      // Handle video calls or calls without callType (backward compatibility)
+      if (e.detail.callType && e.detail.callType !== "video") {
+        console.log(`📹 [VideoIncomingCallHandler] ⛔ IGNORING UNKNOWN CALL TYPE - Type: "${e.detail.callType}"`);
+        return;
+      }
+      
+      // PRIORITY: Stop event propagation for video calls
+      e.stopPropagation();
+      e.preventDefault();
+      console.log("📹 [VideoIncomingCallHandler] 🛡️ CLAIMED VIDEO CALL - Stopped event propagation");
 
       console.log("📹 [VideoIncomingCallHandler] 🔍 PARSING VIDEO CALL DATA:", {
         matchId: e.detail.matchId,
@@ -122,20 +133,27 @@ export function VideoIncomingCallHandler() {
       console.log("📹 [VideoIncomingCallHandler] Video call cancelled");
       (window as any).globalCallActive = false;
       setOpen(false);
+      
+      // CRITICAL: If this was a wrong popup closure, reset all states for clean retry
+      console.log("📹 [VideoIncomingCallHandler] 🧹 Cleaning up after video call cancel - resetting global state");
     };
 
     const onEnd = () => {
       console.log("📹 [VideoIncomingCallHandler] Video call ended");
       (window as any).globalCallActive = false;
       setOpen(false);
+      
+      // CRITICAL: Clean state reset
+      console.log("📹 [VideoIncomingCallHandler] 🧹 Cleaning up after video call end - resetting global state");
     };
 
-    window.addEventListener("call:incoming", onIncoming as any);
+    // Add with capture=false (normal bubbling) - audio handler gets priority with capture=true
+    window.addEventListener("call:incoming", onIncoming as any, false);
     window.addEventListener("call:cancel", onCancel as any);
     window.addEventListener("call:end", onEnd as any);
     
     return () => {
-      window.removeEventListener("call:incoming", onIncoming as any);
+      window.removeEventListener("call:incoming", onIncoming as any, false);
       window.removeEventListener("call:cancel", onCancel as any);
       window.removeEventListener("call:end", onEnd as any);
     };
@@ -175,9 +193,12 @@ export function VideoIncomingCallHandler() {
       receiverId={otherUserId}
       open={open}
       onClose={() => {
-        console.log(`📹 [VideoIncomingCallHandler] 🔴 INCOMING VIDEO CALL CLOSED`);
+        console.log(`📹 [VideoIncomingCallHandler] 🔴 INCOMING VIDEO CALL CLOSED - Cleaning up global state`);
         (window as any).globalCallActive = false;
         setOpen(false);
+        
+        // CRITICAL: If this was closed by mistake (user clicked red button), ensure clean state
+        console.log("📹 [VideoIncomingCallHandler] 🧹 RESET: Video popup closed - ensuring clean state for audio calls");
       }}
       isIncoming
       existingCallId={callId}
