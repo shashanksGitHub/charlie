@@ -640,7 +640,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
           const data = JSON.parse(event.data);
 
           switch (data.type) {
-            // ===== Video/Voice Call Signaling (DISABLED - handled by websocket-service.ts to prevent duplicates) =====
+            // ===== Video/Voice Call Signaling (RE-ENABLED with proper callType handling) =====
             case "call_initiate":
             case "call_ringing":
             case "call_cancel":
@@ -650,14 +650,40 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             case "webrtc_offer":
             case "webrtc_answer":
             case "webrtc_ice": {
-              // DISABLED: Call signaling is now handled exclusively by websocket-service.ts
-              // This prevents duplicate call:incoming events that were causing audio calls to show video popups
+              const map: Record<string, string> = {
+                call_initiate: "call:incoming",
+                call_ringing: "call:ringing",
+                call_cancel: "call:cancel",
+                call_accept: "call:accept",
+                call_decline: "call:decline",
+                call_end: "call:end",
+                webrtc_offer: "call:offer",
+                webrtc_answer: "call:answer",
+                webrtc_ice: "call:ice",
+              };
+              const evt = map[data.type];
+              const detail = {
+                ...data,
+                receiverId: data.receiverId ?? data.toUserId,
+              };
               console.log(
-                "📞 [WebSocketProvider] Call event received but skipped (handled by websocket-service.ts):",
-                data.type,
-                "callType:",
+                "📞 [WebSocketProvider] PROCESSING call event:",
+                evt,
+                "with data:",
+                detail,
+                "callType in detail:",
+                detail.callType,
+                "raw data.callType:",
                 data.callType
               );
+              
+              // CRITICAL: Ensure callType is properly set for call_initiate events
+              if (data.type === "call_initiate" && !detail.callType) {
+                console.warn("📞 [WebSocketProvider] ⚠️ call_initiate missing callType - defaulting to 'video'");
+                detail.callType = "video";
+              }
+              
+              window.dispatchEvent(new CustomEvent(evt, { detail }));
               break;
             }
             case "auth_success":
