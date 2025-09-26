@@ -165,6 +165,23 @@ export function initWebSocketService(
     return result;
   };
 
+  // DEBUG: Add function to check WebSocket connection status
+  (window as any).checkWebSocketStatus = () => {
+    const status = {
+      exists: !!window.chatSocket,
+      readyState: window.chatSocket?.readyState,
+      readyStateText: window.chatSocket?.readyState === 0 ? 'CONNECTING' : 
+                     window.chatSocket?.readyState === 1 ? 'OPEN' : 
+                     window.chatSocket?.readyState === 2 ? 'CLOSING' : 
+                     window.chatSocket?.readyState === 3 ? 'CLOSED' : 'UNKNOWN',
+      connectionStatus: window.socketConnectionStatus,
+      lastConnectAttempt: window.socketLastConnectAttempt,
+      reconnectAttempts: window.socketReconnectAttempts
+    };
+    console.log("🔍 [DEBUG] WebSocket Status:", status);
+    return status;
+  };
+
   // Initialize memory cache for faster message processing
   if (!window.__processedMessageIds) {
     window.__processedMessageIds = new Set<number>();

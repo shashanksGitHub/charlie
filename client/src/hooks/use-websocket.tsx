@@ -639,6 +639,21 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
       socket.addEventListener("message", (event) => {
         try {
           const data = JSON.parse(event.data);
+          
+          // Debug: Log ALL incoming WebSocket messages for call debugging
+          if (data.type && data.type.includes('call')) {
+            console.log(`🔍 [WebSocketProvider] RAW WEBSOCKET MESSAGE RECEIVED:`, {
+              type: data.type,
+              callId: data.callId,
+              callType: data.callType,
+              matchId: data.matchId,
+              fromUserId: data.fromUserId,
+              toUserId: data.toUserId,
+              receiverId: data.receiverId,
+              timestamp: data.timestamp,
+              rawData: data
+            });
+          }
 
           switch (data.type) {
             // ===== Video/Voice Call Signaling (RE-ENABLED with proper callType handling) =====

@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { callStateManager } from "@/services/call-state-manager";
 
 export function AgoraGlobalIncomingCall() {
-  console.log("🚨 [AgoraGlobalIncomingCall] Component rendered!");
+  console.log("🚨 [AgoraGlobalIncomingCall] Component rendered! Timestamp:", Date.now());
   const [open, setOpen] = useState(false);
   const [matchId, setMatchId] = useState<number | null>(null);
   const [callId, setCallId] = useState<number | null>(null);
