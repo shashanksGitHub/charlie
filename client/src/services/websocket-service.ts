@@ -1565,7 +1565,8 @@ function handleSocketMessage(event: MessageEvent): void {
     console.error("[WebSocketService] Error parsing message:", error);
   }
 
-  // Call signaling routing: dispatch high-level events for UI/WebRTC hooks
+  // Call signaling routing: DISABLED to prevent duplicate events
+  // All call events are now handled by use-websocket.tsx to avoid double dispatch
   if (data && typeof data.type === "string") {
     if (
       data.type === "call_initiate" ||
@@ -1578,48 +1579,12 @@ function handleSocketMessage(event: MessageEvent): void {
       data.type === "webrtc_answer" ||
       data.type === "webrtc_ice"
     ) {
-      console.log("📞 [WebSocketService] Received call signaling message:", {
+      console.log("📞 [WebSocketService] ✅ Call signaling delegated to use-websocket.tsx - no action needed here:", {
         type: data.type,
         callId: data.callId,
-        matchId: data.matchId,
-        fromUserId: data.fromUserId,
-        toUserId: data.toUserId,
-        hasSDPOrCandidate: !!(data.sdp || data.candidate),
+        callType: data.callType,
       });
-      const map: Record<string, string> = {
-        call_initiate: "call:incoming",
-        call_ringing: "call:ringing",
-        call_cancel: "call:cancel",
-        call_accept: "call:accept",
-        call_decline: "call:decline",
-        call_end: "call:end",
-        webrtc_offer: "call:offer",
-        webrtc_answer: "call:answer",
-        webrtc_ice: "call:ice",
-      };
-      const evt = map[data.type];
-      const detail = {
-        ...data,
-        // Normalize fields for receiver matching
-        receiverId: data.receiverId ?? data.toUserId,
-      };
-      
-      // CRITICAL: Add callType preservation for proper call routing
-      if (data.type === "call_initiate") {
-        console.log(`📞 [WebSocketService] 🎯 CALL INITIATE - Type: "${data.callType || 'undefined'}", CallId: ${data.callId}`);
-        if (!data.callType) {
-          console.warn("📞 [WebSocketService] ⚠️ Missing callType in call_initiate, defaulting to 'video'");
-          detail.callType = "video";
-        }
-      }
-      
-      console.log(
-        "📞 [WebSocketService] Dispatching event:",
-        evt,
-        "with data:",
-        detail,
-      );
-      window.dispatchEvent(new CustomEvent(evt, { detail }));
+      // DO NOT dispatch events here - use-websocket.tsx handles all call events
     }
   }
 }
