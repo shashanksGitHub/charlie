@@ -666,13 +666,6 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                 ...data,
                 receiverId: data.receiverId ?? data.toUserId,
               };
-              
-              // CRITICAL: Ensure callType is preserved for proper routing
-              if (data.type === "call_initiate" && !detail.callType) {
-                console.warn("📞 [WebSocketProvider] ⚠️ Missing callType in call_initiate, defaulting to 'video'");
-                detail.callType = "video";
-              }
-              
               console.log(
                 "📞 [WebSocketProvider] Dispatching call event:",
                 evt,

@@ -380,47 +380,13 @@ export function setupAuth(app: Express) {
     
     const userId = req.user!.id;
     
-    // Retry database operations with exponential backoff
-    let retries = 3;
-    let freshUser = null;
-
-    while (retries > 0) {
-      try {
-        console.log(`[DB-RETRY] Getting user data (${4 - retries}/3 attempts) for userId: ${userId}`);
-        
-        // Fetch fresh user data to check suspension status
-        freshUser = await storage.getUser(userId);
-        if (!freshUser) {
-          return res.status(404).json({ message: "User not found" });
-        }
-        
-        console.log(`[DB-RETRY] User data fetch successful for userId: ${userId}`);
-        break; // Success, exit retry loop
-      } catch (error) {
-        retries--;
-        console.error(`[DB-RETRY] User data fetch failed (${3 - retries}/3), retries left: ${retries}`, error);
-        
-        if (retries > 0) {
-          // Exponential backoff: 1s, 2s, 4s
-          const delay = Math.pow(2, 3 - retries) * 1000;
-          console.log(`[DB-RETRY] Waiting ${delay}ms before retry...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        } else {
-          // All retries failed, return error
-          console.error(`[DB-RETRY] All user data fetch attempts failed for userId: ${userId}`);
-          return res.status(500).json({ 
-            message: "Database connection error. Please try again.", 
-            code: "DB_CONNECTION_ERROR" 
-          });
-        }
-      }
-    }
-
-    if (!freshUser) {
-      return res.status(500).json({ message: "Failed to retrieve user data" });
-    }
-
     try {
+      // Fetch fresh user data to check suspension status
+      const freshUser = await storage.getUser(userId);
+      if (!freshUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
       // Check if user is suspended
       if (freshUser.isSuspended) {
         // Check if suspension has expired
@@ -432,8 +398,6 @@ export function setupAuth(app: Express) {
             suspensionExpiresAt: null
           });
           console.log(`🔓 User ${userId} suspension expired, automatically unsuspended`);
-          // Refresh user data after unsuspension
-          freshUser = await storage.getUser(userId);
         } else {
           // Still suspended, but return user data - frontend will show suspension interface
           console.log(`⚠️ Suspended user ${freshUser.username} (ID: ${userId}) accessing app - will see suspension interface`);
@@ -446,12 +410,12 @@ export function setupAuth(app: Express) {
       }
       
       // Don't send password in response
-      const { password, ...userWithoutPassword } = freshUser!;
+      const { password, ...userWithoutPassword } = freshUser;
       console.log("User authenticated successfully, ID:", userId);
       res.json(userWithoutPassword);
       
     } catch (error) {
-      console.error("Error processing user data:", error);
+      console.error("Error checking user status:", error);
       return res.status(500).json({ message: "Internal server error" });
     }
   });

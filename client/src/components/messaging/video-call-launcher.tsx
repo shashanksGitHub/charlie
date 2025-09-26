@@ -35,12 +35,6 @@ export function VideoCallLauncher({
       return;
     }
 
-    // Check global call state
-    if ((window as any).globalCallActive) {
-      console.log("📞 [VideoCallLauncher] Another call active globally, ignoring click");
-      return;
-    }
-
     lastCallAttempt.current = now;
     console.log("📞 [VideoCallLauncher] Starting Agora video call");
     setIsStartingCall(true);
@@ -52,10 +46,6 @@ export function VideoCallLauncher({
       stream.getTracks().forEach(track => track.stop()); // Just testing permissions
       console.log("✅ [VideoCallLauncher] Media permissions granted");
       setIsVideoCallOpen(true);
-      
-      // Set global call guard and notify system
-      (window as any).globalCallActive = true;
-      window.dispatchEvent(new CustomEvent("outgoing-call:start"));
       // Don't reset isStartingCall here - let the call component handle it
     } catch (error) {
       console.warn("⚠️ [VideoCallLauncher] Media permission denied:", error);
@@ -75,12 +65,6 @@ export function VideoCallLauncher({
     setIsVideoCallOpen(false);
     setIsStartingCall(false);
     callInProgress.current = false;
-    
-    // Notify global system that outgoing call ended
-    window.dispatchEvent(new CustomEvent("outgoing-call:end"));
-    
-    // Reset global call guard (import from global scope)
-    (window as any).globalCallActive = false;
   };
 
   return (
@@ -101,10 +85,7 @@ export function VideoCallLauncher({
           userId={userId}
           receiverId={receiverId}
           open={isVideoCallOpen}
-          onClose={(wasIncoming?: boolean) => {
-            console.log(`📞 [VideoCallLauncher] Call closing - wasIncoming: ${wasIncoming}`);
-            handleCallClose();
-          }}
+          onClose={handleCallClose}
           isIncoming={false}
         />
       )}

@@ -24,11 +24,8 @@ import {
   kwameConversations,
 } from "@shared/schema";
 
-// Create Neon HTTP connection with enhanced timeout handling
-const sql = neon(process.env.DATABASE_URL!, {
-  // Disable connection pooling to prevent timeout issues
-  fullResults: true,
-});
+// Create Neon HTTP connection
+const sql = neon(process.env.DATABASE_URL!);
 
 // Create a drizzle client with HTTP driver (much faster and more reliable)
 export const db = drizzle(sql, {

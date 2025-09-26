@@ -35,12 +35,6 @@ export function AudioCallLauncher({
       return;
     }
 
-    // Check global call state
-    if ((window as any).globalCallActive) {
-      console.log("📞 [AudioCallLauncher] Another call active globally, ignoring click");
-      return;
-    }
-
     lastCallAttempt.current = now;
     console.log("📞 [AudioCallLauncher] Starting Agora audio call");
     setIsStartingCall(true);
@@ -52,10 +46,6 @@ export function AudioCallLauncher({
       stream.getTracks().forEach(track => track.stop()); // Just testing permissions
       console.log("✅ [AudioCallLauncher] Audio permission granted");
       setIsAudioCallOpen(true);
-      
-      // Set global call guard and notify system
-      (window as any).globalCallActive = true;
-      window.dispatchEvent(new CustomEvent("outgoing-call:start"));
       // Don't reset isStartingCall here - let the call component handle it
     } catch (error) {
       console.warn("⚠️ [AudioCallLauncher] Audio permission denied:", error);
@@ -75,12 +65,6 @@ export function AudioCallLauncher({
     setIsAudioCallOpen(false);
     setIsStartingCall(false);
     callInProgress.current = false;
-    
-    // Notify global system that outgoing call ended
-    window.dispatchEvent(new CustomEvent("outgoing-call:end"));
-    
-    // Reset global call guard (import from global scope)
-    (window as any).globalCallActive = false;
   };
 
   return (
@@ -101,10 +85,7 @@ export function AudioCallLauncher({
           userId={userId}
           receiverId={receiverId}
           open={isAudioCallOpen}
-          onClose={(wasIncoming?: boolean) => {
-            console.log(`📞 [AudioCallLauncher] Call closing - wasIncoming: ${wasIncoming}`);
-            handleCallClose();
-          }}
+          onClose={handleCallClose}
           isIncoming={false}
         />
       )}

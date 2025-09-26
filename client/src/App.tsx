@@ -56,8 +56,7 @@ import { TransitionGuard } from "@/components/transition-guard";
 import { MatchCountLoader } from "@/components/match-count-loader";
 import GlobalMatchPopup from "@/components/ui/global-match-popup";
 import GlobalNotificationToast from "@/components/ui/global-notification-toast";
-import { AudioIncomingCallHandler } from "@/components/ui/audio-incoming-call-handler";
-import { VideoIncomingCallHandler } from "@/components/ui/video-incoming-call-handler";
+import { AgoraGlobalIncomingCall } from "@/components/ui/agora-global-incoming-call";
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
@@ -644,9 +643,7 @@ function AppContent() {
         <Toaster />
         <GlobalMatchPopup />
 
-        {/* Separate handlers for incoming audio and video calls - ORDER MATTERS: Audio first */}
-        <AudioIncomingCallHandler />
-        <VideoIncomingCallHandler />
+        <AgoraGlobalIncomingCall />
         {/* Global notification system - works across all pages */}
         {user && <GlobalNotificationToast userId={user.id} />}
         {/* Global KWAME AI floating button across MEET/HEAT/SUITE pages */}
